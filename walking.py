@@ -13,7 +13,6 @@ from panda3d.bullet import BulletDebugNode, BulletRigidBodyNode
 from panda3d.bullet import BulletHeightfieldShape, BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import PandaNode, NodePath, TransformState
-<<<<<<< HEAD
 from panda3d.core import Vec3, Point3, BitMask32, Quat
 from panda3d.core import Filename
 from panda3d.core import PNMImage
@@ -72,34 +71,16 @@ class Ralph(NodePath):
         if self.actor.getCurrentAnim() is not None:
             self.actor.stop()
             self.actor.pose(self.WALK, 5)
-=======
-from panda3d.core import Vec3, Point3, BitMask32
-from panda3d.core import Filename
-from panda3d.core import PNMImage
-
-from panda3d.core import ShaderTerrainMesh, Shader, load_prc_file_data
-from panda3d.core import SamplerState
-
-from direct.actor.Actor import Actor
-
->>>>>>> 506b24d768aa60f44d57e133433c0ac7256a8ced
 
 
 class Walker(NodePath):
 
-<<<<<<< HEAD
-=======
-    RUN = 'run'
-    WALK = 'walk'
-
->>>>>>> 506b24d768aa60f44d57e133433c0ac7256a8ced
     def __init__(self):
         h, w = 6, 1.5
         shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'character'))
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.bit(1))
-<<<<<<< HEAD
         self.setPos(-10, -3, -3)
         self.setScale(0.5)
         self.walker = Ralph()
@@ -121,54 +102,6 @@ class Walker(NodePath):
 
     def stop(self):
         self.walker.stop_anim()
-=======
-        self.setPos(0, 0, 0)
-        self.setH(180)
-        self.setScale(0.5)
-
-        self.actor = Actor(
-            'models/ralph/ralph.egg',
-            {self.RUN: 'models/ralph/ralph-run.egg',
-             self.WALK: 'models/ralph/ralph-walk.egg'}
-        )
-        self.actor.setTransform(TransformState.makePos(Vec3(0, 0, -3)))
-        self.actor.setName('ralph')
-        self.actor.reparentTo(self)
-
-        inputState.watchWithModifiers('forward', 'arrow_up')
-        inputState.watchWithModifiers('backward', 'arrow_down')
-        inputState.watchWithModifiers('left', 'arrow_left')
-        inputState.watchWithModifiers('right', 'arrow_right')
-
-    def move(self, dt):
-        if inputState.isSet('forward'):
-            self.setY(self, -20 * dt)
-        if inputState.isSet('backward'):
-            self.setY(self, 10 * dt)
-        if inputState.isSet('left'):
-            self.setH(self.getH() + 100 * dt)
-        if inputState.isSet('right'):
-            self.setH(self.getH() - 100 * dt)
-
-        anim = self.actor.getCurrentAnim()
-        # print(anim)
-
-        if inputState.isSet('forward'):
-            if anim != self.RUN:
-                self.actor.loop(self.RUN)
-        elif inputState.isSet('backward'):
-            if anim != self.WALK:
-                self.actor.loop(self.WALK)
-                self.actor.setPlayRate(-1.0, 'walk')  # -1 means to play an animation backwards.
-        elif inputState.isSet('left') or inputState.isSet('right'):
-            if anim != self.WALK:
-                self.actor.loop(self.WALK)
-                self.actor.setPlayRate(1.0, 'walk')
-        else:
-            if anim is not None:
-                self.actor.stop()
-                self.actor.pose('walk', 5)
->>>>>>> 506b24d768aa60f44d57e133433c0ac7256a8ced
 
 
 class Walking(ShowBase):
@@ -182,12 +115,7 @@ class Walking(ShowBase):
             window-title Panda3D ShaderTerrainMesh Demo
             filled-wireframe-apply-shader true
             stm-max-views 8
-<<<<<<< HEAD
             stm-max-chunk-count 2048""")
-=======
-            stm-max-chunk-count 2048"""
-        )
->>>>>>> 506b24d768aa60f44d57e133433c0ac7256a8ced
         self.disableMouse()
         # self.camera.setPos(Point3(0, -30, 5))
         # self.camera.lookAt(0, 0, 0)
@@ -195,17 +123,12 @@ class Walking(ShowBase):
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 506b24d768aa60f44d57e133433c0ac7256a8ced
         # ****************************************
         # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
         # self.world.setDebugNode(collide_debug.node())
         # collide_debug.show()
         # ****************************************
         self.create_terrain()
-<<<<<<< HEAD
         self.building = SquareBuilding(self.world)
 
         self.walker = Walker()
@@ -241,18 +164,6 @@ class Walking(ShowBase):
 
         self.accept('escape', sys.exit)
         self.accept('p', self.print_info)
-=======
-
-        self.walker = Walker()
-        self.world.attachCharacter(self.walker.node())
-        # print(self.walker.actor.listJoints())
-
-        self.camera.reparentTo(self.walker)
-        self.camLens.setFov(90)
-        self.camera.setPosHpr(Point3(0, 20, 3), Vec3(180, 0, 0))
-
-        self.accept('escape', sys.exit)
->>>>>>> 506b24d768aa60f44d57e133433c0ac7256a8ced
         self.taskMgr.add(self.update, 'update')
 
 
@@ -290,7 +201,6 @@ class Walking(ShowBase):
         grass_tex.set_anisotropic_degree(16)
         self.terrain.setTexture(grass_tex)
 
-<<<<<<< HEAD
     def control_walker(self, dt):
         if inputState.isSet('forward'):
             self.walker.move(-10 * dt)
@@ -390,13 +300,6 @@ class Walking(ShowBase):
         # print(self.building.floor.getPos())
         if walker_pos != self.now_walker_pos:
             self.now_walker_pos = walker_pos
-=======
-
-    def update(self, task):
-        dt = globalClock.getDt()
-        self.walker.move(dt)
-
->>>>>>> 506b24d768aa60f44d57e133433c0ac7256a8ced
 
         self.world.doPhysics(dt)
         return task.cont
