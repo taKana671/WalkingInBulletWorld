@@ -81,7 +81,9 @@ class Walker(NodePath):
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'character'))
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.bit(1))
-        self.setPos(-10, -3, -3)
+        # self.setPos(-10, -3, -3)
+        self.setPos(-5, 10, 8)
+
         self.setScale(0.5)
         self.walker = Ralph()
         self.walker.reparentTo(self)

@@ -133,11 +133,12 @@ class SquareBuilding(NodePath):
         # self.center = Vec3(-5, 10, -3)
         # self.center = Vec3(-5, 10, 1)
         self.cube = self.make_cube()
-        self.make_floor()
+        self.build()
+        # self.make_floor()
         
-        self.make_walls()
+        # self.make_walls()
         # self.make_roof()
-        self.set_doors()
+        # self.set_doors()
 
     def make_cube(self):
         vertices = CUBE['vertices']
@@ -169,32 +170,56 @@ class SquareBuilding(NodePath):
         self.world.attachRigidBody(self.floor.node())
 
     
-    def make_walls(self):
+    def build(self):
         st = TextureStage.getDefault()
 
-        walls = [
-            [Point3(0, 6.25, 2), Vec3(90, 90, 0), Vec3(0.5, 10, 12), None],    # back
-            [Point3(-5.75, 0, 2), Vec3(180, 90, 0), Vec3(0.5, 10, 12), None],  # left
-            [Point3(5.75, 0, 2), Vec3(180, 90, 0), Vec3(0.5, 10, 12), None],   # right
-            [Point3(-4, -6.25, 1), Vec3(90, 90, 0), Vec3(0.5, 8, 4), (st, 0.5, 1)],    # front left
-            [Point3(4, -6.25, 1), Vec3(90, 90, 0), Vec3(0.5, 8, 4), (st, 0.5, 1)],     # front right
-            [Point3(0, -6.25, 6.0), Vec3(90, 90, 0), Vec3(0.5, 2, 12), (st, 1, 0.1)],  # front top
-            # [Point3(0, -6.25, 6.5), Vec3(90, 90, 0), Vec3(0.5, 1, 10), (st, 1, 0.1)],
+        wall_tex = base.loader.loadTexture('textures/fieldstone.jpg')
+        wall_tex.setWrapU(Texture.WM_repeat)
+        wall_tex.setWrapV(Texture.WM_repeat)
+        
+        floor_tex = base.loader.loadTexture('textures/iron.jpg')
+        floor_tex.setWrapU(Texture.WM_repeat)
+        floor_tex.setWrapV(Texture.WM_repeat)
+
+        materials = [
+            ['floor1', Point3(0, 0, -3.5), Vec3(0, 90, 0), Vec3(32, 1, 24), floor_tex, (st, 2, 2)],
+            ['wall1_b', Point3(0, 8.25, 0), Vec3(90, 90, 0), Vec3(0.5, 6, 12), wall_tex, None],    # back
+            ['wall1_l', Point3(-5.75, 0, 0), Vec3(180, 90, 0), Vec3(0.5, 6, 16), wall_tex, None],  # left
+            ['wall1_ru', Point3(5.75, 0, -2), Vec3(180, 90, 0), Vec3(0.5, 2, 16), wall_tex, None],   # right
+            ['wall_rml', Point3(5.75, 2, 0), Vec3(180, 90, 0), Vec3(0.5, 2, 10), wall_tex, None],
+            ['wall_rmr', Point3(5.75, -7, 0), Vec3(180, 90, 0), Vec3(0.5, 2, 2), wall_tex, None],
+            ['wall1_rt', Point3(5.75, 0, 2), Vec3(180, 90, 0), Vec3(0.5, 2, 16), wall_tex, None],
+            ['wall1_fl', Point3(-4, -8.25, -1), Vec3(90, 90, 0), Vec3(0.5, 4, 4), wall_tex, (st, 0.5, 1)],    # front left
+            ['wall1_fr', Point3(4, -8.25, -1), Vec3(90, 90, 0), Vec3(0.5, 4, 4), wall_tex, (st, 0.5, 1)],     # front right
+            ['wall1_ft', Point3(0, -8.25, 2.0), Vec3(90, 90, 0), Vec3(0.5, 2, 12), wall_tex, (st, 1, 0.1)],  # front top
+            ['floor2_b', Point3(-4, 4.25, 3.25), Vec3(0, 90, 0), Vec3(20, 0.5, 8.5), floor_tex, (st, 2, 2)],
+            ['floor2_f', Point3(4, -4.25, 3.25), Vec3(0, 90, 0), Vec3(20, 0.5, 8.5), floor_tex, (st, 2, 2)],
+            ['wall2_b', Point3(-4, 8.25, 6.5), Vec3(90, 90, 0), Vec3(0.5, 6, 20), wall_tex, None],
+            ['wall2_lu', Point3(-13.75, 4, 4.5), Vec3(180, 90, 0), Vec3(0.5, 2, 8), wall_tex, None],
+            ['wall2_lmb', Point3(-13.75, 1.5, 6.5), Vec3(180, 90, 0), Vec3(0.5, 2, 3), wall_tex, None],
+            ['wall2_lmf', Point3(-13.75, 6.5, 6.5), Vec3(180, 90, 0), Vec3(0.5, 2, 3), wall_tex, None],
+            ['wall2_lmt', Point3(-13.75, 4, 8.5), Vec3(180, 90, 0), Vec3(0.5, 2, 8), wall_tex, None],
+            ['wall2_r', Point3(5.75, 4.25, 6.5), Vec3(180, 90, 0), Vec3(0.5, 6, 7.5), wall_tex, None], 
+            ['wall2_fll', Point3(-12.5, 0.25, 5.5), Vec3(90, 90, 0), Vec3(0.5, 4, 2), wall_tex, None],
+            ['wall2_flr', Point3(-7.25, 0.25, 5.5), Vec3(90, 90, 0), Vec3(0.5, 4, 2.5), wall_tex, None],
+            ['wall2_flt', Point3(-9.75, 0.25, 8.5), Vec3(90, 90, 0), Vec3(0.5, 2, 7.5), wall_tex, None],
+            ['wall2_fru', Point3(0, 0.25, 4.5), Vec3(90, 90, 0), Vec3(0.5, 2, 12), wall_tex, None],
+            ['wall2_frml', Point3(-4, 0.25, 6.5), Vec3(90, 90, 0), Vec3(0.5, 2, 4), wall_tex, (st, 0.5, 1)],    # front left
+            ['wall2_frmr', Point3(4, 0.25, 6.5), Vec3(90, 90, 0), Vec3(0.5, 2, 4), wall_tex, (st, 0.5, 1)],
+            ['wall2_frt', Point3(0, 0.25, 8.5), Vec3(90, 90, 0), Vec3(0.5, 2, 12), wall_tex, None],
+            ['roof2_frt', Point3(-4, 4.25, 9.75), Vec3(0, 90, 0), Vec3(20, 0.5, 8.5), floor_tex, (st, 2, 2)]
         ]
 
-        tex = base.loader.loadTexture('textures/fieldstone.jpg')
-        tex.setWrapU(Texture.WM_repeat)
-        tex.setWrapV(Texture.WM_repeat)
-
-        for i, (pos, hpr, scale, tex_scale) in enumerate(walls):
+        for name, pos, hpr, scale, tex, tex_scale in materials:
             pos += self.center
-            block = Block(self.cube, pos, hpr, scale, f'wall_{i}')
-            block.reparentTo(self)
-            block.setTexture(tex)
-            if tex_scale:
-                block.setTexScale(*tex_scale)
+            material = Block(self.cube, pos, hpr, scale, name)
+            material.reparentTo(self)
+            material.setTexture(tex)
 
-            self.world.attachRigidBody(block.node())
+            if tex_scale:
+                material.setTexScale(*tex_scale)
+
+            self.world.attachRigidBody(material.node())
 
     def make_roof(self):
         vertices = DECAGONAL_PRISM['vertices']
