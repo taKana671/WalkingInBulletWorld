@@ -22,7 +22,7 @@ from direct.actor.Actor import Actor
 
 from panda3d.core import CompassEffect
 
-from scene import SquareBuilding
+from scene import StoneHouse
 
 
 class PositionNode(NodePath):
@@ -131,7 +131,7 @@ class Walking(ShowBase):
         # collide_debug.show()
         # ****************************************
         self.create_terrain()
-        self.building = SquareBuilding(self.world)
+        self.building = StoneHouse(self.world)
 
         self.walker = Walker()
 
