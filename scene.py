@@ -97,53 +97,54 @@ def make_geomnode(faces, uv_list):
     return node
 
 
-class Block(NodePath):
+# class Block(NodePath):
 
-    def __init__(self, cube, name):
-        super().__init__(BulletRigidBodyNode(name))
-        model = cube.copyTo(self)
-        end, tip = model.getTightBounds()
-        self.node().addShape(BulletBoxShape((tip - end) / 2))
-        self.setCollideMask(BitMask32.bit(1))
-
-
-class Cylinder(NodePath):
-
-    def __init__(self, cylinder, name):
-        super().__init__(BulletRigidBodyNode(name))
-        model = cylinder.copyTo(self)
-        end, tip = model.getTightBounds()
-        self.node().addShape(BulletBoxShape((tip - end) / 2))
-        self.setCollideMask(BitMask32.bit(1))
-
-
-# class Materials(NodePath):
-
-#     def __init__(self, name, parent, np, pos, hpr, scale):
+#     def __init__(self, cube, name):
 #         super().__init__(BulletRigidBodyNode(name))
-#         self.model = np.copyTo(self)
-#         self.setPos(pos)
-#         self.setHpr(hpr)
-#         self.setScale(scale)
-
-
-# class Block(Materials):
-
-#     def __init__(self, name, parent, np, pos, hpr, scale):
-#         super().__init__(self, name, parent, np, pos, hpr, scale)
-#         end, tip = self.model.getTightBounds()
+#         model = cube.copyTo(self)
+#         end, tip = model.getTightBounds()
 #         self.node().addShape(BulletBoxShape((tip - end) / 2))
 #         self.setCollideMask(BitMask32.bit(1))
 
 
-# class Cylinder(Materials):
+# class Cylinder(NodePath):
 
-#     def __init__(self, name, parent, np, pos, hpr, scale):
-#         super().__init__(self, name, parent, np, pos, hpr, scale)
-#         shape = BulletConvexHullShape()
-#         shape.addGeom(self.model.node().getGeom(0))
-#         self.node().addShape(shape)
+#     def __init__(self, cylinder, name):
+#         super().__init__(BulletRigidBodyNode(name))
+#         model = cylinder.copyTo(self)
+#         end, tip = model.getTightBounds()
+#         self.node().addShape(BulletBoxShape((tip - end) / 2))
 #         self.setCollideMask(BitMask32.bit(1))
+
+
+class Materials(NodePath):
+
+    def __init__(self, name, parent, np, pos, hpr, scale):
+        super().__init__(BulletRigidBodyNode(name))
+        self.reparentTo(parent)
+        self.model = np.copyTo(self)
+        self.setPos(pos)
+        self.setHpr(hpr)
+        self.setScale(scale)
+
+
+class Block(Materials):
+
+    def __init__(self, name, parent, np, pos, hpr, scale):
+        super().__init__(name, parent, np, pos, hpr, scale)
+        end, tip = self.model.getTightBounds()
+        self.node().addShape(BulletBoxShape((tip - end) / 2))
+        self.setCollideMask(BitMask32.bit(1))
+
+
+class Cylinder(Materials):
+
+    def __init__(self, name, parent, np, pos, hpr, scale):
+        super().__init__(name, parent, np, pos, hpr, scale)
+        shape = BulletConvexHullShape()
+        shape.addGeom(self.model.node().getGeom(0))
+        self.node().addShape(shape)
+        self.setCollideMask(BitMask32.bit(1))
 
 
 class CubeModel(NodePath):
@@ -165,78 +166,8 @@ class Build:
 
     def __init__(self, world):
         self.world = world
-        self.cube = None
-        self.cylinder = None
-
-    def set_tex_scale(self, np, x, z):
-        su = x / 2
-        sv = z / 3 if z > 1 else z
-        np.setTexScale(TextureStage.getDefault(), su, sv)
-
-    def get_hpr(self, horizontal=True, angle=None):
-        hpr = Vec3(0, 0, 0)
-        if not horizontal:
-            hpr.x = 90
-        if angle:
-            hpr = angle
-        return hpr
-
-    def floor(self, name, parent, pos, scale, tex_scale=False):
-        hpr = Vec3(0, 90, 0)
-        floor = Block(name, parent, self.cube, pos, hpr, scale)
-        self.world.attachRigidBody(floor.node())
-
-    def wall(self, name, parent, pos, scale, horizontal=True, angle=None):
-        hpr = self.get_hpr(horizontal, angle)
-        wall = Block(name, parent, self.cube, pos, hpr, scale)
-        self.set_tex_scale(wall, scale.x, scale.z)
-        self.world.attachRigidBody(wall.node())
-
-    def door(self, name, parent, pos, scale, wall, horizontal=True, angle=None, left_hinge=True):
-        hpr = self.get_hpr(horizontal, angle)
-        door = Block(name, parent, self.cube, pos, hpr, scale)
-        self.set_tex_scale(door, scale.x, scale.z)
-
-        door.node().setMass(1)
-        door.node().setDeactivationEnabled(False)
-        self.world.attachRigidBody(door.node())
-
-        end, tip = door.getTightBounds()
-        door_size = tip - end
-        end, tip = wall.getTightBounds()
-        wall_size = tip - end
-
-        door_x = -(door_size.x / 2) if left_hinge else wall_size.x / 2
-        wall_x = wall_size.x / 2 if left_hinge else -wall_size.x / 2 
-
-        hinge = BulletHingeConstraint(
-            wall.node(),
-            door.node(),
-            Vec3(wall_x, wall_size.y / 2, 0),
-            Vec3(door_x, door_size.y / 2, 0),
-            Vec3(0, 1, 0),
-            Vec3(0, 1, 0),
-            True,
-        )
-        hinge.setDebugDrawSize(2.0)
-        hinge.setLimit(-90, 120, softness=0.9, bias=0.3, relaxation=1.0)
-        self.world.attachConstraint(hinge)
-
-    def steps(self):
-        pass
-
-
-class StoneHouse(NodePath):
-
-    def __init__(self, world):
-        super().__init__(PandaNode('stoneHouse'))
-        self.reparentTo(base.render)
-        self.world = world
-        self.center = Point3(-5, 10, 0)  # -5
-        self.setPos(self.center)
         self.cube = self.make_cube()
         self.cylinder = self.make_cylinder()
-        self.build()
 
     def make_cylinder(self):
         vertices = DECAGONAL_PRISM['vertices']
@@ -291,23 +222,90 @@ class StoneHouse(NodePath):
         cube.setTwoSided(True)
         return cube
 
-    def _build(self, class_, model, parent, name, materials, tex_scale=True):
-        for i, m in enumerate(materials):
-            np = class_(model, f'{name}_{i}')
-            np.reparentTo(parent)
-            np.setPos(m.pos)
-            np.setHpr(m.hpr)
-            np.setScale(m.scale)
-            if tex_scale:
-                su = m.scale.x / 2
-                sv = z / 3 if (z := m.scale.z) > 1 else z
-                np.setTexScale(TextureStage.getDefault(), su, sv)
+    def set_tex_scale(self, np, x, z):
+        su = x / 2
+        sv = z / 3 if z > 1 else z
+        np.setTexScale(TextureStage.getDefault(), su, sv)
 
-            # if name.startswith('door'):
-            #     np.node().setMass(1)
-            #     np.node().setDeactivationEnabled(False)
-            
-            self.world.attachRigidBody(np.node())
+    def get_hpr(self, horizontal, vertical, rotate):
+        if horizontal:
+            return Vec3(0, 0, 0)
+        if vertical:
+            return Vec3(90, 0, 0)
+        if rotate:
+            return rotate
+
+        return None
+
+    def floor(self, name, parent, pos, scale):
+        hpr = Vec3(0, 90, 0)
+        floor = Block(name, parent, self.cube, pos, hpr, scale)
+        self.set_tex_scale(floor, scale.x, scale.z)
+        self.world.attachRigidBody(floor.node())
+        return floor
+
+    def wall(self, name, parent, pos, scale, horizontal=False, vertical=False, rotate=None):
+        hpr = self.get_hpr(horizontal, vertical, rotate)
+        wall = Block(name, parent, self.cube, pos, hpr, scale)
+        self.set_tex_scale(wall, scale.x, scale.z)
+        self.world.attachRigidBody(wall.node())
+        return wall
+
+    def door(self, name, parent, pos, scale, wall, horizontal=False, vertical=False, rotate=None, left_hinge=True):
+        hpr = self.get_hpr(horizontal, vertical, rotate)
+        door = Block(name, parent, self.cube, pos, hpr, scale)
+        self.set_tex_scale(door, scale.x, scale.z)
+
+        door.node().setMass(1)
+        door.node().setDeactivationEnabled(False)
+        self.world.attachRigidBody(door.node())
+
+        end, tip = door.getTightBounds()
+        door_size = tip - end
+        end, tip = wall.getTightBounds()
+        wall_size = tip - end
+
+        door_x = -(door_size.x / 2) if left_hinge else door_size.x / 2
+        wall_x = wall_size.x / 2 if left_hinge else -wall_size.x / 2
+
+        hinge = BulletHingeConstraint(
+            wall.node(),
+            door.node(),
+            Vec3(wall_x, wall_size.y / 2, 0),
+            Vec3(door_x, door_size.y / 2, 0),
+            Vec3(0, 1, 0),
+            Vec3(0, 1, 0),
+            True,
+        )
+        hinge.setDebugDrawSize(2.0)
+        hinge.setLimit(-90, 120, softness=0.9, bias=0.3, relaxation=1.0)
+        self.world.attachConstraint(hinge)
+
+    def steps(self, steps, parent, scale, horizontal=False, vertical=False, rotate=None):
+        hpr = self.get_hpr(horizontal, vertical, rotate)
+        for name, pos in steps:
+            step = Block(name, parent, self.cube, pos, hpr, scale)
+            self.world.attachRigidBody(step.node())
+
+    def pole(self, name, parent, pos, scale, tex_scale=False):
+        hpr = Vec3(0, 0, 0)
+        pole = Cylinder(name, parent, self.cylinder, pos, hpr, scale)
+        if tex_scale:
+            self.set_tex_scale(pole, scale.x, scale.z)
+
+        self.world.attachRigidBody(pole.node())
+
+
+class StoneHouse(Build):
+
+    def __init__(self, world):
+        super().__init__(world)
+        self.house = NodePath(PandaNode('stoneHouse'))
+        self.house.reparentTo(base.render)
+        self.center = Point3(-5, 10, 0)  # -5
+        self.house.setPos(self.center)
+        self.build()
+
 
     def make_textures(self):
         self.wall_tex = base.loader.loadTexture('textures/fieldstone.jpg')
@@ -324,181 +322,81 @@ class StoneHouse(NodePath):
         self.door_tex.setWrapU(Texture.WM_repeat)
         self.door_tex.setWrapV(Texture.WM_repeat)
 
-
     def build(self):
         self.make_textures()
 
         walls = NodePath(PandaNode('walls'))
-        walls.reparentTo(self)
+        walls.reparentTo(self.house)
         floors = NodePath(PandaNode('floors'))
-        floors.reparentTo(self)
+        floors.reparentTo(self.house)
         fences = NodePath(PandaNode('fences'))
-        fences.reparentTo(self)
-
-        assemble_blocks = partial(self._build, Block, self.cube)
+        fences.reparentTo(self.house)
+        doors = NodePath(PandaNode('doors'))
+        doors.reparentTo(self.house)
 
         # the 1st floor
-        # Floor(Material(Point3(0, 0, -3.5), Vec3(0, 90, 0), Vec3(32, 1, 24)))
-        materials = [Material(Point3(0, 0, -3.5), Vec3(0, 90, 0), Vec3(32, 1, 24))]
-        assemble_blocks(floors, 'floor1', materials)
-
+        self.floor('floor1', floors, Point3(0, 0, -3.5), Vec3(32, 1, 24))
         # rear wall on the lst floor
-        materials = [Material(Point3(0, 8.25, 0), Vec3(0, 0, 0), Vec3(12, 0.5, 6))]
-        assemble_blocks(walls, 'wall1_rear', materials)
-
+        self.wall('wall1_r1', walls, Point3(0, 8.25, 0), Vec3(12, 0.5, 6), horizontal=True)
         # left wall on the 1st floor
-        materials = [Material(Point3(-5.75, 0, 0), Vec3(90, 0, 0), Vec3(16, 0.5, 6))]
-        assemble_blocks(walls, 'wall1_left', materials)
-
+        self.wall('wall1_l1', walls, Point3(-5.75, 0, 0), Vec3(16, 0.5, 6), vertical=True)
         # right wall on the 1st floor
-        materials = [
-            Material(Point3(5.75, 0, -2), Vec3(90, 0, 0), Vec3(16, 0.5, 2)),   # under
-            Material(Point3(5.75, 3, 0), Vec3(90, 0, 0), Vec3(10, 0.5, 2)),    # middle back
-            Material(Point3(5.75, -7, 0), Vec3(90, 0, 0), Vec3(2, 0.5, 2)),    # middle front
-            Material(Point3(5.75, 0, 2), Vec3(90, 0, 0), Vec3(16, 0.5, 2)),    # top
-        ]
-        assemble_blocks(walls, 'wall1_right', materials)
-
+        self.wall('wall1_r1', walls, Point3(5.75, 0, -2), Vec3(16, 0.5, 2), vertical=True)   # under
+        self.wall('wall1_r2', walls, Point3(5.75, 3, 0), Vec3(10, 0.5, 2), vertical=True)    # middle back
+        self.wall('wall1_r3', walls, Point3(5.75, -7, 0), Vec3(2, 0.5, 2), vertical=True)    # middle front
+        self.wall('wall1_r4', walls, Point3(5.75, 0, 2), Vec3(16, 0.5, 2), vertical=True)    # top
         # front wall on the 1st floor
-        materials = [
-            Material(Point3(-4, -8.25, -1), Vec3(0, 0, 0), Vec3(4, 0.5, 4)),    # front left
-            Material(Point3(4, -8.25, -1), Vec3(0, 0, 0), Vec3(4, 0.5, 4)),     # front right
-            Material(Point3(0, -8.25, 2.0), Vec3(0, 0, 0), Vec3(12, 0.5, 2)),   # front top
-        ]
-        assemble_blocks(walls, 'wall1_front', materials)
-
+        wall1_l = self.wall('wall1_f1', walls, Point3(-4, -8.25, -1), Vec3(4, 0.5, 4), horizontal=True)    # front left
+        wall1_r = self.wall('wall1_f2', walls, Point3(4, -8.25, -1), Vec3(4, 0.5, 4), horizontal=True)         # front right
+        _ = self.wall('wall1_f3', walls, Point3(0, -8.25, 2.0), Vec3(12, 0.5, 2), horizontal=True)       # front top
         # 2nd floor
-        materials = [
-            Material(Point3(-4, 4.25, 3.25), Vec3(0, 90, 0), Vec3(20, 0.5, 8.5)),  # back
-            Material(Point3(4, -4.25, 3.25), Vec3(0, 90, 0), Vec3(20, 0.5, 8.5)),  # flont
-            Material(Point3(-10, -1, 3.25), Vec3(0, 90, 0), Vec3(8, 0.5, 2)),      # front doors
-            Material(Point3(4, -8.25, 4), Vec3(0, 90, 90), Vec3(0.5, 1, 20)),      # fence
-            Material(Point3(-5.75, -5, 4), Vec3(0, 90, 0), Vec3(0.5, 1, 6)),       # fence
-            Material(Point3(13.75, -4, 4), Vec3(0, 90, 0), Vec3(0.5, 1, 8)),       # fence
-            Material(Point3(10, 0.25, 3.75), Vec3(0, 90, 90), Vec3(0.5, 1.5, 8)),  # fence
-        ]
-        assemble_blocks(floors, 'floor2', materials)
-
+        self.floor('floor2_1', floors, Point3(-4, 4.25, 3.25), Vec3(20, 0.5, 8.5))  # back
+        self.floor('floor2_2', floors, Point3(4, -4.25, 3.25), Vec3(20, 0.5, 8.5))  # flont
+        self.floor('floor2_3', floors, Point3(-10, -1, 3.25), Vec3(8, 0.5, 2))      # front doors
+        # balcony fence
+        self.wall('balcony_1', floors, Point3(4, -8.25, 4), Vec3(0.5, 1, 20), rotate=Vec3(0, 90, 90))      # fence
+        self.wall('balcony_2', floors, Point3(-5.75, -5, 4), Vec3(0.5, 1, 6), rotate=Vec3(0, 90, 0)),       # fence
+        self.wall('balcony_3', floors, Point3(13.75, -4, 4), Vec3(0.5, 1, 8), rotate=Vec3(0, 90, 0))       # fence
+        self.wall('balcony_4', floors, Point3(10, 0.25, 3.75), Vec3(0.5, 1.5, 8), rotate=Vec3(0, 90, 90))  # fence
         # rear wall on the 2nd floor
-        materials = [Material(Point3(-4, 8.25, 6.5), Vec3(0, 0, 0), Vec3(20, 0.5, 6))]
-        assemble_blocks(walls, 'wall2_back', materials)
-
+        self.wall('wall2_r1', walls, Point3(-4, 8.25, 6.5), Vec3(20, 0.5, 6), horizontal=True)
         # left wall on the 2nd floor
-        materials = [
-            Material(Point3(-13.75, 4, 4.5), Vec3(90, 0, 0), Vec3(8, 0.5, 2)),
-            Material(Point3(-13.75, 1.5, 6.5), Vec3(90, 0, 0), Vec3(3, 0.5, 2)),
-            Material(Point3(-13.75, 6.5, 6.5), Vec3(90, 0, 0), Vec3(3, 0.5, 2)),
-            Material(Point3(-13.75, 4, 8.5), Vec3(90, 0, 0), Vec3(8, 0.5, 2)),
-        ]
-        assemble_blocks(walls, 'wall2_left', materials)
-
+        self.wall('wall2_l1', walls, Point3(-13.75, 4, 4.5), Vec3(8, 0.5, 2), vertical=True)
+        self.wall('wall2_l2', walls, Point3(-13.75, 1.5, 6.5), Vec3(3, 0.5, 2), vertical=True)
+        self.wall('wall2_l3', walls, Point3(-13.75, 6.5, 6.5), Vec3(3, 0.5, 2), vertical=True)
+        self.wall('wall2_l4', walls, Point3(-13.75, 4, 8.5), Vec3(8, 0.5, 2), vertical=True)
         # right wall on the 2nd floor
-        materials = [Material(Point3(5.75, 4.25, 6.5), Vec3(90, 0, 0), Vec3(7.5, 0.5, 6))]
-        assemble_blocks(walls, 'wall2_right', materials)
-
+        self.wall('wall2_r1', walls, Point3(5.75, 4.25, 6.5), Vec3(7.5, 0.5, 6), vertical=True)
         # front wall on the 2nd floor
-        materials = [
-            Material(Point3(-12.5, 0.25, 5.5), Vec3(0, 0, 0), Vec3(2, 0.5, 4)),
-            Material(Point3(-7.25, 0.25, 5.5), Vec3(0, 0, 0), Vec3(2.5, 0.5, 4)),
-            Material(Point3(-9.75, 0.25, 8.5), Vec3(0, 0, 0), Vec3(7.5, 0.5, 2)),
-            Material(Point3(0, 0.25, 4.5), Vec3(0, 0, 0), Vec3(12, 0.5, 2)),
-            Material(Point3(-4, 0.25, 6.5), Vec3(0, 0, 0), Vec3(4, 0.5, 2)),    # front left
-            Material(Point3(4, 0.25, 6.5), Vec3(0, 0, 0), Vec3(4, 0.5, 2)),
-            Material(Point3(0, 0.25, 8.5), Vec3(0, 0, 0), Vec3(12, 0.5, 2)),
-        ]
-        assemble_blocks(walls, 'wall2_front', materials)
-
+        wall2_l = self.wall('wall2_f1', walls, Point3(-12.5, 0.25, 5.5), Vec3(2, 0.5, 4), horizontal=True)
+        self.wall('wall2_f2', walls, Point3(-7.25, 0.25, 5.5), Vec3(2.5, 0.5, 4), horizontal=True)
+        self.wall('wall2_f3', walls, Point3(-9.75, 0.25, 8.5), Vec3(7.5, 0.5, 2), horizontal=True)
+        self.wall('wall2_f4', walls, Point3(0, 0.25, 4.5), Vec3(12, 0.5, 2), horizontal=True)
+        self.wall('wall2_f5', walls, Point3(-4, 0.25, 6.5), Vec3(4, 0.5, 2), horizontal=True)    # front left
+        self.wall('wall2_f6', walls, Point3(4, 0.25, 6.5), Vec3(4, 0.5, 2), horizontal=True)
+        self.wall('wall2_f7', walls, Point3(0, 0.25, 8.5), Vec3(12, 0.5, 2), horizontal=True)
         # roof
-        materials = [Material(Point3(-4, 4.25, 9.75), Vec3(0, 90, 0), Vec3(20, 0.5, 8.5))]
-        assemble_blocks(floors, 'roof', materials)
-
+        self.floor('roof', floors, Point3(-4, 4.25, 9.75), Vec3(20, 0.5, 8.5))
         # steps
-        materials = [Material(Point3(-10, -7.5 + i, -2.5 + i), Vec3(0, 90, 0), Vec3(8, 1, 1)) for i in range(6)]
-        assemble_blocks(floors, 'steps', materials)
-
+        steps = [(f'step_{i}', Point3(-10, -7.5 + i, -2.5 + i)) for i in range(6)]
+        self.steps(steps, floors, Vec3(8, 1, 1), rotate=Vec3(0, 90, 0))
         # fences for steps
-        materials = []
         h = 0
         for i in range(8):
             if i <= 6:
                 h = i
             pos = Point3(-13.75, -7.5 + i, -1.5 + h)
-            materials.append(Material(pos, Vec3(0, 0, 0), Vec3(0.1, 0.1, 5)))
-        self._build(Cylinder, self.cylinder, fences, 'fences', materials, False)
+            self.pole(f'fence_{i}', fences, pos, Vec3(0.1, 0.1, 5))
 
-        doors = NodePath(PandaNode('doors'))
-        doors.reparentTo(self)
-        
-        materials = [
-            Material(Point3(-1, -8.25, -1), Vec3(0, 0, 0), Vec3(2, 0.5, 4))
-        ]
-        self._build(Block, self.cube, doors, 'doors', materials)
-        self.set_hinge('wall1_front_0', 'doors_0', Point3(2, 0.25, 0), Point3(-1, 0.25, 0))
+        # 1st floor doors
+        self.door('door1_l', doors, Point3(-1, -8.25, -1), Vec3(2, 0.5, 4), wall1_l, horizontal=True, left_hinge=True)
+        self.door('door1_r', doors, Point3(1, -8.25, -1), Vec3(2, 0.5, 4), wall1_r, horizontal=True, left_hinge=False)
+        self.door('door2_f', doors, Point3(-10, 0.25, 5.5), Vec3(3, 0.5, 4), wall2_l, horizontal=True, left_hinge=True)
 
         doors.setTexture(self.door_tex)
         fences.setTexture(self.fence_tex)
         walls.setTexture(self.wall_tex)
         floors.setTexture(self.floor_tex)
-
-    def set_hinge(self, name_a, name_b, piv_a, piv_b):
-
-        node_a = self.find(f'*/{name_a}')
-        node_b = self.find(f'*/{name_b}')
-
-        node_b.node().setMass(1)
-        node_b.node().setDeactivationEnabled(False)
-        hinge = BulletHingeConstraint(
-            node_a.node(),
-            node_b.node(),
-            piv_a,
-            piv_b,
-            Vec3(0, 1, 0),
-            Vec3(0, 1, 0),
-            True,
-        )
-        hinge.setDebugDrawSize(2.0)
-        hinge.setLimit(-90, 120, softness=0.9, bias=0.3, relaxation=1.0)
-        self.world.attachConstraint(hinge)
-        
-        
-        # door = [Point3(0, -6.25, 1), Vec3(90, 90, 0), Vec3(0.5, 8, 4)]
-        #     # [Point3(2, -6.25, 1), Vec3(90, 90, 0), Vec3(0.5, 8, 2)]
-
-        # tex = base.loader.loadTexture('textures/iron.jpg')
-        # tex.setWrapU(Texture.WM_repeat)
-        # tex.setWrapV(Texture.WM_repeat)
-
-        # import pdb; pdb.set_trace()
-        
-        # door = Block(
-        #     self.cube,
-        #     Point3(0, -6.25, 1) + self.center,
-        #     Vec3(90, 90, 0),
-        #     Vec3(0.5, 8, 4),
-        #     'door'
-        # )
-        # door.reparentTo(self)
-        # door.setTexture(tex)
-        # # door.setTexScale(TextureStage.getDefault(), 0.5, 1)
-        # door.node().setMass(1)
-        # door.node().setDeactivationEnabled(False)
-        # self.world.attachRigidBody(door.node())
-
-
-        # wall = self.getChild(4)
-        # # hinge = BulletHingeConstraint(
-        # #     wall.node(),
-        # #     door.node(),
-        # #     Point3(0.25, 0, 2),
-        # #     Point3(0.25, 0, -2),
-        # #     Vec3(0, 1, 0),
-        # #     Vec3(0, 1, 0),
-        # #     True,
-        # # )
-        # # hinge.setDebugDrawSize(2.0)
-        # # hinge.setLimit(-90, 120, softness=0.9, bias=0.3, relaxation=1.0)
-        # # self.world.attachConstraint(hinge)
-
 
 
 CUBE = {

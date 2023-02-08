@@ -81,8 +81,8 @@ class Walker(NodePath):
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'character'))
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.bit(1))
-        # self.setPos(-10, -3, -3)
-        self.setPos(-5, 10, 8)
+        self.setPos(-10, -3, -3)
+        # self.setPos(-5, 10, 8)
 
         self.setScale(0.5)
         self.walker = Ralph()
@@ -126,9 +126,9 @@ class Walking(ShowBase):
         self.world.setGravity(Vec3(0, 0, -9.81))
 
         # ****************************************
-        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        # self.world.setDebugNode(collide_debug.node())
-        # collide_debug.show()
+        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        self.world.setDebugNode(collide_debug.node())
+        collide_debug.show()
         # ****************************************
         self.create_terrain()
         self.building = StoneHouse(self.world)
@@ -205,6 +205,11 @@ class Walking(ShowBase):
 
     def control_walker(self, dt):
         if inputState.isSet('forward'):
+
+            if self.is_steps():
+                self.walker.node().setMaxJumpHeight(1.0)  # 5.0
+                self.walker.node().setJumpSpeed(5.0)      # 8.0
+                self.walker.node().doJump()
             self.walker.move(-10 * dt)
         if inputState.isSet('backward'):
             self.walker.move(10 * dt)
@@ -222,6 +227,33 @@ class Walking(ShowBase):
         else:
             self.walker.stop()
 
+    def is_steps(self):
+        result = self.world.contactTest(self.walker.node())
+        contacts = [contact for contact in result.getContacts()]
+        
+        if len(contacts) >= 2:
+            c1, c2 = contacts[:2]
+            c1_name = c1.getNode1().getName()
+            c2_name = c2.getNode1().getName()
+            print(c1_name, c2_name) 
+            if (c1_name.startswith('floor') and c2_name.startswith('step')) or (c1_name.startswith('step') and c2_name.startswith('step')):
+                mp1 = c1.getManifoldPoint()
+                mp2 = c2.getManifoldPoint()
+                
+                nd1 = c1.getNode1()                # see info_text
+                print(nd1.getTransform().getPos()) # np = nd1.getTransform(), np -> T:(pos 0 0 -3.5 hpr 0 90 0 scale 32 1 24) 
+                np = NodePath(nd1)  # np -> render/stoneHouse/floors/floor1
+                print(np.getPos(), np.getScale())
+
+                # print('first', mp1.getPositionWorldOnB(), 'second', mp2.getPositionWorldOnB())
+                
+                return True
+        # for contact in result.getContacts():
+            # print(contact.getNode0().getName())
+            # print(contact.getNode1().getName())
+        # print('-------------------------')
+    
+    
     def print_info(self):
         print('camera angle', self.camera_np.getH())
         print('walker angle', self.walker.walker.getH())
@@ -274,32 +306,7 @@ class Walking(ShowBase):
         walker_pos = self.walker.getPos()
         camera_pos = self.camera.getPos(self.walker) + walker_pos
         self.rotate_camera(camera_pos, walker_pos)
-        
-        # if not self.is_rotating:
-        #     result = self.world.rayTestClosest(camera_pos, walker_pos)
 
-        #     if node := result.getNode():
-        #         if node.getName() == 'block':
-        #             v1 = self.now_walker_pos - camera_pos
-        #             v2 = result.getHitPos() - camera_pos
-        #             cross = v1.x * v2.y - v2.x * v1.y
-        #             # -1 means walker turns right, and 1 means walker turns left.
-        #             self.turn = -1 if cross < 0 else 1
-        #             angle = self.get_rotation_angle(camera_pos, walker_pos, self.turn)
-        #             self.camera_np.setH(angle)
-        #             self.rotation = 90 - abs(angle)
-        #             self.is_rotating = True
-        # else:
-        #     if self.rotation > 0:
-        #         angle = 90 - self.rotation
-        #         (angle + 10) * self.turn
-        #         self.camera_np.setH((angle + 10) * self.turn)
-        #         self.camera.lookAt(self.floater)
-        #         self.rotation -= 10
-        #     else:
-        #         self.is_rotating = False
-
-        # print(self.building.floor.getPos())
         if walker_pos != self.now_walker_pos:
             self.now_walker_pos = walker_pos
 
