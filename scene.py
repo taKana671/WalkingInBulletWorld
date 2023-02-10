@@ -122,6 +122,8 @@ class Materials(NodePath):
     def __init__(self, name, parent, np, pos, hpr, scale):
         super().__init__(BulletRigidBodyNode(name))
         self.reparentTo(parent)
+
+        self.model = np
         self.model = np.copyTo(self)
         self.setPos(pos)
         self.setHpr(hpr)
@@ -130,11 +132,12 @@ class Materials(NodePath):
 
 class Block(Materials):
 
-    def __init__(self, name, parent, np, pos, hpr, scale):
+    def __init__(self, name, parent, np, pos, hpr, scale, bitmask=1):
         super().__init__(name, parent, np, pos, hpr, scale)
         end, tip = self.model.getTightBounds()
         self.node().addShape(BulletBoxShape((tip - end) / 2))
-        self.setCollideMask(BitMask32.bit(1))
+        self.setCollideMask(BitMask32.bit(bitmask))
+        # self.setCollideMask(BitMask32.bit(1))
 
 
 class Cylinder(Materials):
@@ -237,16 +240,16 @@ class Build:
 
         return None
 
-    def floor(self, name, parent, pos, scale):
+    def floor(self, name, parent, pos, scale, bitmask=1):
         hpr = Vec3(0, 90, 0)
-        floor = Block(name, parent, self.cube, pos, hpr, scale)
+        floor = Block(name, parent, self.cube, pos, hpr, scale, bitmask)
         self.set_tex_scale(floor, scale.x, scale.z)
         self.world.attachRigidBody(floor.node())
         return floor
 
-    def wall(self, name, parent, pos, scale, horizontal=False, vertical=False, rotate=None):
+    def wall(self, name, parent, pos, scale, horizontal=False, vertical=False, rotate=None, bitmask=1):
         hpr = self.get_hpr(horizontal, vertical, rotate)
-        wall = Block(name, parent, self.cube, pos, hpr, scale)
+        wall = Block(name, parent, self.cube, pos, hpr, scale, bitmask)
         self.set_tex_scale(wall, scale.x, scale.z)
         self.world.attachRigidBody(wall.node())
         return wall
@@ -273,8 +276,8 @@ class Build:
             door.node(),
             Vec3(wall_x, wall_size.y / 2, 0),
             Vec3(door_x, door_size.y / 2, 0),
-            Vec3(0, 1, 0),
-            Vec3(0, 1, 0),
+            Vec3(0, -1, 0),
+            Vec3(0, -1, 0),
             True,
         )
         hinge.setDebugDrawSize(2.0)
@@ -284,7 +287,7 @@ class Build:
     def steps(self, steps, parent, scale, horizontal=False, vertical=False, rotate=None):
         hpr = self.get_hpr(horizontal, vertical, rotate)
         for name, pos in steps:
-            step = Block(name, parent, self.cube, pos, hpr, scale)
+            step = Block(name, parent, self.cube, pos, hpr, scale, bitmask=2)
             self.world.attachRigidBody(step.node())
 
     def pole(self, name, parent, pos, scale, tex_scale=False):
@@ -302,7 +305,7 @@ class StoneHouse(Build):
         super().__init__(world)
         self.house = NodePath(PandaNode('stoneHouse'))
         self.house.reparentTo(base.render)
-        self.center = Point3(-5, 10, 0)  # -5
+        self.center = Point3(-5, 10, -0.3)  # -5
         self.house.setPos(self.center)
         self.build()
 
@@ -324,6 +327,15 @@ class StoneHouse(Build):
 
     def build(self):
         self.make_textures()
+
+        # walls = NodePath(PandaNode('walls'))
+        # walls.reparentTo(base.render)
+        # floors = NodePath(PandaNode('floors'))
+        # floors.reparentTo(base.render)
+        # fences = NodePath(PandaNode('fences'))
+        # fences.reparentTo(base.render)
+        # doors = NodePath(PandaNode('doors'))
+        # doors.reparentTo(base.render)
 
         walls = NodePath(PandaNode('walls'))
         walls.reparentTo(self.house)
@@ -352,7 +364,7 @@ class StoneHouse(Build):
         # 2nd floor
         self.floor('floor2_1', floors, Point3(-4, 4.25, 3.25), Vec3(20, 0.5, 8.5))  # back
         self.floor('floor2_2', floors, Point3(4, -4.25, 3.25), Vec3(20, 0.5, 8.5))  # flont
-        self.floor('floor2_3', floors, Point3(-10, -1, 3.25), Vec3(8, 0.5, 2))      # front doors
+        self.floor('floor2_3', floors, Point3(-10, -1, 3.25), Vec3(8, 0.5, 2), bitmask=2)      # front doors
         # balcony fence
         self.wall('balcony_1', floors, Point3(4, -8.25, 4), Vec3(0.5, 1, 20), rotate=Vec3(0, 90, 90))      # fence
         self.wall('balcony_2', floors, Point3(-5.75, -5, 4), Vec3(0.5, 1, 6), rotate=Vec3(0, 90, 0)),       # fence

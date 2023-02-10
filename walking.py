@@ -25,7 +25,30 @@ from panda3d.core import CompassEffect
 from scene import StoneHouse
 
 
+class Sphere(NodePath):
+
+    def __init__(self):
+        super().__init__(PandaNode('spehre'))
+        self.reparentTo(base.render)
+        sphere = base.loader.loadModel('models/sphere/sphere')
+        sphere.reparentTo(self)
+        self.setScale(0.05, 0.05, 0.05)
+        self.setColor(1, 0, 0, 1)
+
+
+
 class PositionNode(NodePath):
+
+    # def __init__(self, pos):
+    #     super().__init__(BulletRigidBodyNode('walker'))
+    #     # super().__init__(BulletCharacterControllerNode(shape, 0.4, 'walker'))
+    #     h, w = 6, 1.5  # h = 6
+    #     shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
+    #     self.node().addShape(shape)
+    #     self.setCollideMask(BitMask32.bit(1))
+    #     self.reparentTo(base.render)
+    #     self.setPos(-10, -3, -3)
+    #     self.setScale(0.5)
 
     def __init__(self, pos):
         h, w = 6, 1.5  # h = 6
@@ -62,6 +85,9 @@ class Ralph(NodePath):
         self.actor.reparentTo(self)
         self.setH(180)
 
+        self.right_eye = self.actor.exposeJoint(None, 'modelRoot', 'RightEyeLid')
+    
+    
     def play_anim(self, command, rate):
         if self.actor.getCurrentAnim() != command:
             self.actor.loop(command)
@@ -80,13 +106,19 @@ class Walker(NodePath):
         shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'character'))
         self.reparentTo(base.render)
-        self.setCollideMask(BitMask32.bit(1))
+        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
         self.setPos(-10, -3, -3)
         # self.setPos(-5, 10, 8)
 
         self.setScale(0.5)
         self.walker = Ralph()
         self.walker.reparentTo(self)
+
+        self.navigator = NodePath('navigator')
+        self.navigator.reparentTo(self.walker)
+        self.navigator.setY(-2)
+        self.navigator.setZ(-2.7)
+
 
     def move(self, dist):
         orientation = self.walker.getQuat(base.render).getForward()
@@ -135,10 +167,14 @@ class Walking(ShowBase):
 
         self.walker = Walker()
 
-        self.world.attachCharacter(self.walker.node())
-        # print(self.walker.actor.listJoints())
+        self.sphere = Sphere()
+        self.sphere.reparentTo(self.walker.navigator)
 
-        self.floater = NodePath(PandaNode('floater'))
+        self.world.attachCharacter(self.walker.node())
+        # print(self.walker.walker.actor.listJoints())
+
+        self.floater = NodePath('floater')
+        # self.floater = NodePath(PandaNode('floater'))
         self.floater.reparentTo(self.walker)
         self.floater.setZ(2.0)
         
@@ -205,11 +241,11 @@ class Walking(ShowBase):
 
     def control_walker(self, dt):
         if inputState.isSet('forward'):
-
             if self.is_steps():
-                self.walker.node().setMaxJumpHeight(1.0)  # 5.0
-                self.walker.node().setJumpSpeed(5.0)      # 8.0
-                self.walker.node().doJump()
+                if self.walker.node().isOnGround():
+                    self.walker.node().setMaxJumpHeight(1.0)  # 5.0
+                    self.walker.node().setJumpSpeed(5.0)      # 8.0
+                    self.walker.node().doJump()
             self.walker.move(-10 * dt)
         if inputState.isSet('backward'):
             self.walker.move(10 * dt)
@@ -228,46 +264,51 @@ class Walking(ShowBase):
             self.walker.stop()
 
     def is_steps(self):
-        result = self.world.contactTest(self.walker.node())
-        contacts = [contact for contact in result.getContacts()]
-        
-        if len(contacts) >= 2:
-            c1, c2 = contacts[:2]
-            c1_name = c1.getNode1().getName()
-            c2_name = c2.getNode1().getName()
-            print(c1_name, c2_name) 
-            if (c1_name.startswith('floor') and c2_name.startswith('step')) or (c1_name.startswith('step') and c2_name.startswith('step')):
-                mp1 = c1.getManifoldPoint()
-                mp2 = c2.getManifoldPoint()
-                
-                nd1 = c1.getNode1()                # see info_text
-                print(nd1.getTransform().getPos()) # np = nd1.getTransform(), np -> T:(pos 0 0 -3.5 hpr 0 90 0 scale 32 1 24) 
-                np = NodePath(nd1)  # np -> render/stoneHouse/floors/floor1
-                print(np.getPos(), np.getScale())
+        eye = self.walker.walker.right_eye.getPos() + self.walker.getPos()
+        ground = self.walker.getRelativeVector(self.walker.walker, Vec3(0,-2,-2.7)) + self.walker.getPos()
 
-                # print('first', mp1.getPositionWorldOnB(), 'second', mp2.getPositionWorldOnB())
-                
+        result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
+        for hit in result.getHits():
+            nd = hit.getNode()
+            print(nd.getName())
+            if nd.getName().startswith('step'):
                 return True
-        # for contact in result.getContacts():
-            # print(contact.getNode0().getName())
-            # print(contact.getNode1().getName())
-        # print('-------------------------')
-    
-    
+        return False
+
     def print_info(self):
-        print('camera angle', self.camera_np.getH())
-        print('walker angle', self.walker.walker.getH())
+        print('navigator_pos', self.walker.navigator.getPos())
+        print('navigator relative_pos', self.walker.navigator.getPos(self.walker))
+        print('walker_pos', self.walker.getPos())
 
-        # walker_pos = self.walker.getPos()
-        # camera_pos = self.camera_np.getPos() + walker_pos
+        print('relative_vector', self.walker.getRelativeVector(self.walker.walker, Vec3(0,-1.5,-2.7)))
+        print('sphere_pos', self.sphere.getPos(self.walker))
+        
+        print('ralph_eye', self.walker.walker.right_eye.getPos())
+        
+        eye = self.walker.walker.right_eye.getPos() + self.walker.getPos()
+        ground = self.walker.getRelativeVector(self.walker.walker, Vec3(0,-2,-2.7)) + self.walker.getPos()
+        
+        # result = self.world.rayTestClosest(eye, ground, BitMask32.bit(2))
+        # if node := result.getNode():
+        #     print(node.getName())
 
-        # print('walker_pos', self.walker.getPos())
-        # print('camera_np_pos', self.camera_np.getPos())
-        # print('camera_pos', self.camera.getPos())
+        result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
+        for hit in result.getHits():
+            nd = hit.getNode()
+            print(nd.getName())
 
-        # print('camera_walker_pos', self.camera.getPos(self.walker))
-        # print('camera_cameranp_pos', self.camera.getPos(self.camera_np))
 
+        
+        
+        
+        print('----------------------')
+        # print('camera angle', self.camera_np.getH())
+        # print('walker angle', self.walker.walker.getH())
+
+    
+    
+    
+    
     def get_rotation_angle(self, camera_pos, walker_pos, turn):
         axis = self.walker.getQuat().getUp()
         q = Quat()
