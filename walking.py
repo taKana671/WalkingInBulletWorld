@@ -27,45 +27,13 @@ from scene import StoneHouse
 
 class Sphere(NodePath):
 
-    def __init__(self):
+    def __init__(self, color):
         super().__init__(PandaNode('spehre'))
         self.reparentTo(base.render)
         sphere = base.loader.loadModel('models/sphere/sphere')
         sphere.reparentTo(self)
         self.setScale(0.05, 0.05, 0.05)
-        self.setColor(1, 0, 0, 1)
-
-
-
-class PositionNode(NodePath):
-
-    # def __init__(self, pos):
-    #     super().__init__(BulletRigidBodyNode('walker'))
-    #     # super().__init__(BulletCharacterControllerNode(shape, 0.4, 'walker'))
-    #     h, w = 6, 1.5  # h = 6
-    #     shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
-    #     self.node().addShape(shape)
-    #     self.setCollideMask(BitMask32.bit(1))
-    #     self.reparentTo(base.render)
-    #     self.setPos(-10, -3, -3)
-    #     self.setScale(0.5)
-
-    def __init__(self, pos):
-        h, w = 6, 1.5  # h = 6
-        shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
-        super().__init__(BulletCharacterControllerNode(shape, 0.4, 'walker'))
-        self.setCollideMask(BitMask32.bit(1))
-        self.reparentTo(base.render)
-        self.setPos(-10, -3, -3)
-        self.setScale(0.5)
-
-
-class DirectionNode(NodePath):
-
-    def __init__(self, parent):
-        super().__init__(PandaNode('directionRoot'))
-        self.reparentTo(parent)
-        # self.setH(180)
+        self.setColor(color)
 
 
 class Ralph(NodePath):
@@ -86,8 +54,27 @@ class Ralph(NodePath):
         self.setH(180)
 
         self.right_eye = self.actor.exposeJoint(None, 'modelRoot', 'RightEyeLid')
-    
-    
+        self.left_eye = self.actor.exposeJoint(None, 'modelRoot', 'LeftEyeLid')
+        # joint = self.actor.controlJoint(None, 'modelRoot', 'RightEyeLid')
+        # joint.setPos(-0.3, -0.3, -0.3)
+
+        # the point at which the right eye looks
+        self.front_right = NodePath('frontRight')
+        self.front_right.reparentTo(self)
+        self.front_right.setPos(-0.3, -2, -2.7)
+
+        # the point at which the left eye looks
+        self.front_left = NodePath('frontLeft')
+        self.front_left.reparentTo(self)
+        self.front_left.setPos(0.3, -2, -2.7)
+
+        # **debug***************************************
+        sphere1 = Sphere((1, 0, 0, 1))  # Red
+        sphere1.reparentTo(self.front_right)
+        sphere2 = Sphere((0, 0, 1, 1))  # Blue
+        sphere2.reparentTo(self.front_left)
+        # **********************************************
+
     def play_anim(self, command, rate):
         if self.actor.getCurrentAnim() != command:
             self.actor.loop(command)
@@ -101,26 +88,80 @@ class Ralph(NodePath):
 
 class Walker(NodePath):
 
-    def __init__(self):
+    def __init__(self, world):
         h, w = 6, 1.5
         shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'character'))
+        self.world = world
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
         self.setPos(-10, -3, -3)
         # self.setPos(-5, 10, 8)
-
         self.setScale(0.5)
         self.walker = Ralph()
         self.walker.reparentTo(self)
 
-        self.navigator = NodePath('navigator')
-        self.navigator.reparentTo(self.walker)
-        self.navigator.setY(-2)
-        self.navigator.setZ(-2.7)
+        self.jump = False
+
+        # self.navigator = NodePath('navigator')
+        # self.navigator.reparentTo(self.walker)
+        # self.navigator.setY(-2)
+        # self.navigator.setX(-0.3)
+        # self.navigator.setZ(-2.7)
+
+        # self.navigator_left = NodePath('navigator_left')
+        # self.navigator_left.reparentTo(self.walker)
+        # self.navigator_left.setY(-2)
+        # self.navigator_left.setX(0.3)
+        # self.navigator_left.setZ(-2.7)
+
+    def look_below(self):
+        to_pos = base.render.getRelativePoint(self, Vec3(0, 0, -3))
+        result = self.world.rayTestAll(self.getPos(), to_pos)
+        for hit in result.getHits():
+            if (node := hit.getNode()).getName() != 'character':
+                return node
+
+    def look_forward(self, eye, front, below_node):
+        from_pos = eye.getPos() + self.getPos()
+        to_pos = front.getPos(self) + self.getPos()
+
+        result = self.world.rayTestAll(from_pos, to_pos, BitMask32.bit(2))
+        for hit in result.getHits():
+            if (node := hit.getNode()) not in (self.node(), below_node):
+
+                return node
+
+    def go_forward(self, dist):
+        below_node = self.look_below()
+        # import pdb; pdb.set_trace()
+        front_right = self.look_forward(self.walker.right_eye, self.walker.front_right, below_node)
+        front_left = self.look_forward(self.walker.left_eye, self.walker.front_left, below_node)
+
+        print(below_node, front_right, front_left)
+
+        # front_right = self.walker.right_eye_lookat.getPos(self) + self.getPos()
+        # right_eye = self.walker.right_eye.getPos() + self.getPos()
+        # front_left = self.walker.left_eye_lookat.getPos(self) + self.getPos()
+        # left_eye = self.walker.left_eye.getPos() + self.getPos()
+
+        if front_right and front_left:
+            if front_right == front_left and front_left != below_node:
+                self.jump = True
+                # self.node().setMaxJumpHeight(0.2)  # 5.0
+                # self.node().setJumpSpeed(5.0)      # 8.0
+                # self.node().doJump()
+
+        orientation = self.walker.getQuat(base.render).getForward()
+        # pos = base.render.getRelativePoint(self, Point3(0, 10, 0))
+        self.setPos(self.getPos() + orientation * dist)
+
+        if self.jump:
+            self.setZ(self.getZ() + 0.3)
+            self.jump = False
 
 
-    def move(self, dist):
+    def go_back(self, dist):
         orientation = self.walker.getQuat(base.render).getForward()
         # pos = base.render.getRelativePoint(self, Point3(0, 10, 0))
         self.setPos(self.getPos() + orientation * dist)
@@ -158,18 +199,14 @@ class Walking(ShowBase):
         self.world.setGravity(Vec3(0, 0, -9.81))
 
         # ****************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
+        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        # self.world.setDebugNode(collide_debug.node())
+        # collide_debug.show()
         # ****************************************
         self.create_terrain()
         self.building = StoneHouse(self.world)
 
-        self.walker = Walker()
-
-        self.sphere = Sphere()
-        self.sphere.reparentTo(self.walker.navigator)
-
+        self.walker = Walker(self.world)
         self.world.attachCharacter(self.walker.node())
         # print(self.walker.walker.actor.listJoints())
 
@@ -241,14 +278,15 @@ class Walking(ShowBase):
 
     def control_walker(self, dt):
         if inputState.isSet('forward'):
-            if self.is_steps():
-                if self.walker.node().isOnGround():
-                    self.walker.node().setMaxJumpHeight(1.0)  # 5.0
-                    self.walker.node().setJumpSpeed(5.0)      # 8.0
-                    self.walker.node().doJump()
-            self.walker.move(-10 * dt)
+            # if self.is_steps():
+            #     if self.walker.node().isOnGround():
+            #         self.walker.node().setMaxJumpHeight(1.0)  # 5.0
+            #         self.walker.node().setJumpSpeed(5.0)      # 8.0
+            #         self.walker.node().doJump()
+            self.walker.go_forward(-10 * dt)
         if inputState.isSet('backward'):
-            self.walker.move(10 * dt)
+            self.walker.go_back(10 * dt)
+            # self.walker.move(10 * dt)
         if inputState.isSet('left'):
             self.walker.turn(100 * dt)
         if inputState.isSet('right'):
@@ -265,7 +303,7 @@ class Walking(ShowBase):
 
     def is_steps(self):
         eye = self.walker.walker.right_eye.getPos() + self.walker.getPos()
-        ground = self.walker.getRelativeVector(self.walker.walker, Vec3(0,-2,-2.7)) + self.walker.getPos()
+        ground = self.walker.getRelativeVector(self.walker.walker, Vec3(-0.3, -2, -2.7)) + self.walker.getPos()
 
         result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
         for hit in result.getHits():
@@ -276,39 +314,57 @@ class Walking(ShowBase):
         return False
 
     def print_info(self):
-        print('navigator_pos', self.walker.navigator.getPos())
-        print('navigator relative_pos', self.walker.navigator.getPos(self.walker))
         print('walker_pos', self.walker.getPos())
 
-        print('relative_vector', self.walker.getRelativeVector(self.walker.walker, Vec3(0,-1.5,-2.7)))
-        print('sphere_pos', self.sphere.getPos(self.walker))
+        # print(self.walker.walker.right_eye_lookat.getPos(self.walker) + self.walker.getPos())
+        print('right_eye_lookat', self.walker.getRelativeVector(self.walker.walker.front_right, Vec3(-0.3, -2, -2.7))  + self.walker.getPos()) 
+        print('left_eye_lookat', self.walker.getRelativeVector(self.walker.walker.front_left, Vec3(0.3, -2, -2.7))  + self.walker.getPos())
+                
+        print('直下')
+        # ver_ground = self.walker.getRelativeVector(self.walker.walker, Vec3(0, 0,-2.7)) + self.walker.getPos() 
+        ver_ground = self.render.getRelativePoint(self.walker, Vec3(0, 0, -3))
+        print('-3だけ下', ver_ground)
+        result = self.world.rayTestAll(self.walker.getPos(), ver_ground)
+        for hit in result.getHits():
+            nd = hit.getNode()
+            print(nd.getName())
         
-        print('ralph_eye', self.walker.walker.right_eye.getPos())
-        
+        print('右目から見た前方')
+        ground = self.walker.walker.front_right.getPos(self.walker) + self.walker.getPos()
+        print('ground', ground)
         eye = self.walker.walker.right_eye.getPos() + self.walker.getPos()
-        ground = self.walker.getRelativeVector(self.walker.walker, Vec3(0,-2,-2.7)) + self.walker.getPos()
-        
-        # result = self.world.rayTestClosest(eye, ground, BitMask32.bit(2))
-        # if node := result.getNode():
-        #     print(node.getName())
-
+        print('eye', eye)
+        # ground = self.walker.getRelativeVector(self.walker.navigator, Vec3(-0.3, -2, -2.7)) + self.walker.getPos()
+        # result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
         result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
+        
         for hit in result.getHits():
             nd = hit.getNode()
             print(nd.getName())
 
+        print('左目から見た前方')
+        ground = self.walker.walker.front_left.getPos(self.walker) + self.walker.getPos()
+        print('ground', ground)
+        eye = self.walker.walker.left_eye.getPos() + self.walker.getPos()
+        print('eye', eye)
+        # ground = self.walker.getRelativeVector(self.walker.navigator, Vec3(-0.3, -2, -2.7)) + self.walker.getPos()
+        # result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
+        result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
+        
+        for hit in result.getHits():
+            nd = hit.getNode()
+            print(nd.getName())
+        # eye = self.walker.walker.left_eye.getPos() + self.walker.getPos()
+        # ground = self.walker.getRelativeVector(self.walker.navigator_left, Vec3(0.3, -2, -2.7)) + self.walker.getPos()
+        # result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
+        # for hit in result.getHits():
+        #     nd = hit.getNode()
+        #     print(nd.getName())
 
-        
-        
-        
+
+
         print('----------------------')
-        # print('camera angle', self.camera_np.getH())
-        # print('walker angle', self.walker.walker.getH())
-
-    
-    
-    
-    
+ 
     def get_rotation_angle(self, camera_pos, walker_pos, turn):
         axis = self.walker.getQuat().getUp()
         q = Quat()

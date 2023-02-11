@@ -142,12 +142,12 @@ class Block(Materials):
 
 class Cylinder(Materials):
 
-    def __init__(self, name, parent, np, pos, hpr, scale):
+    def __init__(self, name, parent, np, pos, hpr, scale, bitmask=1):
         super().__init__(name, parent, np, pos, hpr, scale)
         shape = BulletConvexHullShape()
         shape.addGeom(self.model.node().getGeom(0))
         self.node().addShape(shape)
-        self.setCollideMask(BitMask32.bit(1))
+        self.setCollideMask(BitMask32.bit(bitmask))
 
 
 class CubeModel(NodePath):
@@ -276,8 +276,8 @@ class Build:
             door.node(),
             Vec3(wall_x, wall_size.y / 2, 0),
             Vec3(door_x, door_size.y / 2, 0),
-            Vec3(0, -1, 0),
-            Vec3(0, -1, 0),
+            Vec3(0, 1, 0),
+            Vec3(0, 1, 0),
             True,
         )
         hinge.setDebugDrawSize(2.0)
@@ -292,7 +292,7 @@ class Build:
 
     def pole(self, name, parent, pos, scale, tex_scale=False):
         hpr = Vec3(0, 0, 0)
-        pole = Cylinder(name, parent, self.cylinder, pos, hpr, scale)
+        pole = Cylinder(name, parent, self.cylinder, pos, hpr, scale, bitmask=2)
         if tex_scale:
             self.set_tex_scale(pole, scale.x, scale.z)
 
@@ -305,7 +305,7 @@ class StoneHouse(Build):
         super().__init__(world)
         self.house = NodePath(PandaNode('stoneHouse'))
         self.house.reparentTo(base.render)
-        self.center = Point3(-5, 10, -0.3)  # -5
+        self.center = Point3(-5, 10, 0)  # -5
         self.house.setPos(self.center)
         self.build()
 
@@ -347,7 +347,7 @@ class StoneHouse(Build):
         doors.reparentTo(self.house)
 
         # the 1st floor
-        self.floor('floor1', floors, Point3(0, 0, -3.5), Vec3(32, 1, 24))
+        self.floor('floor1', floors, Point3(0, 0, -3.5), Vec3(32, 1, 24), bitmask=2)
         # rear wall on the lst floor
         self.wall('wall1_r1', walls, Point3(0, 8.25, 0), Vec3(12, 0.5, 6), horizontal=True)
         # left wall on the 1st floor
