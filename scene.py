@@ -305,7 +305,8 @@ class StoneHouse(Build):
         super().__init__(world)
         self.house = NodePath(PandaNode('stoneHouse'))
         self.house.reparentTo(base.render)
-        self.center = Point3(-5, 10, 0)  # -5
+        # self.center = Point3(-5, 10, 0)  # -5
+        self.center = Point3(15, 10, -0.5)
         self.house.setPos(self.center)
         self.build()
 
@@ -347,7 +348,7 @@ class StoneHouse(Build):
         doors.reparentTo(self.house)
 
         # the 1st floor
-        self.floor('floor1', floors, Point3(0, 0, -3.5), Vec3(32, 1, 24), bitmask=2)
+        self.floor('floor1', floors, Point3(0, 0, -3.5), Vec3(32, 1, 24))
         # rear wall on the lst floor
         self.wall('wall1_r1', walls, Point3(0, 8.25, 0), Vec3(12, 0.5, 6), horizontal=True)
         # left wall on the 1st floor
