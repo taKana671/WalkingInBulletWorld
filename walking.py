@@ -105,11 +105,15 @@ class Walker(NodePath):
         self.cam_navigator.reparentTo(self.walker)
         self.cam_navigator.setPos(Point3(0, 10, 0))
 
-    def navigate(self):
+    def navigate(self, opposite=False):
         """Returns a relative point to enable camera to follow a character
            when camera's view is blocked by an object like walls.
         """
-        return self.getRelativePoint(self.walker, Vec3(0, 10, 0))
+        if not opposite:
+            return self.getRelativePoint(self.walker, Vec3(0, 10, 0))
+        else:
+            return self.getRelativePoint(self.walker, Vec3(0, -10, 0))
+        # return self.getRelativePoint(self.walker, Vec3(0, 10, 0))
 
     def ray_cast(self, from_pos, to_pos, mask=None):
         if mask is None:
@@ -122,18 +126,22 @@ class Walker(NodePath):
                 return hit
         return None
 
+    def current_location(self):
+        # below = base.render.getRelativePoint(self, Vec3(0, 0, -3))
+        below = base.render.getRelativePoint(self, Vec3(0, 0, -3))
+        return self.ray_cast(self.getPos(), below)
+
     def go_forward(self, dist):
         walker_pos = self.getPos()
         orientation = self.walker.getQuat(base.render).getForward()
         pos = walker_pos + orientation * dist
 
-        below = base.render.getRelativePoint(self, Vec3(0, 0, -3))
         right_eye = self.walker.right_eye.getPos() + walker_pos
         front_right = self.walker.front_right.getPos(self) + walker_pos
         left_eye = self.walker.left_eye.getPos() + walker_pos
         front_left = self.walker.front_left.getPos(self) + walker_pos
 
-        if below_hit := self.ray_cast(walker_pos, below):
+        if below_hit := self.current_location():
             if (front_right_hit := self.ray_cast(right_eye, front_right, 2)) and \
                     (front_lelt_hit := self.ray_cast(left_eye, front_left, 2)):
                 if front_right_hit.getNode() == front_lelt_hit.getNode():
@@ -197,16 +205,20 @@ class Walking(ShowBase):
         self.floater = NodePath('floater')
         self.floater.reparentTo(self.walker)
         self.floater.setZ(2.0)
-        
-        self.camera_np = NodePath('cameraNp')
-        self.camera_np.reparentTo(self.walker)
-        self.camera.reparentTo(self.camera_np)
-        # self.camera.reparentTo(self.walker)
-        self.camera_np.setPos(self.walker.navigate())
-        self.camera.lookAt(self.floater)
-        self.camLens.setFov(90)
 
-        self.in_room = False
+        # using camera_np***************
+        # self.camera_np = NodePath('cameraNp')
+        # self.camera_np.reparentTo(self.walker)
+        # self.camera.reparentTo(self.camera_np)
+        # self.camera_np.setPos(self.walker.navigate())
+        # self.camera.lookAt(self.floater)
+        # *******************************
+
+        self.camera.reparentTo(self.walker)
+        self.camera.setPos(self.walker.navigate())
+        self.camera.lookAt(self.floater)
+
+        self.camLens.setFov(90)
 
         inputState.watchWithModifiers('forward', 'arrow_up')
         inputState.watchWithModifiers('backward', 'arrow_down')
@@ -322,39 +334,63 @@ class Walking(ShowBase):
         #     nd = hit.getNode()
         #     print(nd.getName())
 
-
         print('----------------------')
 
 
-    def control_camera(self):
+    def control_camera_outdoors(self):
+        # If the camera's view is blocked by an object like walls, the camera is repositioned.
         walker_pos = self.walker.getPos()
         camera_pos = self.camera.getPos(self.walker) + walker_pos
-        result = self.world.rayTestClosest(camera_pos, walker_pos)
+        result = self.world.rayTestClosest(camera_pos, walker_pos)  # , BitMask32.bit(1) | BitMask32.bit(2))
 
         if result.hasHit():
             if result.getNode() != self.walker.node():
-                self.camera_np.setPos(self.walker.navigate())
+                if not result.getNode().getName().startswith('door'):
+                    self.camera.setPos(self.walker.navigate())
+                    # self.camera_np.setPos(self.walker.navigate())
+                    self.camera.lookAt(self.floater)
+
+        # if the character goes into a room, the camera is reparented to a room-camera np.
+        if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
+            if (name := location.getNode().getName()).startswith('room'):
+                room_camera = self.render.find(f'**/{name}_camera')
+
+                self.camera.detachNode()
+                self.camera.reparentTo(room_camera)
                 self.camera.lookAt(self.floater)
 
-                # if not self.in_room:
-                #     print('comein')
-                #     self.camera.detachNode()
-                #     self.camera.reparentTo(self.render)
-                #     self.camera.setPos(Point3(15, 10, 2))
-                #     # self.camera.lookAt(self.floater)
-                #     self.in_room = True
-                # else:
-                #     self.camera.detachNode()
-                #     self.camera.reparentTo(self.camera_np)
-                #     # self.camLens.setFov(90)
-                #     self.camera_np.setPos(Vec3(0, 10, 0))
-                #     self.in_room = False
+                # *****using self.camera_np*************
+                # self.camera.detachNode()
+                # self.camera.reparentTo(room_camera)
+                # self.camera.lookAt(self.floater)
+                # ***************************************
 
+    def control_camera_indoors(self):
+        self.camera.lookAt(self.floater)
+
+        if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
+            if not location.getNode().getName().startswith('room'):
+
+                self.camera.detachNode()
+                self.camera.reparentTo(self.walker)
+                self.camera.lookAt(self.floater)
+
+                # *****using self.camera_np*************
+                # self.camera.detachNode()
+                # self.camera.reparentTo(self.camera_np)
+                # # self.camera_np.setPos(self.walker.navigate(True))  # <- なくてもOK 
+                # self.camera.lookAt(self.floater)
+                # ***************************************
 
     def update(self, task):
         dt = globalClock.getDt()
         self.control_walker(dt)
-        self.control_camera()
+
+        if self.walker.isAncestorOf(self.camera):
+        # if self.camera_np.isAncestorOf(self.camera):
+            self.control_camera_outdoors()
+        else:
+            self.control_camera_indoors()
 
         self.world.doPhysics(dt)
         return task.cont

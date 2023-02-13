@@ -6,13 +6,13 @@ from panda3d.core import GeomVertexFormat, GeomVertexData
 from panda3d.core import Geom, GeomTriangles, GeomVertexWriter
 from panda3d.core import GeomNode
 
-from panda3d.core import BitMask32
+from panda3d.core import BitMask32, TransformState
 from panda3d.core import NodePath, PandaNode
 # from direct.showbase.ShowBase import ShowBase
 # from direct.showbase.ShowBaseGlobal import globalClock
 from panda3d.bullet import BulletConvexHullShape, BulletBoxShape
 from panda3d.bullet import BulletRigidBodyNode
-from panda3d.bullet import BulletHingeConstraint
+from panda3d.bullet import BulletHingeConstraint, BulletConeTwistConstraint
 
 import numpy as np
 
@@ -271,18 +271,33 @@ class Build:
         door_x = -(door_size.x / 2) if left_hinge else door_size.x / 2
         wall_x = wall_size.x / 2 if left_hinge else -wall_size.x / 2
 
-        hinge = BulletHingeConstraint(
+        twist = BulletConeTwistConstraint(
             wall.node(),
             door.node(),
-            Vec3(wall_x, wall_size.y / 2, 0),
-            Vec3(door_x, door_size.y / 2, 0),
-            Vec3(0, 1, 0),
-            Vec3(0, 1, 0),
-            True,
+            TransformState.makePos(Point3(wall_x, wall_size.y / 2, 0)),
+            TransformState.makePos(Point3(door_x, door_size.y / 2, 0)),
         )
-        hinge.setDebugDrawSize(2.0)
-        hinge.setLimit(-90, 120, softness=0.9, bias=0.3, relaxation=1.0)
-        self.world.attachConstraint(hinge)
+        
+        # twist.setLimit(60, 36, 120)
+        
+        twist.setLimit(20, 20, 0, softness=0.1, bias=0.1, relaxation=5.0)
+        # 20, 20, 0, softness=0.1, bias=3.0, relaxation=8.0
+        # twist.setLimit(60, 60, 120, softness=0.9, bias=0.3, relaxation=1.0)
+        self.world.attachConstraint(twist)
+
+
+        # hinge = BulletHingeConstraint(
+        #     wall.node(),
+        #     door.node(),
+        #     Vec3(wall_x, wall_size.y / 2, 0),
+        #     Vec3(door_x, door_size.y / 2, 0),
+        #     Vec3(0, 1, 0),
+        #     Vec3(0, 1, 0),
+        #     True,
+        # )
+        # hinge.setDebugDrawSize(2.0)
+        # hinge.setLimit(-90, 120,) # softness=0.9, bias=0.3, relaxation=1.0)  # 1.0
+        # self.world.attachConstraint(hinge)
 
     def steps(self, steps, parent, scale, horizontal=False, vertical=False, rotate=None):
         hpr = self.get_hpr(horizontal, vertical, rotate)
@@ -298,6 +313,10 @@ class Build:
 
         self.world.attachRigidBody(pole.node())
 
+    def box_camera(self, name, parent, pos, scale):
+        hpr = Vec3(0, 0, 0)
+        box = Block(name, parent, self.cube, pos, hpr, scale)
+        box.setColor(0, 0, 0, 1)
 
 class StoneHouse(Build):
 
@@ -347,8 +366,22 @@ class StoneHouse(Build):
         doors = NodePath(PandaNode('doors'))
         doors.reparentTo(self.house)
 
-        # the 1st floor
-        self.floor('floor1', floors, Point3(0, 0, -3.5), Vec3(32, 1, 24))
+        # the 1st outside floor
+        materials = [
+            [Point3(-11, 0, -3.5), Vec3(10, 1, 24)],
+            [Point3(11, 0, -3.5), Vec3(10, 1, 24)],
+            [Point3(0, -10, -3.5), Vec3(12, 1, 4)],
+            [Point3(0, 10, -3.5), Vec3(12, 1, 4)]
+        ]
+        for pos, scale in materials:
+            self.floor('floor1', floors, pos, scale)
+
+        # self.floor('floor1', floors, Point3(-11, 0, -3.5), Vec3(10, 1, 24))
+        self.floor('room1', floors, Point3(0, 0, -3.5), Vec3(12, 1, 16))
+        # self.floor('floor1', floors, Point3(11, 0, -3.5), Vec3(10, 1, 24))
+        # self.floor('floor1', floors, Point3(0, -10, -3.5), Vec3(12, 1, 4))
+        # self.floor('floor1', floors, Point3(0, 10, -3.5), Vec3(12, 1, 4))
+
         # rear wall on the lst floor
         self.wall('wall1_r1', walls, Point3(0, 8.25, 0), Vec3(12, 0.5, 6), horizontal=True)
         # left wall on the 1st floor
@@ -361,11 +394,11 @@ class StoneHouse(Build):
         # front wall on the 1st floor
         wall1_l = self.wall('wall1_f1', walls, Point3(-4, -8.25, -1), Vec3(4, 0.5, 4), horizontal=True)    # front left
         wall1_r = self.wall('wall1_f2', walls, Point3(4, -8.25, -1), Vec3(4, 0.5, 4), horizontal=True)         # front right
-        _ = self.wall('wall1_f3', walls, Point3(0, -8.25, 2.0), Vec3(12, 0.5, 2), horizontal=True)       # front top
+        self.wall('wall1_f3', walls, Point3(0, -8.25, 2.0), Vec3(12, 0.5, 2), horizontal=True)       # front top
         # 2nd floor
-        self.floor('floor2_1', floors, Point3(-4, 4.25, 3.25), Vec3(20, 0.5, 8.5))  # back
+        self.floor('room2', floors, Point3(-4, 4.25, 3.25), Vec3(20, 0.5, 8.5))  # back
         self.floor('floor2_2', floors, Point3(4, -4.25, 3.25), Vec3(20, 0.5, 8.5))  # flont
-        self.floor('floor2_3', floors, Point3(-10, -1, 3.25), Vec3(8, 0.5, 2), bitmask=2)      # front doors
+        self.floor('floor2_3', floors, Point3(-9.75, -1, 3.25), Vec3(7.5, 0.5, 2), bitmask=2)      # front doors
         # balcony fence
         self.wall('balcony_1', floors, Point3(4, -8.25, 4), Vec3(0.5, 1, 20), rotate=Vec3(0, 90, 90))      # fence
         self.wall('balcony_2', floors, Point3(-5.75, -5, 4), Vec3(0.5, 1, 6), rotate=Vec3(0, 90, 0)),       # fence
@@ -391,20 +424,21 @@ class StoneHouse(Build):
         # roof
         self.floor('roof', floors, Point3(-4, 4.25, 9.75), Vec3(20, 0.5, 8.5))
         # steps
-        steps = [(f'step_{i}', Point3(-10, -7.5 + i, -2.5 + i)) for i in range(6)]
-        self.steps(steps, floors, Vec3(8, 1, 1), rotate=Vec3(0, 90, 0))
-        # fences for steps
-        h = 0
-        for i in range(8):
-            if i <= 6:
-                h = i
-            pos = Point3(-13.75, -7.5 + i, -1.5 + h)
-            self.pole(f'fence_{i}', fences, pos, Vec3(0.1, 0.1, 5))
+        steps = [(f'step_{i}', Point3(-9.75, -7.5 + i, -2.5 + i)) for i in range(6)]
+        self.steps(steps, floors, Vec3(7.5, 1, 1), rotate=Vec3(0, 90, 0))
+        # wall next to steps
+        self.wall('wall_steps', walls, Point3(-13.75, -4.25, 3.5), Vec3(8.5, 0.5, 13), vertical=True)
 
         # 1st floor doors
-        self.door('door1_l', doors, Point3(-1, -8.25, -1), Vec3(2, 0.5, 4), wall1_l, horizontal=True, left_hinge=True)
-        self.door('door1_r', doors, Point3(1, -8.25, -1), Vec3(2, 0.5, 4), wall1_r, horizontal=True, left_hinge=False)
-        self.door('door2_f', doors, Point3(-10, 0.25, 5.5), Vec3(3, 0.5, 4), wall2_l, horizontal=True, left_hinge=True)
+        self.door('door1', doors, Point3(-1, -8.25, -1), Vec3(2, 0.5, 4), wall1_l, horizontal=True, left_hinge=True)
+        self.door('door1', doors, Point3(1, -8.25, -1), Vec3(2, 0.5, 4), wall1_r, horizontal=True, left_hinge=False)
+        self.door('door2', doors, Point3(-10, 0.25, 5.5), Vec3(3, 0.5, 4), wall2_l, horizontal=True, left_hinge=True)
+
+        self.box_camera('room1_camera', self.house, Point3(0, 0, 2.75), Vec3(0.5, 0.5, 0.5))
+        # room_camera = NodePath('room1_camera')
+        # room_camera.reparentTo(self.house)
+        # room_camera.setPos(0, 0, 2.75)
+        
 
         doors.setTexture(self.door_tex)
         fences.setTexture(self.fence_tex)
