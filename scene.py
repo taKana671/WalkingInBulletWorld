@@ -271,15 +271,18 @@ class Build:
         door_x = -(door_size.x / 2) if left_hinge else door_size.x / 2
         wall_x = wall_size.x / 2 if left_hinge else -wall_size.x / 2
 
+        # knob = Block(name, door, self.cube, Point3(-1 * door_x * 0.8, door_size.y / 2,0), Vec3(90, 90, 0), Vec3(0.25, 0.25, 1))
+        # knob.setColor(0, 0, 0, 1)
+        
         twist = BulletConeTwistConstraint(
             wall.node(),
             door.node(),
             TransformState.makePos(Point3(wall_x, wall_size.y / 2, 0)),
             TransformState.makePos(Point3(door_x, door_size.y / 2, 0)),
         )
-        
+
         # twist.setLimit(60, 36, 120)
-        
+
         twist.setLimit(20, 20, 0, softness=0.1, bias=0.1, relaxation=5.0)
         # 20, 20, 0, softness=0.1, bias=3.0, relaxation=8.0
         # twist.setLimit(60, 60, 120, softness=0.9, bias=0.3, relaxation=1.0)
@@ -313,10 +316,12 @@ class Build:
 
         self.world.attachRigidBody(pole.node())
 
-    def box_camera(self, name, parent, pos, scale):
-        hpr = Vec3(0, 0, 0)
-        box = Block(name, parent, self.cube, pos, hpr, scale)
-        box.setColor(0, 0, 0, 1)
+    def room_camera(self, name, parent, pos):
+        room_camera = NodePath(name)
+        room_camera.reparentTo(parent)
+        room_camera.setPos(pos)
+        return room_camera
+
 
 class StoneHouse(Build):
 
@@ -329,119 +334,132 @@ class StoneHouse(Build):
         self.house.setPos(self.center)
         self.build()
 
-
     def make_textures(self):
+        # for walls
         self.wall_tex = base.loader.loadTexture('textures/fieldstone.jpg')
         self.wall_tex.setWrapU(Texture.WM_repeat)
         self.wall_tex.setWrapV(Texture.WM_repeat)
 
+        # for floors, steps and roof
         self.floor_tex = base.loader.loadTexture('textures/iron.jpg')
         self.floor_tex.setWrapU(Texture.WM_repeat)
         self.floor_tex.setWrapV(Texture.WM_repeat)
 
-        self.fence_tex = base.loader.loadTexture('textures/concrete2.jpg')
-
+        # for doors
         self.door_tex = base.loader.loadTexture('textures/7-8-19a-300x300.jpg')
         self.door_tex.setWrapU(Texture.WM_repeat)
         self.door_tex.setWrapV(Texture.WM_repeat)
 
     def build(self):
         self.make_textures()
-
-        # walls = NodePath(PandaNode('walls'))
-        # walls.reparentTo(base.render)
-        # floors = NodePath(PandaNode('floors'))
-        # floors.reparentTo(base.render)
-        # fences = NodePath(PandaNode('fences'))
-        # fences.reparentTo(base.render)
-        # doors = NodePath(PandaNode('doors'))
-        # doors.reparentTo(base.render)
-
         walls = NodePath(PandaNode('walls'))
         walls.reparentTo(self.house)
         floors = NodePath(PandaNode('floors'))
         floors.reparentTo(self.house)
-        fences = NodePath(PandaNode('fences'))
-        fences.reparentTo(self.house)
         doors = NodePath(PandaNode('doors'))
         doors.reparentTo(self.house)
 
         # the 1st outside floor
         materials = [
-            [Point3(-11, 0, -3.5), Vec3(10, 1, 24)],
-            [Point3(11, 0, -3.5), Vec3(10, 1, 24)],
-            [Point3(0, -10, -3.5), Vec3(12, 1, 4)],
-            [Point3(0, 10, -3.5), Vec3(12, 1, 4)]
+            [Point3(-11, 0, -3.5), Vec3(10, 1, 24)],          # left
+            [Point3(11, 0, -3.5), Vec3(10, 1, 24)],           # right
+            [Point3(0, -10, -3.5), Vec3(12, 1, 4)],           # front
+            [Point3(0, 10, -3.5), Vec3(12, 1, 4)]             # back
         ]
-        for pos, scale in materials:
-            self.floor('floor1', floors, pos, scale)
+        for i, (pos, scale) in enumerate(materials):
+            self.floor(f'floor1_{i}', floors, pos, scale)
 
-        # self.floor('floor1', floors, Point3(-11, 0, -3.5), Vec3(10, 1, 24))
+        # room and room camera on the 1st floor
         self.floor('room1', floors, Point3(0, 0, -3.5), Vec3(12, 1, 16))
-        # self.floor('floor1', floors, Point3(11, 0, -3.5), Vec3(10, 1, 24))
-        # self.floor('floor1', floors, Point3(0, -10, -3.5), Vec3(12, 1, 4))
-        # self.floor('floor1', floors, Point3(0, 10, -3.5), Vec3(12, 1, 4))
+        self.room_camera('room1_camera', self.house, Point3(0, 0, 2.75))
 
-        # rear wall on the lst floor
-        self.wall('wall1_r1', walls, Point3(0, 8.25, 0), Vec3(12, 0.5, 6), horizontal=True)
-        # left wall on the 1st floor
-        self.wall('wall1_l1', walls, Point3(-5.75, 0, 0), Vec3(16, 0.5, 6), vertical=True)
-        # right wall on the 1st floor
-        self.wall('wall1_r1', walls, Point3(5.75, 0, -2), Vec3(16, 0.5, 2), vertical=True)   # under
-        self.wall('wall1_r2', walls, Point3(5.75, 3, 0), Vec3(10, 0.5, 2), vertical=True)    # middle back
-        self.wall('wall1_r3', walls, Point3(5.75, -7, 0), Vec3(2, 0.5, 2), vertical=True)    # middle front
-        self.wall('wall1_r4', walls, Point3(5.75, 0, 2), Vec3(16, 0.5, 2), vertical=True)    # top
-        # front wall on the 1st floor
-        wall1_l = self.wall('wall1_f1', walls, Point3(-4, -8.25, -1), Vec3(4, 0.5, 4), horizontal=True)    # front left
-        wall1_r = self.wall('wall1_f2', walls, Point3(4, -8.25, -1), Vec3(4, 0.5, 4), horizontal=True)         # front right
-        self.wall('wall1_f3', walls, Point3(0, -8.25, 2.0), Vec3(12, 0.5, 2), horizontal=True)       # front top
+        # right and left walls on the 1st floor
+        materials = [
+            [Point3(-5.75, 0, 0), Vec3(16, 0.5, 6)],          # left
+            [Point3(5.75, 0, -2), Vec3(16, 0.5, 2)],          # right under
+            [Point3(5.75, 3, 0), Vec3(10, 0.5, 2)],           # right middle back
+            [Point3(5.75, -7, 0), Vec3(2, 0.5, 2)],           # right front
+            [Point3(5.75, 0, 2), Vec3(16, 0.5, 2)],           # right top
+            [Point3(-13.75, -4.25, 3.5), Vec3(8.5, 0.5, 13)]  # left side of the steps
+        ]
+        for i, (pos, scale) in enumerate(materials):
+            self.wall(f'wall1_side{i}', walls, pos, scale, vertical=True)
+
+        # front and rear walls on the 1st floor
+        materials = [
+            [Point3(0, 8.25, 0), Vec3(12, 0.5, 6)],           # rear
+            [Point3(0, -8.25, 2.0), Vec3(12, 0.5, 2)],        # front top
+        ]
+        for i, (pos, scale) in enumerate(materials):
+            self.wall(f'wall1_fr{i}', walls, pos, scale, horizontal=True)
+
+        wall1_l = self.wall('wall1_fl', walls, Point3(-4, -8.25, -1), Vec3(4, 0.5, 4), horizontal=True)    # front left
+        wall1_r = self.wall('wall1_fr', walls, Point3(4, -8.25, -1), Vec3(4, 0.5, 4), horizontal=True)     # front right
+
         # 2nd floor
-        self.floor('room2', floors, Point3(-4, 4.25, 3.25), Vec3(20, 0.5, 8.5))  # back
-        self.floor('floor2_2', floors, Point3(4, -4.25, 3.25), Vec3(20, 0.5, 8.5))  # flont
-        self.floor('floor2_3', floors, Point3(-9.75, -1, 3.25), Vec3(7.5, 0.5, 2), bitmask=2)      # front doors
+        materials = [
+            [Point3(4, -4.25, 3.25), Vec3(20, 0.5, 8.5), 1],
+            [Point3(-9.75, -1, 3.25), Vec3(7.5, 0.5, 2), 2]
+        ]
+        for i, (pos, scale, mask) in enumerate(materials):
+            self.floor(f'floor2_{i}', floors, pos, scale, bitmask=mask)
+
+        # room and room camera on the 2nd floor
+        self.floor('room2', floors, Point3(-4, 4.25, 3.25), Vec3(20, 0.5, 8.5))
+        self.room_camera('room2_camera', self.house, Point3(-10, 4, 9.5))
+
         # balcony fence
-        self.wall('balcony_1', floors, Point3(4, -8.25, 4), Vec3(0.5, 1, 20), rotate=Vec3(0, 90, 90))      # fence
-        self.wall('balcony_2', floors, Point3(-5.75, -5, 4), Vec3(0.5, 1, 6), rotate=Vec3(0, 90, 0)),       # fence
-        self.wall('balcony_3', floors, Point3(13.75, -4, 4), Vec3(0.5, 1, 8), rotate=Vec3(0, 90, 0))       # fence
-        self.wall('balcony_4', floors, Point3(10, 0.25, 3.75), Vec3(0.5, 1.5, 8), rotate=Vec3(0, 90, 90))  # fence
-        # rear wall on the 2nd floor
-        self.wall('wall2_r1', walls, Point3(-4, 8.25, 6.5), Vec3(20, 0.5, 6), horizontal=True)
-        # left wall on the 2nd floor
-        self.wall('wall2_l1', walls, Point3(-13.75, 4, 4.5), Vec3(8, 0.5, 2), vertical=True)
-        self.wall('wall2_l2', walls, Point3(-13.75, 1.5, 6.5), Vec3(3, 0.5, 2), vertical=True)
-        self.wall('wall2_l3', walls, Point3(-13.75, 6.5, 6.5), Vec3(3, 0.5, 2), vertical=True)
-        self.wall('wall2_l4', walls, Point3(-13.75, 4, 8.5), Vec3(8, 0.5, 2), vertical=True)
-        # right wall on the 2nd floor
-        self.wall('wall2_r1', walls, Point3(5.75, 4.25, 6.5), Vec3(7.5, 0.5, 6), vertical=True)
-        # front wall on the 2nd floor
-        wall2_l = self.wall('wall2_f1', walls, Point3(-12.5, 0.25, 5.5), Vec3(2, 0.5, 4), horizontal=True)
-        self.wall('wall2_f2', walls, Point3(-7.25, 0.25, 5.5), Vec3(2.5, 0.5, 4), horizontal=True)
-        self.wall('wall2_f3', walls, Point3(-9.75, 0.25, 8.5), Vec3(7.5, 0.5, 2), horizontal=True)
-        self.wall('wall2_f4', walls, Point3(0, 0.25, 4.5), Vec3(12, 0.5, 2), horizontal=True)
-        self.wall('wall2_f5', walls, Point3(-4, 0.25, 6.5), Vec3(4, 0.5, 2), horizontal=True)    # front left
-        self.wall('wall2_f6', walls, Point3(4, 0.25, 6.5), Vec3(4, 0.5, 2), horizontal=True)
-        self.wall('wall2_f7', walls, Point3(0, 0.25, 8.5), Vec3(12, 0.5, 2), horizontal=True)
+        materials = [
+            [Point3(4, -8.25, 4), Vec3(0.5, 1, 20), Vec3(0, 90, 90)],
+            [Point3(-5.75, -5, 4), Vec3(0.5, 1, 6), Vec3(0, 90, 0)],
+            [Point3(13.75, -4, 4), Vec3(0.5, 1, 8), Vec3(0, 90, 0)],
+            [Point3(10, 0.25, 3.75), Vec3(0.5, 1.5, 8), Vec3(0, 90, 90)]
+        ]
+        for i, (pos, scale, rotate) in enumerate(materials):
+            self.wall(f'balcony_{i}', floors, pos, scale, rotate=rotate)
+
+        # left and right walls on the 2nd floor
+        materials = [
+            [Point3(-13.75, 4, 4.5), Vec3(8, 0.5, 2)],     # left
+            [Point3(-13.75, 1.5, 6.5), Vec3(3, 0.5, 2)],   # left
+            [Point3(-13.75, 6.5, 6.5), Vec3(3, 0.5, 2)],   # left
+            [Point3(-13.75, 4, 8.5), Vec3(8, 0.5, 2)],     # left
+            [Point3(5.75, 4.25, 6.5), Vec3(7.5, 0.5, 6)]   # right
+        ]
+        for i, (pos, scale) in enumerate(materials):
+            self.wall(f'wall2_side{i}', walls, pos, scale, vertical=True)
+
+        # front and rear walls on the 2nd floor
+        materials = [
+            [Point3(-4, 8.25, 6.5), Vec3(20, 0.5, 6)],      # rear
+            [Point3(-7.25, 0.25, 5.5), Vec3(2.5, 0.5, 4)],  # front
+            [Point3(-9.75, 0.25, 8.5), Vec3(7.5, 0.5, 2)],  # front
+            [Point3(0, 0.25, 4.5), Vec3(12, 0.5, 2)],       # front
+            [Point3(-4, 0.25, 6.5), Vec3(4, 0.5, 2)],       # front
+            [Point3(4, 0.25, 6.5), Vec3(4, 0.5, 2)],        # front
+            [Point3(0, 0.25, 8.5), Vec3(12, 0.5, 2)]        # front
+        ]
+        for i, (pos, scale) in enumerate(materials):
+            self.wall(f'wall2_fr{i}', walls, pos, scale, horizontal=True)
+
+        wall2_l = self.wall('wall2_l', walls, Point3(-12.5, 0.25, 5.5), Vec3(2, 0.5, 4), horizontal=True)
+
         # roof
         self.floor('roof', floors, Point3(-4, 4.25, 9.75), Vec3(20, 0.5, 8.5))
         # steps
         steps = [(f'step_{i}', Point3(-9.75, -7.5 + i, -2.5 + i)) for i in range(6)]
         self.steps(steps, floors, Vec3(7.5, 1, 1), rotate=Vec3(0, 90, 0))
-        # wall next to steps
-        self.wall('wall_steps', walls, Point3(-13.75, -4.25, 3.5), Vec3(8.5, 0.5, 13), vertical=True)
 
-        # 1st floor doors
-        self.door('door1', doors, Point3(-1, -8.25, -1), Vec3(2, 0.5, 4), wall1_l, horizontal=True, left_hinge=True)
-        self.door('door1', doors, Point3(1, -8.25, -1), Vec3(2, 0.5, 4), wall1_r, horizontal=True, left_hinge=False)
-        self.door('door2', doors, Point3(-10, 0.25, 5.5), Vec3(3, 0.5, 4), wall2_l, horizontal=True, left_hinge=True)
-
-        self.box_camera('room1_camera', self.house, Point3(0, 0, 2.75), Vec3(0.5, 0.5, 0.5))
-        # room_camera = NodePath('room1_camera')
-        # room_camera.reparentTo(self.house)
-        # room_camera.setPos(0, 0, 2.75)
-        
+        # doors
+        materials = [
+            [Point3(-1, -8.25, -1), Vec3(2, 0.5, 4), wall1_l, True],    # left door of the room on the 1st floor
+            [Point3(1, -8.25, -1), Vec3(2, 0.5, 4), wall1_r, False],    # left door of the room on the 1st floor
+            [Point3(-10, 0.25, 5.5), Vec3(3, 0.5, 4), wall2_l, True]    # foor ofr the room on the 2nd floor
+        ]
+        for i, (pos, scale, body, hinge) in enumerate(materials):
+            self.door(f'door_{i}', doors, pos, scale, body, horizontal=True, left_hinge=hinge)
 
         doors.setTexture(self.door_tex)
-        fences.setTexture(self.fence_tex)
         walls.setTexture(self.wall_tex)
         floors.setTexture(self.floor_tex)
 

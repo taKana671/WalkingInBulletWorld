@@ -110,8 +110,10 @@ class Walker(NodePath):
            when camera's view is blocked by an object like walls.
         """
         if not opposite:
+            print(self.getRelativePoint(self.walker, Vec3(0, 10, 0)))
             return self.getRelativePoint(self.walker, Vec3(0, 10, 0))
         else:
+            print(self.getRelativePoint(self.walker, Vec3(0, -10, 0)))
             return self.getRelativePoint(self.walker, Vec3(0, -10, 0))
         # return self.getRelativePoint(self.walker, Vec3(0, 10, 0))
 
@@ -353,10 +355,12 @@ class Walking(ShowBase):
         # if the character goes into a room, the camera is reparented to a room-camera np.
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
             if (name := location.getNode().getName()).startswith('room'):
+                # import pdb; pdb.set_trace()
                 room_camera = self.render.find(f'**/{name}_camera')
 
                 self.camera.detachNode()
                 self.camera.reparentTo(room_camera)
+                self.camera.setPos(0, 0, 0)
                 self.camera.lookAt(self.floater)
 
                 # *****using self.camera_np*************
@@ -373,6 +377,9 @@ class Walking(ShowBase):
 
                 self.camera.detachNode()
                 self.camera.reparentTo(self.walker)
+                
+                # self.camera.setPos(self.walker.navigate(True)) <- 外からい部屋に入りかけすぐ出た時にドアがカメラに映る
+                self.camera.setPos(0, -10, 0)
                 self.camera.lookAt(self.floater)
 
                 # *****using self.camera_np*************
