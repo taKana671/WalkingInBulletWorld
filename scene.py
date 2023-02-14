@@ -8,8 +8,6 @@ from panda3d.core import GeomNode
 
 from panda3d.core import BitMask32, TransformState
 from panda3d.core import NodePath, PandaNode
-# from direct.showbase.ShowBase import ShowBase
-# from direct.showbase.ShowBaseGlobal import globalClock
 from panda3d.bullet import BulletConvexHullShape, BulletBoxShape
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletHingeConstraint, BulletConeTwistConstraint
@@ -95,26 +93,6 @@ def make_geomnode(faces, uv_list):
     geom.addPrimitive(prim)
     node.addGeom(geom)
     return node
-
-
-# class Block(NodePath):
-
-#     def __init__(self, cube, name):
-#         super().__init__(BulletRigidBodyNode(name))
-#         model = cube.copyTo(self)
-#         end, tip = model.getTightBounds()
-#         self.node().addShape(BulletBoxShape((tip - end) / 2))
-#         self.setCollideMask(BitMask32.bit(1))
-
-
-# class Cylinder(NodePath):
-
-#     def __init__(self, cylinder, name):
-#         super().__init__(BulletRigidBodyNode(name))
-#         model = cylinder.copyTo(self)
-#         end, tip = model.getTightBounds()
-#         self.node().addShape(BulletBoxShape((tip - end) / 2))
-#         self.setCollideMask(BitMask32.bit(1))
 
 
 class Materials(NodePath):
@@ -254,6 +232,15 @@ class Build:
         self.world.attachRigidBody(wall.node())
         return wall
 
+    def door_knob(self, parent, left_hinge):
+        knob_x = 0.4 if left_hinge else -0.4
+        pos = Point3(knob_x, 0, 0)
+        hpr = Vec3(90, 0, 0)
+        scale = Vec3(1.5, 0.05, 0.05)
+
+        knob = Block('knob', parent, self.cube, pos, hpr, scale)
+        knob.setColor(0, 0, 0, 1)
+
     def door(self, name, parent, pos, scale, wall, horizontal=False, vertical=False, rotate=None, left_hinge=True):
         hpr = self.get_hpr(horizontal, vertical, rotate)
         door = Block(name, parent, self.cube, pos, hpr, scale)
@@ -261,6 +248,7 @@ class Build:
 
         door.node().setMass(1)
         door.node().setDeactivationEnabled(False)
+        self.door_knob(door, left_hinge)
         self.world.attachRigidBody(door.node())
 
         end, tip = door.getTightBounds()
@@ -271,9 +259,6 @@ class Build:
         door_x = -(door_size.x / 2) if left_hinge else door_size.x / 2
         wall_x = wall_size.x / 2 if left_hinge else -wall_size.x / 2
 
-        # knob = Block(name, door, self.cube, Point3(-1 * door_x * 0.8, door_size.y / 2,0), Vec3(90, 90, 0), Vec3(0.25, 0.25, 1))
-        # knob.setColor(0, 0, 0, 1)
-        
         twist = BulletConeTwistConstraint(
             wall.node(),
             door.node(),
@@ -281,11 +266,7 @@ class Build:
             TransformState.makePos(Point3(door_x, door_size.y / 2, 0)),
         )
 
-        # twist.setLimit(60, 36, 120)
-
-        twist.setLimit(20, 20, 0, softness=0.1, bias=0.1, relaxation=5.0)
-        # 20, 20, 0, softness=0.1, bias=3.0, relaxation=8.0
-        # twist.setLimit(60, 60, 120, softness=0.9, bias=0.3, relaxation=1.0)
+        twist.setLimit(60, 60, 0, softness=0.1, bias=0.1, relaxation=8.0)
         self.world.attachConstraint(twist)
 
 
@@ -299,7 +280,7 @@ class Build:
         #     True,
         # )
         # hinge.setDebugDrawSize(2.0)
-        # hinge.setLimit(-90, 120,) # softness=0.9, bias=0.3, relaxation=1.0)  # 1.0
+        # hinge.setLimit(-90, 120,) # softness=0.1, bias=0.1, relaxation=8.0)  # 1.0
         # self.world.attachConstraint(hinge)
 
     def steps(self, steps, parent, scale, horizontal=False, vertical=False, rotate=None):
@@ -329,7 +310,6 @@ class StoneHouse(Build):
         super().__init__(world)
         self.house = NodePath(PandaNode('stoneHouse'))
         self.house.reparentTo(base.render)
-        # self.center = Point3(-5, 10, 0)  # -5
         self.center = Point3(15, 10, -0.5)
         self.house.setPos(self.center)
         self.build()
@@ -420,24 +400,24 @@ class StoneHouse(Build):
 
         # left and right walls on the 2nd floor
         materials = [
-            [Point3(-13.75, 4, 4.5), Vec3(8, 0.5, 2)],     # left
-            [Point3(-13.75, 1.5, 6.5), Vec3(3, 0.5, 2)],   # left
-            [Point3(-13.75, 6.5, 6.5), Vec3(3, 0.5, 2)],   # left
-            [Point3(-13.75, 4, 8.5), Vec3(8, 0.5, 2)],     # left
-            [Point3(5.75, 4.25, 6.5), Vec3(7.5, 0.5, 6)]   # right
+            [Point3(-13.75, 4, 4.5), Vec3(8, 0.5, 2)],        # left
+            [Point3(-13.75, 1.5, 6.5), Vec3(3, 0.5, 2)],      # left
+            [Point3(-13.75, 6.5, 6.5), Vec3(3, 0.5, 2)],      # left
+            [Point3(-13.75, 4, 8.5), Vec3(8, 0.5, 2)],        # left
+            [Point3(5.75, 4.25, 6.5), Vec3(7.5, 0.5, 6)]      # right
         ]
         for i, (pos, scale) in enumerate(materials):
             self.wall(f'wall2_side{i}', walls, pos, scale, vertical=True)
 
         # front and rear walls on the 2nd floor
         materials = [
-            [Point3(-4, 8.25, 6.5), Vec3(20, 0.5, 6)],      # rear
-            [Point3(-7.25, 0.25, 5.5), Vec3(2.5, 0.5, 4)],  # front
-            [Point3(-9.75, 0.25, 8.5), Vec3(7.5, 0.5, 2)],  # front
-            [Point3(0, 0.25, 4.5), Vec3(12, 0.5, 2)],       # front
-            [Point3(-4, 0.25, 6.5), Vec3(4, 0.5, 2)],       # front
-            [Point3(4, 0.25, 6.5), Vec3(4, 0.5, 2)],        # front
-            [Point3(0, 0.25, 8.5), Vec3(12, 0.5, 2)]        # front
+            [Point3(-4, 8.25, 6.5), Vec3(20, 0.5, 6)],        # rear
+            [Point3(-7.25, 0.25, 5.5), Vec3(2.5, 0.5, 4)],    # front
+            [Point3(-9.75, 0.25, 8.5), Vec3(7.5, 0.5, 2)],    # front
+            [Point3(0, 0.25, 4.5), Vec3(12, 0.5, 2)],         # front
+            [Point3(-4, 0.25, 6.5), Vec3(4, 0.5, 2)],         # front
+            [Point3(4, 0.25, 6.5), Vec3(4, 0.5, 2)],          # front
+            [Point3(0, 0.25, 8.5), Vec3(12, 0.5, 2)]          # front
         ]
         for i, (pos, scale) in enumerate(materials):
             self.wall(f'wall2_fr{i}', walls, pos, scale, horizontal=True)
@@ -513,38 +493,3 @@ DECAGONAL_PRISM = {
         (10, 11, 12, 13, 14, 15, 16, 17, 18, 19),
     ]
 }
-
-
-
-# >>> from panda3d.core import Vec3
-# >>> li = [(-0.5, -0.5, 0.5), (-0.5, 0.5, 0.5), (0.5, 0.5, 0.5), (0.5, -0.5, 0.5), (-0.5, -0.5, -0.5), (-0.5, 0.5, -0.5), (0.5, 0.5, -0.5), (0.5, -0.5, -0.5)]
-# >>> li = [Vec3(item) for item in li]
-# >>> li
-# [LVector3f(-0.5, -0.5, 0.5), LVector3f(-0.5, 0.5, 0.5), LVector3f(0.5, 0.5, 0.5), LVector3f(0.5, -0.5, 0.5), LVector3f(-0.5, -0.5, -0.5), LVector3f(-0.5, 0.5, -0.5), LVector3f(0.5, 0.5, -0.5), LVector3f(0.5, -0.5, -0.5)]
-# >>> min(li)
-# LVector3f(-0.5, -0.5, -0.5)
-# >>> max(li)
-# LVector3f(0.5, 0.5, 0.5)
-# >>> left_bottom = min(li)
-# >>> right_top = max(li)
-# >>> height = right_top.z - left_bottom.z
-# >>> height
-# 1.0
-# >>> width = right_top.x - left_bottom.x
-# >>> width
-# 1.0
-# >>> pt = li[0]
-# >>> pt
-# LVector3f(-0.5, -0.5, 0.5)
-# >>> (pt.x - right_bottom.x) / width
-# Traceback (most recent call last):
-#   File "<stdin>", line 1, in <module>
-# NameError: name 'right_bottom' is not defined. Did you mean: 'left_bottom'?
-# >>> (pt.x - left_bottom.x) / width
-# 0.0
-# >>> (pt.z - left_bottom.z) / height
-# 1.0
-# >>> li2 = [((item.x - left_bottom.x) / width, (item.z - left_bottom.z) / height) for item in li]
-# >>> li2
-# [(0.0, 1.0), (0.0, 1.0), (1.0, 1.0), (1.0, 1.0), (0.0, 0.0), (0.0, 0.0), (1.0, 0.0), (1.0, 0.0)]
-# >>>

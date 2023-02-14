@@ -1,13 +1,8 @@
-import math
 import sys
-
-import time
 
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
-
 from direct.showbase.InputStateGlobal import inputState
-
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletDebugNode, BulletRigidBodyNode
 from panda3d.bullet import BulletHeightfieldShape, BulletCapsuleShape, ZUp
@@ -19,8 +14,6 @@ from panda3d.core import PNMImage
 from panda3d.core import ShaderTerrainMesh, Shader, load_prc_file_data
 from panda3d.core import SamplerState
 from direct.actor.Actor import Actor
-
-from panda3d.core import CompassEffect
 
 from scene import StoneHouse
 
@@ -36,12 +29,23 @@ class Sphere(NodePath):
         self.setColor(color)
 
 
-class Ralph(NodePath):
+class Walker(NodePath):
     RUN = 'run'
     WALK = 'walk'
 
-    def __init__(self):
-        super().__init__(PandaNode('ralph'))
+    def __init__(self, world):
+        h, w = 6, 1.5
+        shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
+        super().__init__(BulletCharacterControllerNode(shape, 0.4, 'character'))
+        self.world = world
+        self.reparentTo(base.render)
+        self.setCollideMask(BitMask32.allOn())
+        # self.setPos(-10, -3, -3)  # (10, 10, 8)
+        self.setPos(Point3(16, -20, -3))
+        self.setScale(0.5)
+
+        self.direction_node = NodePath(PandaNode('direction'))
+        self.direction_node.reparentTo(self)
 
         self.actor = Actor(
             'models/ralph/ralph.egg',
@@ -50,8 +54,8 @@ class Ralph(NodePath):
         )
         self.actor.setTransform(TransformState.makePos(Vec3(0, 0, -2.5)))  # -3
         self.actor.setName('ralph')
-        self.actor.reparentTo(self)
-        self.setH(180)
+        self.actor.reparentTo(self.direction_node)
+        self.direction_node.setH(180)
 
         self.right_eye = self.actor.exposeJoint(None, 'modelRoot', 'RightEyeLid')
         self.left_eye = self.actor.exposeJoint(None, 'modelRoot', 'LeftEyeLid')
@@ -60,12 +64,12 @@ class Ralph(NodePath):
 
         # the point at which the right eye looks
         self.front_right = NodePath('frontRight')
-        self.front_right.reparentTo(self)
+        self.front_right.reparentTo(self.direction_node)
         self.front_right.setPos(-0.3, -2, -2.7)
 
         # the point at which the left eye looks
         self.front_left = NodePath('frontLeft')
-        self.front_left.reparentTo(self)
+        self.front_left.reparentTo(self.direction_node)
         self.front_left.setPos(0.3, -2, -2.7)
 
         # **debug***************************************
@@ -75,7 +79,62 @@ class Ralph(NodePath):
         sphere2.reparentTo(self.front_left)
         # **********************************************
 
-    def play_anim(self, command, rate):
+    def navigate(self):
+        """Returns a relative point to enable camera to follow a character
+           when camera's view is blocked by an object like walls.
+        """
+        return self.getRelativePoint(self.direction_node, Vec3(0, 10, 0))
+
+    def ray_cast(self, from_pos, to_pos, mask=None):
+        if mask is None:
+            result = self.world.rayTestAll(from_pos, to_pos)
+        else:
+            result = self.world.rayTestAll(from_pos, to_pos, mask)
+
+        for hit in result.getHits():
+            if hit.getNode() != self.node():
+                return hit
+        return None
+
+    def current_location(self):
+        below = base.render.getRelativePoint(self, Vec3(0, 0, -3))
+        return self.ray_cast(self.getPos(), below)
+
+    def watch_steps(self):
+        right_eye = self.right_eye.getPos() + self.getPos()
+        front_right = self.front_right.getPos(self) + self.getPos()
+
+        left_eye = self.left_eye.getPos() + self.getPos()
+        front_left = self.front_left.getPos(self) + self.getPos()
+
+        if (right_hit := self.ray_cast(right_eye, front_right, BitMask32.bit(2))) and \
+                (lelt_hit := self.ray_cast(left_eye, front_left, BitMask32.bit(2))):
+            if right_hit.getNode() == lelt_hit.getNode():
+                return right_hit
+        return None
+
+    def go_forward(self, dist):
+        orientation = self.direction_node.getQuat(base.render).getForward()
+        pos = self.getPos() + orientation * dist
+
+        if below_hit := self.current_location():
+            if steps_hit := self.watch_steps():
+                below_height = below_hit.getHitPos().z
+                step_height = steps_hit.getHitPos().z
+
+                if 0.5 < (diff := step_height - below_height) < 1.2:
+                    pos.z += diff
+        self.setPos(pos)
+
+    def go_back(self, dist):
+        # pos = base.render.getRelativePoint(self, Point3(0, 10, 0))
+        orientation = self.direction_node.getQuat(base.render).getForward()
+        self.setPos(self.getPos() + orientation * dist)
+
+    def turn(self, angle):
+        self.direction_node.setH(self.direction_node.getH() + angle)
+
+    def play_anim(self, command, rate=1):
         if self.actor.getCurrentAnim() != command:
             self.actor.loop(command)
             self.actor.setPlayRate(rate, command)
@@ -84,93 +143,6 @@ class Ralph(NodePath):
         if self.actor.getCurrentAnim() is not None:
             self.actor.stop()
             self.actor.pose(self.WALK, 5)
-
-
-class Walker(NodePath):
-
-    def __init__(self, world):
-        h, w = 6, 1.5
-        shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
-        super().__init__(BulletCharacterControllerNode(shape, 0.4, 'character'))
-        self.world = world
-        self.reparentTo(base.render)
-        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
-        self.setPos(-10, -3, -3)
-        # self.setPos(10, 10, 8)
-        self.setScale(0.5)
-        self.walker = Ralph()
-        self.walker.reparentTo(self)
-
-        self.cam_navigator = NodePath('camNavigator')
-        self.cam_navigator.reparentTo(self.walker)
-        self.cam_navigator.setPos(Point3(0, 10, 0))
-
-    def navigate(self, opposite=False):
-        """Returns a relative point to enable camera to follow a character
-           when camera's view is blocked by an object like walls.
-        """
-        if not opposite:
-            print(self.getRelativePoint(self.walker, Vec3(0, 10, 0)))
-            return self.getRelativePoint(self.walker, Vec3(0, 10, 0))
-        else:
-            print(self.getRelativePoint(self.walker, Vec3(0, -10, 0)))
-            return self.getRelativePoint(self.walker, Vec3(0, -10, 0))
-        # return self.getRelativePoint(self.walker, Vec3(0, 10, 0))
-
-    def ray_cast(self, from_pos, to_pos, mask=None):
-        if mask is None:
-            result = self.world.rayTestAll(from_pos, to_pos)
-        else:
-            result = self.world.rayTestAll(from_pos, to_pos, BitMask32.bit(mask))
-
-        for hit in result.getHits():
-            if hit.getNode() != self.node():
-                return hit
-        return None
-
-    def current_location(self):
-        # below = base.render.getRelativePoint(self, Vec3(0, 0, -3))
-        below = base.render.getRelativePoint(self, Vec3(0, 0, -3))
-        return self.ray_cast(self.getPos(), below)
-
-    def go_forward(self, dist):
-        walker_pos = self.getPos()
-        orientation = self.walker.getQuat(base.render).getForward()
-        pos = walker_pos + orientation * dist
-
-        right_eye = self.walker.right_eye.getPos() + walker_pos
-        front_right = self.walker.front_right.getPos(self) + walker_pos
-        left_eye = self.walker.left_eye.getPos() + walker_pos
-        front_left = self.walker.front_left.getPos(self) + walker_pos
-
-        if below_hit := self.current_location():
-            if (front_right_hit := self.ray_cast(right_eye, front_right, 2)) and \
-                    (front_lelt_hit := self.ray_cast(left_eye, front_left, 2)):
-                if front_right_hit.getNode() == front_lelt_hit.getNode():
-                    below_height = below_hit.getHitPos().z
-                    step_height = front_right_hit.getHitPos().z
-
-                    if 0.5 < (diff := step_height - below_height) < 1.2:
-                        pos.z += diff
-
-        self.setPos(pos)
-
-    def go_back(self, dist):
-        orientation = self.walker.getQuat(base.render).getForward()
-        # pos = base.render.getRelativePoint(self, Point3(0, 10, 0))
-        self.setPos(self.getPos() + orientation * dist)
-
-    def turn(self, angle):
-        self.walker.setH(self.walker.getH() + angle)
-
-    def run(self, rate=1):
-        self.walker.play_anim(self.walker.RUN, rate)
-
-    def walk(self, rate=1):
-        self.walker.play_anim(self.walker.WALK, rate)
-
-    def stop(self):
-        self.walker.stop_anim()
 
 
 class Walking(ShowBase):
@@ -186,16 +158,14 @@ class Walking(ShowBase):
             stm-max-views 8
             stm-max-chunk-count 2048""")
         self.disableMouse()
-        # self.camera.setPos(Point3(0, -30, 5))
-        # self.camera.lookAt(0, 0, 0)
 
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
 
         # ****************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
+        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        # self.world.setDebugNode(collide_debug.node())
+        # collide_debug.show()
         # ****************************************
         self.create_terrain()
         self.building = StoneHouse(self.world)
@@ -219,7 +189,6 @@ class Walking(ShowBase):
         self.camera.reparentTo(self.walker)
         self.camera.setPos(self.walker.navigate())
         self.camera.lookAt(self.floater)
-
         self.camLens.setFov(90)
 
         inputState.watchWithModifiers('forward', 'arrow_up')
@@ -230,7 +199,6 @@ class Walking(ShowBase):
         self.accept('escape', sys.exit)
         self.accept('p', self.print_info)
         self.taskMgr.add(self.update, 'update')
-
 
     def create_terrain(self):
         img = PNMImage(Filename('mytest.png'))
@@ -267,6 +235,7 @@ class Walking(ShowBase):
         self.terrain.setTexture(grass_tex)
 
     def control_walker(self, dt):
+        # contol walker movement
         if inputState.isSet('forward'):
             self.walker.go_forward(-10 * dt)
         if inputState.isSet('backward'):
@@ -276,74 +245,24 @@ class Walking(ShowBase):
         if inputState.isSet('right'):
             self.walker.turn(-100 * dt)
 
+        # play animation
         if inputState.isSet('forward'):
-            self.walker.run()
+            self.walker.play_anim(self.walker.RUN)
         elif inputState.isSet('backward'):
-            self.walker.walk(-1)  # -1 means to play an animation backwards.
+            self.walker.play_anim(self.walker.WALK, -1)
         elif inputState.isSet('left') or inputState.isSet('right'):
-            self.walker.walk()
+            self.walker.play_anim(self.walker.WALK)
         else:
-            self.walker.stop()
+            self.walker.stop_anim()
 
     def print_info(self):
-        print('walker_pos', self.walker.getPos())
-        print('camera_navigator', self.walker.cam_navigator.getPos(), self.walker.cam_navigator.getPos(self.walker), self.walker.navigate())
-        print('camera_pos', self.camera.getPos(), self.camera.getPos(self.walker))
-
-
-        # print(self.walker.walker.right_eye_lookat.getPos(self.walker) + self.walker.getPos())
-        print('right_eye_lookat', self.walker.getRelativeVector(self.walker.walker.front_right, Vec3(-0.3, -2, -2.7))  + self.walker.getPos()) 
-        print('left_eye_lookat', self.walker.getRelativeVector(self.walker.walker.front_left, Vec3(0.3, -2, -2.7))  + self.walker.getPos())
-                
-        print('直下')
-        # ver_ground = self.walker.getRelativeVector(self.walker.walker, Vec3(0, 0,-2.7)) + self.walker.getPos() 
-        ver_ground = self.render.getRelativePoint(self.walker, Vec3(0, 0, -3))
-        print('-3だけ下', ver_ground)
-        result = self.world.rayTestAll(self.walker.getPos(), ver_ground)
-        for hit in result.getHits():
-            nd = hit.getNode()
-            print('name', nd.getName(), 'hit_pos', hit.getHitPos())
-        
-        print('右目から見た前方')
-        ground = self.walker.walker.front_right.getPos(self.walker) + self.walker.getPos()
-        print('ground', ground)
-        eye = self.walker.walker.right_eye.getPos() + self.walker.getPos()
-        print('eye', eye)
-        # ground = self.walker.getRelativeVector(self.walker.navigator, Vec3(-0.3, -2, -2.7)) + self.walker.getPos()
-        # result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
-        result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
-        
-        for hit in result.getHits():
-            nd = hit.getNode()
-            print(nd.getName())
-
-        print('左目から見た前方')
-        ground = self.walker.walker.front_left.getPos(self.walker) + self.walker.getPos()
-        print('ground', ground)
-        eye = self.walker.walker.left_eye.getPos() + self.walker.getPos()
-        print('eye', eye)
-        # ground = self.walker.getRelativeVector(self.walker.navigator, Vec3(-0.3, -2, -2.7)) + self.walker.getPos()
-        # result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
-        result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
-        
-        for hit in result.getHits():
-            nd = hit.getNode()
-            print('name', nd.getName(), 'hit_pos', hit.getHitPos())
-        # eye = self.walker.walker.left_eye.getPos() + self.walker.getPos()
-        # ground = self.walker.getRelativeVector(self.walker.navigator_left, Vec3(0.3, -2, -2.7)) + self.walker.getPos()
-        # result = self.world.rayTestAll(eye, ground, BitMask32.bit(2))
-        # for hit in result.getHits():
-        #     nd = hit.getNode()
-        #     print(nd.getName())
-
-        print('----------------------')
-
+        print(self.walker.getPos())
 
     def control_camera_outdoors(self):
         # If the camera's view is blocked by an object like walls, the camera is repositioned.
         walker_pos = self.walker.getPos()
         camera_pos = self.camera.getPos(self.walker) + walker_pos
-        result = self.world.rayTestClosest(camera_pos, walker_pos)  # , BitMask32.bit(1) | BitMask32.bit(2))
+        result = self.world.rayTestClosest(camera_pos, walker_pos)
 
         if result.hasHit():
             if result.getNode() != self.walker.node():
@@ -355,7 +274,6 @@ class Walking(ShowBase):
         # if the character goes into a room, the camera is reparented to a room-camera np.
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
             if (name := location.getNode().getName()).startswith('room'):
-                # import pdb; pdb.set_trace()
                 room_camera = self.render.find(f'**/{name}_camera')
 
                 self.camera.detachNode()
@@ -374,18 +292,15 @@ class Walking(ShowBase):
 
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
             if not location.getNode().getName().startswith('room'):
-
                 self.camera.detachNode()
                 self.camera.reparentTo(self.walker)
-                
-                # self.camera.setPos(self.walker.navigate(True)) <- 外からい部屋に入りかけすぐ出た時にドアがカメラに映る
                 self.camera.setPos(0, -10, 0)
                 self.camera.lookAt(self.floater)
 
                 # *****using self.camera_np*************
                 # self.camera.detachNode()
                 # self.camera.reparentTo(self.camera_np)
-                # # self.camera_np.setPos(self.walker.navigate(True))  # <- なくてもOK 
+                # # self.camera_np.setPos(self.walker.navigate(True))  # <- なくてもOK
                 # self.camera.lookAt(self.floater)
                 # ***************************************
 
@@ -394,7 +309,6 @@ class Walking(ShowBase):
         self.control_walker(dt)
 
         if self.walker.isAncestorOf(self.camera):
-        # if self.camera_np.isAncestorOf(self.camera):
             self.control_camera_outdoors()
         else:
             self.control_camera_indoors()
@@ -406,4 +320,3 @@ class Walking(ShowBase):
 if __name__ == '__main__':
     app = Walking()
     app.run()
-
