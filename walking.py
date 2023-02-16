@@ -14,8 +14,9 @@ from panda3d.core import PNMImage
 from panda3d.core import ShaderTerrainMesh, Shader, load_prc_file_data
 from panda3d.core import SamplerState
 from direct.actor.Actor import Actor
+from panda3d.core import AmbientLight, DirectionalLight
 
-from scene import StoneHouse
+from scene import StoneHouse, BrickHouse
 
 
 class Sphere(NodePath):
@@ -163,12 +164,13 @@ class Walking(ShowBase):
         self.world.setGravity(Vec3(0, 0, -9.81))
 
         # ****************************************
-        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        # self.world.setDebugNode(collide_debug.node())
-        # collide_debug.show()
+        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        self.world.setDebugNode(collide_debug.node())
+        collide_debug.show()
         # ****************************************
         self.create_terrain()
         self.building = StoneHouse(self.world)
+        BrickHouse(self.world)
 
         self.walker = Walker(self.world)
         self.world.attachCharacter(self.walker.node())
@@ -178,18 +180,12 @@ class Walking(ShowBase):
         self.floater.reparentTo(self.walker)
         self.floater.setZ(2.0)
 
-        # using camera_np***************
-        # self.camera_np = NodePath('cameraNp')
-        # self.camera_np.reparentTo(self.walker)
-        # self.camera.reparentTo(self.camera_np)
-        # self.camera_np.setPos(self.walker.navigate())
-        # self.camera.lookAt(self.floater)
-        # *******************************
-
         self.camera.reparentTo(self.walker)
         self.camera.setPos(self.walker.navigate())
         self.camera.lookAt(self.floater)
         self.camLens.setFov(90)
+
+        # self.setup_lights()
 
         inputState.watchWithModifiers('forward', 'arrow_up')
         inputState.watchWithModifiers('backward', 'arrow_down')
@@ -199,6 +195,21 @@ class Walking(ShowBase):
         self.accept('escape', sys.exit)
         self.accept('p', self.print_info)
         self.taskMgr.add(self.update, 'update')
+
+    def setup_lights(self):
+        ambient_light = self.render.attachNewNode(AmbientLight('ambientLignt'))
+        ambient_light.node().setColor((0.6, 0.6, 0.6, 1))
+        self.render.setLight(ambient_light)
+
+        directional_light = self.render.attachNewNode(DirectionalLight('directionalLight'))
+        # directional_light.node().getLens().setFilmSize(200, 200)
+        # directional_light.node().getLens().setNearFar(1, 100)
+        directional_light.node().setColor((1, 1, 1, 1))
+        # directional_light.setPosHpr(Point3(0, 0, 30), Vec3(-30, -45, 0))
+        directional_light.setHpr((-30, -90, 0))
+        directional_light.node().setShadowCaster(True)
+        self.render.setShaderAuto()
+        self.render.setLight(directional_light)
 
     def create_terrain(self):
         img = PNMImage(Filename('mytest.png'))
@@ -259,7 +270,8 @@ class Walking(ShowBase):
         print(self.walker.getPos())
 
     def control_camera_outdoors(self):
-        # If the camera's view is blocked by an object like walls, the camera is repositioned.
+        # If the camera's view is blocked by an object like walls, 
+        # the camera is repositioned.
         walker_pos = self.walker.getPos()
         camera_pos = self.camera.getPos(self.walker) + walker_pos
         result = self.world.rayTestClosest(camera_pos, walker_pos)
@@ -268,10 +280,10 @@ class Walking(ShowBase):
             if result.getNode() != self.walker.node():
                 if not result.getNode().getName().startswith('door'):
                     self.camera.setPos(self.walker.navigate())
-                    # self.camera_np.setPos(self.walker.navigate())
                     self.camera.lookAt(self.floater)
 
-        # if the character goes into a room, the camera is reparented to a room-camera np.
+        # if the character goes into a room, 
+        # the camera is reparented to a room-camera np.
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
             if (name := location.getNode().getName()).startswith('room'):
                 room_camera = self.render.find(f'**/{name}_camera')
@@ -280,12 +292,6 @@ class Walking(ShowBase):
                 self.camera.reparentTo(room_camera)
                 self.camera.setPos(0, 0, 0)
                 self.camera.lookAt(self.floater)
-
-                # *****using self.camera_np*************
-                # self.camera.detachNode()
-                # self.camera.reparentTo(room_camera)
-                # self.camera.lookAt(self.floater)
-                # ***************************************
 
     def control_camera_indoors(self):
         self.camera.lookAt(self.floater)
@@ -296,13 +302,6 @@ class Walking(ShowBase):
                 self.camera.reparentTo(self.walker)
                 self.camera.setPos(0, -10, 0)
                 self.camera.lookAt(self.floater)
-
-                # *****using self.camera_np*************
-                # self.camera.detachNode()
-                # self.camera.reparentTo(self.camera_np)
-                # # self.camera_np.setPos(self.walker.navigate(True))  # <- なくてもOK
-                # self.camera.lookAt(self.floater)
-                # ***************************************
 
     def update(self, task):
         dt = globalClock.getDt()
