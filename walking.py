@@ -3,20 +3,16 @@ import sys
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
+from direct.actor.Actor import Actor
 from panda3d.bullet import BulletWorld
-from panda3d.bullet import BulletDebugNode, BulletRigidBodyNode
-from panda3d.bullet import BulletHeightfieldShape, BulletCapsuleShape, ZUp
+from panda3d.bullet import BulletDebugNode
+from panda3d.bullet import BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import PandaNode, NodePath, TransformState
-from panda3d.core import Vec3, Point3, BitMask32, Quat
-from panda3d.core import Filename
-from panda3d.core import PNMImage
-from panda3d.core import ShaderTerrainMesh, Shader, load_prc_file_data
-from panda3d.core import SamplerState
-from direct.actor.Actor import Actor
+from panda3d.core import Vec3, Point3, BitMask32
 from panda3d.core import AmbientLight, DirectionalLight
 
-from scene import StoneHouse, BrickHouse
+from scene import Scene
 
 
 class Sphere(NodePath):
@@ -41,7 +37,6 @@ class Walker(NodePath):
         self.world = world
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.allOn())
-        # self.setPos(-10, -3, -3)  # (10, 10, 8)
         self.setPos(Point3(16, -20, -3))
         self.setScale(0.5)
 
@@ -84,7 +79,7 @@ class Walker(NodePath):
         """Returns a relative point to enable camera to follow a character
            when camera's view is blocked by an object like walls.
         """
-        return self.getRelativePoint(self.direction_node, Vec3(0, 10, 0))
+        return self.getRelativePoint(self.direction_node, Vec3(0, 10, 2))
 
     def ray_cast(self, from_pos, to_pos, mask=None):
         if mask is None:
@@ -150,27 +145,17 @@ class Walking(ShowBase):
 
     def __init__(self):
         super().__init__()
-
-        load_prc_file_data("", """
-            textures-power-2 none
-            gl-coordinate-system default
-            window-title Panda3D ShaderTerrainMesh Demo
-            filled-wireframe-apply-shader true
-            stm-max-views 8
-            stm-max-chunk-count 2048""")
         self.disableMouse()
 
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
 
         # ****************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
+        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        # self.world.setDebugNode(collide_debug.node())
+        # collide_debug.show()
         # ****************************************
-        self.create_terrain()
-        self.building = StoneHouse(self.world)
-        BrickHouse(self.world)
+        self.scene = Scene(self.world)
 
         self.walker = Walker(self.world)
         self.world.attachCharacter(self.walker.node())
@@ -180,11 +165,21 @@ class Walking(ShowBase):
         self.floater.reparentTo(self.walker)
         self.floater.setZ(2.0)
 
-        self.camera.reparentTo(self.walker)
-        self.camera.setPos(self.walker.navigate())
+        # using camera_np***************
+        self.camera_np = NodePath('cameraNp')
+        self.camera_np.reparentTo(self.walker)
+        self.camera.reparentTo(self.camera_np)
+        self.camera_np.setPos(self.walker.navigate())
         self.camera.lookAt(self.floater)
-        self.camLens.setFov(90)
+        # *******************************
 
+        # not using camera_np***************
+        # self.camera.reparentTo(self.walker)
+        # self.camera.setPos(self.walker.navigate())
+        # self.camera.lookAt(self.floater)
+        # *******************************
+
+        self.camLens.setFov(90)
         # self.setup_lights()
 
         inputState.watchWithModifiers('forward', 'arrow_up')
@@ -211,40 +206,6 @@ class Walking(ShowBase):
         self.render.setShaderAuto()
         self.render.setLight(directional_light)
 
-    def create_terrain(self):
-        img = PNMImage(Filename('mytest.png'))
-        shape = BulletHeightfieldShape(img, 10, ZUp)
-        np = NodePath(BulletRigidBodyNode('test'))
-        np.node().addShape(shape)
-        np.setCollideMask(BitMask32.bit(1))
-        self.world.attachRigidBody(np.node())
-
-        # self.camLens.set_fov(90)
-        # self.camLens.set_near_far(0.1, 50000)
-
-        terrain_node = ShaderTerrainMesh()
-        heightfield = self.loader.loadTexture('mytest.png')
-        heightfield.wrap_u = SamplerState.WM_clamp
-        heightfield.wrap_v = SamplerState.WM_clamp
-        terrain_node.heightfield = heightfield
-        terrain_node.target_triangle_width = 10.0
-        terrain_node.generate()
-
-        self.terrain = self.render.attachNewNode(terrain_node)
-        self.terrain.setScale(256, 256, 10)
-
-        offset = img.getXSize() / 2.0 - 0.5
-
-        # self.terrain.setPos(-65, -65, -5)
-        self.terrain.setPos(-offset, -offset, -10 / 2.0)
-        terrain_shader = Shader.load(Shader.SL_GLSL, "terrain.vert.glsl", "terrain.frag.glsl")
-        self.terrain.set_shader(terrain_shader)
-        self.terrain.set_shader_input("camera", self.camera)
-        grass_tex = self.loader.loadTexture('grass.png')
-        grass_tex.setMinfilter(SamplerState.FT_linear_mipmap_linear)
-        grass_tex.set_anisotropic_degree(16)
-        self.terrain.setTexture(grass_tex)
-
     def control_walker(self, dt):
         # contol walker movement
         if inputState.isSet('forward'):
@@ -267,10 +228,10 @@ class Walking(ShowBase):
             self.walker.stop_anim()
 
     def print_info(self):
-        print(self.walker.getPos())
+        print('walker', self.walker.getPos(), 'camera', self.camera.getPos(self.walker) + self.walker.getPos())
 
     def control_camera_outdoors(self):
-        # If the camera's view is blocked by an object like walls, 
+        # If the camera's view is blocked by an object like walls,
         # the camera is repositioned.
         walker_pos = self.walker.getPos()
         camera_pos = self.camera.getPos(self.walker) + walker_pos
@@ -279,18 +240,25 @@ class Walking(ShowBase):
         if result.hasHit():
             if result.getNode() != self.walker.node():
                 if not result.getNode().getName().startswith('door'):
-                    self.camera.setPos(self.walker.navigate())
+                    self.camera_np.setPos(self.walker.navigate())
+                    # self.camera.setPos(self.walker.navigate())
                     self.camera.lookAt(self.floater)
 
-        # if the character goes into a room, 
+        # if the character goes into a room,
         # the camera is reparented to a room-camera np.
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
             if (name := location.getNode().getName()).startswith('room'):
+                print('out_door', location.getNode().getName())
                 room_camera = self.render.find(f'**/{name}_camera')
+                # *****not using self.camera_np*************
+                # self.camera.detachNode()
+                # self.camera.reparentTo(room_camera)
+                # self.camera.setPos(0, 0, 0)
+                # self.camera.lookAt(self.floater)
 
+                # *****using self.camera_np*************
                 self.camera.detachNode()
                 self.camera.reparentTo(room_camera)
-                self.camera.setPos(0, 0, 0)
                 self.camera.lookAt(self.floater)
 
     def control_camera_indoors(self):
@@ -298,9 +266,15 @@ class Walking(ShowBase):
 
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
             if not location.getNode().getName().startswith('room'):
+                # *****using self.camera_np*************
+                # self.camera.detachNode()
+                # self.camera.reparentTo(self.walker)
+                # self.camera.setPos(0, -10, 2)
+                # self.camera.lookAt(self.floater)
+
+                # *****using self.camera_np*************
                 self.camera.detachNode()
-                self.camera.reparentTo(self.walker)
-                self.camera.setPos(0, -10, 0)
+                self.camera.reparentTo(self.camera_np)
                 self.camera.lookAt(self.floater)
 
     def update(self, task):
