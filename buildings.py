@@ -300,7 +300,15 @@ class Materials:
 
         plane = Plane(name, parent, model, pos)
         self.world.attachRigidBody(plane.node())
+
         return plane
+
+    def point_on_circumference(self, angle, radius):
+        rad = math.radians(angle)
+        x = math.cos(rad) * radius
+        y = math.sin(rad) * radius
+
+        return x, y
 
 
 class StoneHouse(Materials):
@@ -522,12 +530,12 @@ class BrickHouse(Materials):
 
         # side walls
         materials = [
-            [Point3(-0.25, -6.25, 3), Vec3(4.5, 0.5, 4)],   # left
+            [Point3(-0.25, -6.25, 3), Vec3(4.5, 0.5, 4)],    # left
             [Point3(-6.25, -3, 5), Vec3(3, 0.5, 8)],
             [Point3(-6.25, 3, 5), Vec3(3, 0.5, 8)],
             [Point3(-6.25, 0, 2.5), Vec3(3, 0.5, 3)],
             [Point3(-6.25, 0, 7.5), Vec3(3, 0.5, 3)],
-            [Point3(6.25, -6.25, 3), Vec3(4.5, 0.5, 4)],    # right
+            [Point3(6.25, -6.25, 3), Vec3(4.5, 0.5, 4)],     # right
             [Point3(6.25, -2.75, 5), Vec3(2.5, 0.5, 8)],
             [Point3(6.25, 3, 5), Vec3(3, 0.5, 8)],
             [Point3(6.25, 0, 2.5), Vec3(3, 0.5, 3)],
@@ -538,10 +546,10 @@ class BrickHouse(Materials):
 
         # roofs
         materials = [
-            [Point3(3, -6.5, 5.25), Vec3(7, 4, 0.5)],     # small room
-            [Point3(3, -6.5, 5.5), Vec3(6, 3, 0.5)],      # small room
-            [Point3(0, 0, 9.25), Vec3(13, 9, 0.5)],       # big room
-            [Point3(0, 0, 9.5), Vec3(12, 8, 0.5)],        # big room
+            [Point3(3, -6.5, 5.25), Vec3(7, 4, 0.5)],       # small room
+            [Point3(3, -6.5, 5.5), Vec3(6, 3, 0.5)],        # small room
+            [Point3(0, 0, 9.25), Vec3(13, 9, 0.5)],         # big room
+            [Point3(0, 0, 9.5), Vec3(12, 8, 0.5)],          # big room
         ]
         for i, (pos, scale) in enumerate(materials):
             self.block(f'roof_{i}', roofs, pos, scale)
@@ -580,6 +588,11 @@ class Terrace(Materials):
         self.roof_tex.setWrapU(Texture.WM_repeat)
         self.roof_tex.setWrapV(Texture.WM_repeat)
 
+        # for steps
+        self.steps_tex = base.loader.loadTexture('textures/6-3-19e-300x300.jpg')
+        self.steps_tex.setWrapU(Texture.WM_repeat)
+        self.steps_tex.setWrapV(Texture.WM_repeat)
+
     def build(self):
         self.make_textures()
         floors = NodePath('floors')
@@ -588,13 +601,15 @@ class Terrace(Materials):
         walls.reparentTo(self.terrace)
         roofs = NodePath('roofs')
         roofs.reparentTo(self.terrace)
+        steps = NodePath('steps')
+        steps.reparentTo(self.terrace)
 
         # the 1st floor
         self.block('floor1', floors, Point3(0, 0, 0), Vec3(16, 0.5, 12), hpr=Vec3(0, 90, 0))
 
         # walls
         self.block('wall1_r', walls, Point3(-5.5, 5.75, 3.25), Vec3(5, 0.5, 6))                       # rear
-        self.block('wall1_r', walls, Point3(-7.75, 5.25, 3.25), Vec3(4.5, 0.5, 6), horizontal=False)  # side
+        self.block('wall1_r', walls, Point3(-7.75, 3.25, 3.25), Vec3(4.5, 0.5, 6), horizontal=False)  # side
 
         # columns
         materials = [
@@ -608,19 +623,41 @@ class Terrace(Materials):
         # roof
         self.block('roof', roofs, Point3(0, 0, 6.5), Vec3(16, 0.5, 12), hpr=Vec3(0, 90, 0))
 
+        # fall prevention blocks
+        materials = [
+            [Point3(0, 5.75, 7.25), Vec3(16, 0.5, 1), True],        # rear
+            [Point3(0, -5.75, 7.25), Vec3(16, 0.5, 1), True],       # front
+            [Point3(-7.75, 0, 7.25), Vec3(11, 0.5, 1), False],      # left
+            [Point3(7.75, -1.75, 7.25), Vec3(7.5, 0.5, 1), False]   # right
+        ]
+        for i, (pos, scale, hor) in enumerate(materials):
+            self.block(f'prevention_{i}', roofs, pos, scale, horizontal=hor)
+
         # spiral staircase
-        pole = self.pole('pole', walls, Point3(9, 1.5, 3), Vec3(0.15, 0.15, 12))
+        center = Point3(9, 1.5, 3.5)
+        self.pole('center_pole', steps, center, Vec3(0.15, 0.15, 13))
+
         for i in range(7):
             angle = -90 + 30 * i
-            rad = math.radians(angle)
-            x = math.cos(rad) * 2.3
-            y = math.sin(rad) * 2.3
-            pos = Point3(x, y, i + 0.5) + Point3(9, 1.5, 0)
-            self.block(f'step_{i}', roofs, pos, Vec3(4, 0.5, 2), hpr=Vec3(angle, 90, 0), bitmask=2)
+            x, y = self.point_on_circumference(angle, 2.5)
+            pos = Point3(center.x + x, center.y + y, i + 0.5)
+            self.block(f'step_{i}', steps, pos, Vec3(4, 0.5, 2), hpr=Vec3(angle, 90, 0), bitmask=2)
+
+        # handrail
+        for i in range(21):
+            if i % 3 == 0:
+                h = 1.7 + i // 3
+
+            angle = -100 + 10 * i
+            x, y = self.point_on_circumference(angle, 4.3)
+            rail_h = h + (i % 3 * 0.1)
+            pos = Point3(center.x + x, center.y + y, rail_h)
+            self.pole(f'fence_{i}', steps, pos, Vec3(0.05, 0.05, 3.5 + i % 3))
 
         walls.setTexture(self.wall_tex)
         floors.setTexture(self.floor_tex)
         roofs.setTexture(self.roof_tex)
+        steps.setTexture(self.steps_tex)
 
 
 CUBE = {

@@ -31,7 +31,7 @@ class Scene:
         stone_house.build()
         brick_house = BrickHouse(self.world, Point3(60, 30, -2.8), -45)
         brick_house.build()
-        terrace = Terrace(self.world, Point3(-20, 10, -3.5))
+        terrace = Terrace(self.world, Point3(-30, 10, -3.5), 45)
         terrace.build()
 
     def create_terrain(self):

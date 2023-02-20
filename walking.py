@@ -275,6 +275,7 @@ class Walking(ShowBase):
                 # *****using self.camera_np*************
                 self.camera.detachNode()
                 self.camera.reparentTo(self.camera_np)
+                self.camera_np.setPos(Vec3(0, -10, 2))
                 self.camera.lookAt(self.floater)
 
     def update(self, task):
