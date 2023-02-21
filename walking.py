@@ -166,17 +166,17 @@ class Walking(ShowBase):
         self.floater.setZ(2.0)
 
         # using camera_np***************
-        self.camera_np = NodePath('cameraNp')
-        self.camera_np.reparentTo(self.walker)
-        self.camera.reparentTo(self.camera_np)
-        self.camera_np.setPos(self.walker.navigate())
-        self.camera.lookAt(self.floater)
+        # self.camera_np = NodePath('cameraNp')
+        # self.camera_np.reparentTo(self.walker)
+        # self.camera.reparentTo(self.camera_np)
+        # self.camera_np.setPos(self.walker.navigate())
+        # self.camera.lookAt(self.floater)
         # *******************************
 
         # not using camera_np***************
-        # self.camera.reparentTo(self.walker)
-        # self.camera.setPos(self.walker.navigate())
-        # self.camera.lookAt(self.floater)
+        self.camera.reparentTo(self.walker)
+        self.camera.setPos(self.walker.navigate())
+        self.camera.lookAt(self.floater)
         # *******************************
 
         self.camLens.setFov(90)
@@ -240,8 +240,8 @@ class Walking(ShowBase):
         if result.hasHit():
             if result.getNode() != self.walker.node():
                 if not result.getNode().getName().startswith('door'):
-                    self.camera_np.setPos(self.walker.navigate())
-                    # self.camera.setPos(self.walker.navigate())
+                    # self.camera_np.setPos(self.walker.navigate())
+                    self.camera.setPos(self.walker.navigate())
                     self.camera.lookAt(self.floater)
 
         # if the character goes into a room,
@@ -251,32 +251,32 @@ class Walking(ShowBase):
                 print('out_door', location.getNode().getName())
                 room_camera = self.render.find(f'**/{name}_camera')
                 # *****not using self.camera_np*************
-                # self.camera.detachNode()
-                # self.camera.reparentTo(room_camera)
-                # self.camera.setPos(0, 0, 0)
-                # self.camera.lookAt(self.floater)
-
-                # *****using self.camera_np*************
                 self.camera.detachNode()
                 self.camera.reparentTo(room_camera)
+                self.camera.setPos(0, 0, 0)
                 self.camera.lookAt(self.floater)
+
+                # *****using self.camera_np*************
+                # self.camera.detachNode()
+                # self.camera.reparentTo(room_camera)
+                # self.camera.lookAt(self.floater)
 
     def control_camera_indoors(self):
         self.camera.lookAt(self.floater)
 
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
             if not location.getNode().getName().startswith('room'):
-                # *****using self.camera_np*************
-                # self.camera.detachNode()
-                # self.camera.reparentTo(self.walker)
-                # self.camera.setPos(0, -10, 2)
-                # self.camera.lookAt(self.floater)
+                # *****not using self.camera_np*************
+                self.camera.detachNode()
+                self.camera.reparentTo(self.walker)
+                self.camera.setPos(0, -10, 2)
+                self.camera.lookAt(self.floater)
 
                 # *****using self.camera_np*************
-                self.camera.detachNode()
-                self.camera.reparentTo(self.camera_np)
-                self.camera_np.setPos(Vec3(0, -10, 2))
-                self.camera.lookAt(self.floater)
+                # self.camera.detachNode()
+                # self.camera.reparentTo(self.camera_np)
+                # self.camera_np.setPos(Vec3(0, -10, 2))
+                # self.camera.lookAt(self.floater)
 
     def update(self, task):
         dt = globalClock.getDt()

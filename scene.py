@@ -7,7 +7,7 @@ from panda3d.core import PNMImage
 from panda3d.core import ShaderTerrainMesh, Shader, load_prc_file_data
 from panda3d.core import SamplerState
 
-from buildings import StoneHouse, BrickHouse, Terrace
+from buildings import StoneHouse, BrickHouse, Terrace, Observatory
 
 
 class Scene:
@@ -33,6 +33,10 @@ class Scene:
         brick_house.build()
         terrace = Terrace(self.world, Point3(-30, 10, -3.5), 45)
         terrace.build()
+
+        observatory = Observatory(self.world, Point3(-114, 85, 0))
+        observatory.build()
+
 
     def create_terrain(self):
         img = PNMImage(Filename('mytest.png'))

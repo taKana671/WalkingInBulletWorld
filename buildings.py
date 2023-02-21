@@ -183,7 +183,6 @@ class Materials:
         geomnode = make_geomnode(faces, uv)
         cylinder = NodePath(geomnode)
         cylinder.setTwoSided(True)
-
         return cylinder
 
     def make_cube(self):
@@ -191,16 +190,7 @@ class Materials:
         idx_faces = CUBE['faces']
         vertices = [Vec3(vertex) for vertex in vertices]
         faces = [[vertices[i] for i in face] for face in idx_faces]
-
-        uv = [
-            [Vec2(1, 1), Vec2(0.9, 1), Vec2(0.9, 0), Vec2(1, 0)],
-            [Vec2(0, 1), Vec2(0, 0), Vec2(0.4, 0), Vec2(0.4, 1)],
-            # [Vec2(0, 1), Vec2(0.4, 1), Vec2(0.5, 1), Vec2(0.9, 1)],
-            [Vec2(0, 0), Vec2(1, 0), Vec2(1, 1), Vec2(0, 1)],
-            [Vec2(0.9, 1), Vec2(0.5, 1), Vec2(0.5, 0), Vec2(0.9, 0)],
-            [Vec2(0.5, 1), Vec2(0.4, 1), Vec2(0.4, 0), Vec2(0.5, 0)],
-            [Vec2(1, 0), Vec2(0.9, 0), Vec2(0.5, 0), Vec2(0.4, 0)]
-        ]
+        uv = CUBE['uv']
 
         normal_vecs = [
             [Vec3(-1, 0, 0), Vec3(-1, 0, 0), Vec3(-1, 0, 0), Vec3(-1, 0, 0)],
@@ -217,17 +207,14 @@ class Materials:
         cube.setTwoSided(True)
         return cube
 
-    def set_tex_scale(self, np, x, z):
-        su = x / 2
-        sv = z / 3 if z > 1 else z
-        np.setTexScale(TextureStage.getDefault(), su, sv)
-
     def block(self, name, parent, pos, scale, hpr=None, horizontal=True, active_always=False, bitmask=1):
         if not hpr:
             hpr = Vec3(0, 0, 0) if horizontal else Vec3(90, 0, 0)
 
         block = Block(name, parent, self.cube, pos, hpr, scale, bitmask)
-        self.set_tex_scale(block, scale.x, scale.z)
+        su = (scale.x * 2 + scale.y * 2) / 4
+        sv = scale.z / 4
+        block.setTexScale(TextureStage.getDefault(), su, sv)
 
         if active_always:
             block.node().setMass(1)
@@ -266,14 +253,12 @@ class Materials:
         twist.setLimit(60, 60, 0, softness=0.1, bias=0.1, relaxation=8.0)
         self.world.attachConstraint(twist)
 
-    def pole(self, name, parent, pos, scale, hpr=None, vertical=True, bitmask=1):
+    def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True, bitmask=1):
         if not hpr:
             hpr = Vec3(0, 0, 0) if vertical else Vec3(0, 90, 0)
+
         pole = Cylinder(name, parent, self.cylinder, pos, hpr, scale, bitmask=1)
-        # self.set_tex_scale(pole, scale.x, scale.z)
-        su = scale.x
-        sv = scale.z
-        pole.setTexScale(TextureStage.getDefault(), 1, 3)
+        pole.setTexScale(TextureStage.getDefault(), tex_scale)
 
         self.world.attachRigidBody(pole.node())
         return pole
@@ -325,14 +310,13 @@ class StoneHouse(Materials):
         self.wall_tex = base.loader.loadTexture('textures/fieldstone.jpg')
         self.wall_tex.setWrapU(Texture.WM_repeat)
         self.wall_tex.setWrapV(Texture.WM_repeat)
-
         # for floors, steps and roof
         self.floor_tex = base.loader.loadTexture('textures/iron.jpg')
         self.floor_tex.setWrapU(Texture.WM_repeat)
         self.floor_tex.setWrapV(Texture.WM_repeat)
 
         # for doors
-        self.door_tex = base.loader.loadTexture('textures/7-8-19a-300x300.jpg')
+        self.door_tex = base.loader.loadTexture('textures/board.jpg')
         self.door_tex.setWrapU(Texture.WM_repeat)
         self.door_tex.setWrapV(Texture.WM_repeat)
 
@@ -468,7 +452,7 @@ class BrickHouse(Materials):
         self.wall_tex.setWrapV(Texture.WM_repeat)
 
         # for floors
-        self.floor_tex = base.loader.loadTexture('textures/concrete2.jpg')
+        self.floor_tex = base.loader.loadTexture('textures/concrete.jpg')
         self.floor_tex.setWrapU(Texture.WM_repeat)
         self.floor_tex.setWrapV(Texture.WM_repeat)
 
@@ -478,7 +462,7 @@ class BrickHouse(Materials):
         self.roof_tex.setWrapV(Texture.WM_repeat)
 
         # for doors
-        self.door_tex = base.loader.loadTexture('textures/7-8-19a-300x300.jpg')
+        self.door_tex = base.loader.loadTexture('textures/board.jpg')
         self.door_tex.setWrapU(Texture.WM_repeat)
         self.door_tex.setWrapV(Texture.WM_repeat)
 
@@ -579,7 +563,7 @@ class Terrace(Materials):
         self.wall_tex.setWrapV(Texture.WM_repeat)
 
         # for floor
-        self.floor_tex = base.loader.loadTexture('textures/P1001329_Seamless-300x300.jpg')
+        self.floor_tex = base.loader.loadTexture('textures/cobblestones.jpg')
         self.floor_tex.setWrapU(Texture.WM_repeat)
         self.floor_tex.setWrapV(Texture.WM_repeat)
 
@@ -589,7 +573,7 @@ class Terrace(Materials):
         self.roof_tex.setWrapV(Texture.WM_repeat)
 
         # for steps
-        self.steps_tex = base.loader.loadTexture('textures/6-3-19e-300x300.jpg')
+        self.steps_tex = base.loader.loadTexture('textures/metalboard.jpg')
         self.steps_tex.setWrapU(Texture.WM_repeat)
         self.steps_tex.setWrapV(Texture.WM_repeat)
 
@@ -618,7 +602,7 @@ class Terrace(Materials):
             [Point3(7.5, 5.5, 3.25), Vec3(0.25, 0.25, 10.5)],
         ]
         for i, (pos, scale) in enumerate(materials):
-            self.pole(f'column_{i}', walls, pos, scale)
+            self.pole(f'column_{i}', walls, pos, scale, Vec2(1, 3))
 
         # roof
         self.block('roof', roofs, Point3(0, 0, 6.5), Vec3(16, 0.5, 12), hpr=Vec3(0, 90, 0))
@@ -635,7 +619,7 @@ class Terrace(Materials):
 
         # spiral staircase
         center = Point3(9, 1.5, 3.5)
-        self.pole('center_pole', steps, center, Vec3(0.15, 0.15, 13))
+        self.pole('center_pole', steps, center, Vec3(0.15, 0.15, 13), Vec2(1, 3))
 
         for i in range(7):
             angle = -90 + 30 * i
@@ -652,11 +636,55 @@ class Terrace(Materials):
             x, y = self.point_on_circumference(angle, 4.3)
             rail_h = h + (i % 3 * 0.1)
             pos = Point3(center.x + x, center.y + y, rail_h)
-            self.pole(f'fence_{i}', steps, pos, Vec3(0.05, 0.05, 3.5 + i % 3))
+            self.pole(f'fence_{i}', steps, pos, Vec3(0.05, 0.05, 3.5 + i % 3), Vec2(1, 2))
 
         walls.setTexture(self.wall_tex)
         floors.setTexture(self.floor_tex)
         roofs.setTexture(self.roof_tex)
+        steps.setTexture(self.steps_tex)
+
+
+class Observatory(Materials):
+
+    def __init__(self, world, center, h=0):
+        super().__init__(world)
+        self.observatory = NodePath(PandaNode('observatory'))
+        self.observatory.reparentTo(base.render)
+        self.observatory.setPos(center)
+        self.observatory.setH(h)
+
+    def make_textures(self):
+        # for steps
+        self.steps_tex = base.loader.loadTexture('textures/metalboard.jpg')
+        self.steps_tex.setWrapU(Texture.WM_repeat)
+        self.steps_tex.setWrapV(Texture.WM_repeat)
+
+    def build(self):
+        self.make_textures()
+        steps = NodePath('steps')
+        steps.reparentTo(self.observatory)
+
+        # spiral staircase
+        center = Point3(10, 0, 3)
+        self.pole('center_pole', steps, center, Vec3(0.15, 0.15, 20), Vec2(1, 3))
+
+        for i in range(20):
+            angle = -90 + 30 * i
+            x, y = self.point_on_circumference(angle, 2.5)
+            pos = Point3(center.x + x, center.y + y, i + 0.5)
+            self.block(f'step_{i}', steps, pos, Vec3(4, 0.5, 2), hpr=Vec3(angle, 90, 0), bitmask=2)
+
+        # handrail
+        for i in range(60):
+            if i % 3 == 0:
+                h = 1.7 + i // 3
+
+            angle = -100 + 10 * i
+            x, y = self.point_on_circumference(angle, 4.3)
+            rail_h = h + (i % 3 * 0.1)
+            pos = Point3(center.x + x, center.y + y, rail_h)
+            self.pole(f'fence_{i}', steps, pos, Vec3(0.05, 0.05, 3.5 + i % 3), Vec2(1, 2))
+
         steps.setTexture(self.steps_tex)
 
 
@@ -668,6 +696,15 @@ CUBE = {
     'faces': [
         (0, 1, 5, 4), (0, 4, 7, 3), (0, 3, 2, 1),
         (1, 2, 6, 5), (2, 3, 7, 6), (4, 5, 6, 7)
+    ],
+    'uv': [
+        ((1, 1), (0.9, 1), (0.9, 0), (1, 0)),
+        ((0, 1), (0, 0), (0.4, 0), (0.4, 1)),
+        # [(0, 1), (0.4, 1), Vec2(0.5, 1), Vec2(0.9, 1)],
+        ((0, 0), (1, 0), (1, 1), (0, 1)),
+        ((0.9, 1), (0.5, 1), (0.5, 0), (0.9, 0)),
+        ((0.5, 1), (0.4, 1), (0.4, 0), (0.5, 0)),
+        ((1, 0), (0.9, 0), (0.5, 0), (0.4, 0))
     ]
 }
 
