@@ -9,7 +9,7 @@ from panda3d.bullet import BulletDebugNode
 from panda3d.bullet import BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import PandaNode, NodePath, TransformState
-from panda3d.core import Vec3, Point3, BitMask32
+from panda3d.core import Vec3, Point3, BitMask32, Quat
 from panda3d.core import AmbientLight, DirectionalLight
 
 from scene import Scene
@@ -202,8 +202,8 @@ class Walking(ShowBase):
         directional_light.node().setColor((1, 1, 1, 1))
         # directional_light.setPosHpr(Point3(0, 0, 30), Vec3(-30, -45, 0))
         directional_light.setHpr((-30, -90, 0))
-        directional_light.node().setShadowCaster(True)
-        self.render.setShaderAuto()
+        # directional_light.node().setShadowCaster(True)
+        # self.render.setShaderAuto()
         self.render.setLight(directional_light)
 
     def control_walker(self, dt):
@@ -228,6 +228,7 @@ class Walking(ShowBase):
             self.walker.stop_anim()
 
     def print_info(self):
+        print(self.camera.getH(self.walker))
         print('walker', self.walker.getPos(), 'camera', self.camera.getPos(self.walker) + self.walker.getPos())
 
     def control_camera_outdoors(self):
@@ -248,7 +249,6 @@ class Walking(ShowBase):
         # the camera is reparented to a room-camera np.
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
             if (name := location.getNode().getName()).startswith('room'):
-                print('out_door', location.getNode().getName())
                 room_camera = self.render.find(f'**/{name}_camera')
                 # *****not using self.camera_np*************
                 self.camera.detachNode()

@@ -34,7 +34,7 @@ class Scene:
         terrace = Terrace(self.world, Point3(-30, 10, -3.5), 45)
         terrace.build()
 
-        observatory = Observatory(self.world, Point3(-114, 85, 0))
+        observatory = Observatory(self.world, Point3(-93, 42, -2.5))
         observatory.build()
 
 

@@ -539,7 +539,7 @@ class BrickHouse(Materials):
             self.block(f'roof_{i}', roofs, pos, scale)
 
         # doors
-        self.door('door_1', doors, Point3(3, -8.25, 2.75), Vec3(2, 0.5, 3.5), wall1_l)
+        self.door('door_1', doors, Point3(3, -8.25, 2.75), Vec3(2, 0.5, 3.5), wall1_l, )
 
         floors.setTexture(self.floor_tex)
         walls.setTexture(self.wall_tex)
@@ -573,7 +573,7 @@ class Terrace(Materials):
         self.roof_tex.setWrapV(Texture.WM_repeat)
 
         # for steps
-        self.steps_tex = base.loader.loadTexture('textures/metalboard.jpg')
+        self.steps_tex = base.loader.loadTexture('textures/metalboard.jpg ')
         self.steps_tex.setWrapU(Texture.WM_repeat)
         self.steps_tex.setWrapV(Texture.WM_repeat)
 
@@ -659,23 +659,37 @@ class Observatory(Materials):
         self.steps_tex.setWrapU(Texture.WM_repeat)
         self.steps_tex.setWrapV(Texture.WM_repeat)
 
+        # for floors
+        self.landing_tex = base.loader.loadTexture('textures/concrete2.jpg')
+        self.landing_tex.setWrapU(Texture.WM_repeat)
+        self.landing_tex.setWrapV(Texture.WM_repeat)
+
+        # for posts
+        self.posts_tex = base.loader.loadTexture('textures/iron.jpg')
+        self.posts_tex.setWrapU(Texture.WM_repeat)
+        self.posts_tex.setWrapV(Texture.WM_repeat)
+
     def build(self):
         self.make_textures()
         steps = NodePath('steps')
         steps.reparentTo(self.observatory)
+        landings = NodePath('landings')
+        landings.reparentTo(self.observatory)
+        posts = NodePath('posts')
+        posts.reparentTo(self.observatory)
 
         # spiral staircase
-        center = Point3(10, 0, 3)
-        self.pole('center_pole', steps, center, Vec3(0.15, 0.15, 20), Vec2(1, 3))
+        center = Point3(10, 0, 9)
+        self.pole('center_pole', posts, center, Vec3(0.15, 0.15, 32), Vec2(1, 3))
 
-        for i in range(20):
+        for i in range(19):
             angle = -90 + 30 * i
             x, y = self.point_on_circumference(angle, 2.5)
             pos = Point3(center.x + x, center.y + y, i + 0.5)
             self.block(f'step_{i}', steps, pos, Vec3(4, 0.5, 2), hpr=Vec3(angle, 90, 0), bitmask=2)
 
         # handrail
-        for i in range(60):
+        for i in range(57):
             if i % 3 == 0:
                 h = 1.7 + i // 3
 
@@ -683,9 +697,69 @@ class Observatory(Materials):
             x, y = self.point_on_circumference(angle, 4.3)
             rail_h = h + (i % 3 * 0.1)
             pos = Point3(center.x + x, center.y + y, rail_h)
-            self.pole(f'fence_{i}', steps, pos, Vec3(0.05, 0.05, 3.5 + i % 3), Vec2(1, 2))
+            self.pole(f'handrail_{i}', steps, pos, Vec3(0.05, 0.05, 3.5 + i % 3), Vec2(1, 2))
+
+        # stair landings
+        materials = [
+            Point3(7, 2.5, 18.5),
+            Point3(7, 9.5, 15.5),
+            Point3(0, 9.5, 12.5),
+            Point3(-7, 9.5, 9.5),
+            Point3(-7, 2.5, 6.5),
+            Point3(-14, 2.5, 3.5)
+        ]
+        for i, pos in enumerate(materials):
+            self.block(f'floor_{i}', landings, pos, Vec3(4, 0.5, 4), hpr=Vec3(0, 90, 0), bitmask=2)
+
+        # support post
+        materials = [
+            [Point3(-14, 2.5, 1.5), Vec3(0.15, 0.15, 6)],
+            [Point3(-7, 2.5, 3), Vec3(0.15, 0.15, 12)],
+            [Point3(-7, 9.5, 4), Vec3(0.15, 0.15, 18)],
+            [Point3(0, 9.5, 5), Vec3(0.15, 0.15, 24)],
+            [Point3(7, 9.5, 6), Vec3(0.15, 0.15, 30)],
+
+        ]
+        for i, (pos, scale) in enumerate(materials):
+            self.pole(f'support_{i}', posts, pos, scale, Vec2(1, 3))
+
+        # steps
+        materials = [[Point3(7, 5 + i, 18.25 - i), True] for i in range(3)]
+        materials += [[Point3(4.5 - i, 9.5, 15.25 - i), False] for i in range(3)]
+        materials += [[Point3(-2.5 - i, 9.5, 12.25 - i), False] for i in range(3)]
+        materials += [[Point3(-7, 7 - i, 9.25 - i), True] for i in range(3)]
+        materials += [[Point3(-9.5 - i, 2.5, 6.25 - i), False] for i in range(3)]
+        materials += [[Point3(-16.5 - i, 2.5, 3.25 - i), False] for i in range(3)]
+
+        for i, (pos, hor) in enumerate(materials):
+            self.block(f'step_{i}', steps, pos, Vec3(4, 1, 1), horizontal=hor, bitmask=2)
+
+            # falling preventions
+            for f in [1.875, -1.875]:
+                diff = Vec3(f, 0, 1.5) if hor else Vec3(0, f, 1.5)
+                fence_pos = pos + diff
+                self.pole(f'fence_{i}', steps, fence_pos, Vec3(0.05, 0.05, 3.5), Vec2(1, 2))
+
+        # falling preventions for stair landings
+        materials = [Point3(-15.5 + i, 4.375, 4.6) for i in range(4)]
+        materials += [Point3(-15.5 + i, 0.625, 4.6) for i in range(4)]
+        materials += [Point3(-8.5 + i, 0.625, 7.6) for i in range(4)]
+        materials += [Point3(-5.125, 4 - i, 7.6) for i in range(4)]
+        materials += [Point3(-8.5 + i, 11.375, 10.6) for i in range(4)]
+        materials += [Point3(-8.875, 8 + i, 10.6) for i in range(4)]
+        materials += [Point3(-1.5 + i, 7.625, 13.6) for i in range(4)]
+        materials += [Point3(-1.5 + i, 11.375, 13.6) for i in range(4)]
+        materials += [Point3(5.5 + i, 11.375, 16.6) for i in range(4)]
+        materials += [Point3(8.875, 8 + i, 16.6) for i in range(4)]
+        materials += [Point3(5.5 + i, 0.625, 19.6) for i in range(6)]
+        materials += [Point3(5.125, 1 + i, 19.6) for i in range(4)]
+
+        for i, pos in enumerate(materials):
+            self.pole(f'fence_landing_{i}', steps, pos, Vec3(0.05, 0.05, 4), Vec2(1, 2))
 
         steps.setTexture(self.steps_tex)
+        landings.setTexture(self.landing_tex)
+        posts.setTexture(self.posts_tex)
 
 
 CUBE = {
@@ -704,6 +778,7 @@ CUBE = {
         ((0, 0), (1, 0), (1, 1), (0, 1)),
         ((0.9, 1), (0.5, 1), (0.5, 0), (0.9, 0)),
         ((0.5, 1), (0.4, 1), (0.4, 0), (0.5, 0)),
+        # ((0, 0), (1, 0), (1, 1), (0, 1))
         ((1, 0), (0.9, 0), (0.5, 0), (0.4, 0))
     ]
 }
