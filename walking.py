@@ -181,6 +181,7 @@ class Walking(ShowBase):
 
         self.camLens.setFov(90)
         # self.setup_lights()
+        self.mask = BitMask32.bit(2) | BitMask32.bit(1)
 
         inputState.watchWithModifiers('forward', 'arrow_up')
         inputState.watchWithModifiers('backward', 'arrow_down')
@@ -228,22 +229,49 @@ class Walking(ShowBase):
             self.walker.stop_anim()
 
     def print_info(self):
-        print(self.camera.getH(self.walker))
+        # print(self.camera.getH(self.walker))
+        print('camera', self.camera.getPos(), self.camera.getPos(self.walker))
         print('walker', self.walker.getPos(), 'camera', self.camera.getPos(self.walker) + self.walker.getPos())
+        print('navigator', self.walker.getRelativePoint(self.walker.direction_node, Vec3(0, 10, 2)))
+        print('navigator + walker_pos', self.walker.getPos() + self.walker.getRelativePoint(self.walker.direction_node, Vec3(0, 10, 2)))
+
+    def rotate_camera(self):
+        next_pos = self.walker.navigate()
+        walker_pos = self.walker.getPos()
+        point = Point3(0, 0, 0)
+        q = Quat()
+
+        for _ in range(4):
+            # print(next_pos)
+            camera_pos = next_pos + walker_pos
+            result = self.world.rayTestClosest(camera_pos, walker_pos, self.mask)
+
+            if result.getNode() == self.walker.node():
+                return next_pos
+
+            q.setFromAxisAngle(90, Vec3.up())
+            r = q.xform(next_pos - point)
+            next_pos = point + r
+
+        return None
 
     def control_camera_outdoors(self):
         # If the camera's view is blocked by an object like walls,
         # the camera is repositioned.
         walker_pos = self.walker.getPos()
-        camera_pos = self.camera.getPos(self.walker) + walker_pos
-        result = self.world.rayTestClosest(camera_pos, walker_pos)
+        camera_pos = self.camera.getPos() + walker_pos
+        result = self.world.rayTestClosest(camera_pos, walker_pos, self.mask)
 
         if result.hasHit():
             if result.getNode() != self.walker.node():
                 if not result.getNode().getName().startswith('door'):
                     # self.camera_np.setPos(self.walker.navigate())
-                    self.camera.setPos(self.walker.navigate())
-                    self.camera.lookAt(self.floater)
+
+                    if next_pos := self.rotate_camera():
+                        self.camera.setPos(next_pos)
+                        self.camera.lookAt(self.floater)
+                    # self.camera.setPos(self.walker.navigate())
+                    # self.camera.lookAt(self.floater)
 
         # if the character goes into a room,
         # the camera is reparented to a room-camera np.

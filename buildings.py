@@ -102,7 +102,7 @@ def make_geomnode(faces, texcoords):
 
 class Block(NodePath):
 
-    def __init__(self, name, parent, model, pos, hpr, scale, bitmask=1):
+    def __init__(self, name, parent, model, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
         self.reparentTo(parent)
         self.model = model.copyTo(self)
@@ -111,7 +111,7 @@ class Block(NodePath):
         self.setScale(scale)
         end, tip = self.model.getTightBounds()
         self.node().addShape(BulletBoxShape((tip - end) / 2))
-        self.setCollideMask(BitMask32.bit(bitmask))
+        self.setCollideMask(bitmask)
 
 
 class Plane(NodePath):
@@ -126,12 +126,11 @@ class Plane(NodePath):
         end, tip = self.model.getTightBounds()
         self.node().addShape(BulletBoxShape((tip - end) / 2))
         self.setCollideMask(BitMask32.bit(1))
-        # self.node().addShape(BulletPlaneShape(Vec3.up(), 0))
 
 
 class Cylinder(NodePath):
 
-    def __init__(self, name, parent, model, pos, hpr, scale, bitmask=1):
+    def __init__(self, name, parent, model, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
         self.reparentTo(parent)
         self.model = model.copyTo(self)
@@ -141,7 +140,7 @@ class Cylinder(NodePath):
         shape = BulletConvexHullShape()
         shape.addGeom(self.model.node().getGeom(0))
         self.node().addShape(shape)
-        self.setCollideMask(BitMask32.bit(bitmask))
+        self.setCollideMask(bitmask)
 
 
 # class TriangularPrism(NodePath):
@@ -207,7 +206,7 @@ class Materials:
         cube.setTwoSided(True)
         return cube
 
-    def block(self, name, parent, pos, scale, hpr=None, horizontal=True, active_always=False, bitmask=1):
+    def block(self, name, parent, pos, scale, hpr=None, horizontal=True, active_always=False, bitmask=BitMask32.bit(1)):
         if not hpr:
             hpr = Vec3(0, 0, 0) if horizontal else Vec3(90, 0, 0)
 
@@ -228,11 +227,11 @@ class Materials:
         pos = Point3(x, 0, 0)
         hpr = Vec3(90, 0, 0)
         scale = Vec3(1.5, 0.05, 0.05)
-        knob = Block('knob', parent, self.cube, pos, hpr, scale)
+        knob = Block('knob', parent, self.cube, pos, hpr, scale, BitMask32.bit(1))
         knob.setColor(0, 0, 0, 1)
 
     def door(self, name, parent, pos, scale, static_body, hpr=None, horizontal=True, left_hinge=True):
-        door = self.block(name, parent, pos, scale, hpr, horizontal, active_always=True)
+        door = self.block(name, parent, pos, scale, hpr, horizontal, active_always=True, bitmask=BitMask32.allOn())
         self.knob(door, left_hinge)
 
         end, tip = door.getTightBounds()
@@ -253,11 +252,11 @@ class Materials:
         twist.setLimit(60, 60, 0, softness=0.1, bias=0.1, relaxation=8.0)
         self.world.attachConstraint(twist)
 
-    def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True, bitmask=1):
+    def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True, bitmask=BitMask32.bit(3)):
         if not hpr:
             hpr = Vec3(0, 0, 0) if vertical else Vec3(0, 90, 0)
 
-        pole = Cylinder(name, parent, self.cylinder, pos, hpr, scale, bitmask=1)
+        pole = Cylinder(name, parent, self.cylinder, pos, hpr, scale, bitmask)
         pole.setTexScale(TextureStage.getDefault(), tex_scale)
 
         self.world.attachRigidBody(pole.node())
@@ -368,8 +367,8 @@ class StoneHouse(Materials):
 
         # 2nd floor
         materials = [
-            [Point3(4, -4.25, 6.75), Vec3(20, 0.5, 8.5), 1],
-            [Point3(-9.75, -1, 6.75), Vec3(7.5, 0.5, 2), 2]
+            [Point3(4, -4.25, 6.75), Vec3(20, 0.5, 8.5), BitMask32.bit(1)],
+            [Point3(-9.75, -1, 6.75), Vec3(7.5, 0.5, 2), BitMask32.bit(2)]
         ]
         for i, (pos, scale, mask) in enumerate(materials):
             self.block(f'floor2_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0), bitmask=mask)
@@ -420,7 +419,7 @@ class StoneHouse(Materials):
         # steps
         steps = [Point3(-9.75, -7.5 + i, 1 + i) for i in range(6)]
         for i, pos in enumerate(steps):
-            self.block(f'step_{i}', floors, pos, Vec3(7.5, 1, 1), hpr=Vec3(0, 90, 0), bitmask=2)
+            self.block(f'step_{i}', floors, pos, Vec3(7.5, 1, 1), hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
 
         # doors
         materials = [
@@ -494,7 +493,7 @@ class BrickHouse(Materials):
             [Point3(3, -11.5, -0.5), Vec3(4, 2, 1)],
         ]
         for i, (pos, scale) in enumerate(steps):
-            self.block(f'step_{i}', floors, pos, scale, bitmask=2)
+            self.block(f'step_{i}', floors, pos, scale, bitmask=BitMask32.bit(2))
 
         # rear and front walls
         wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 2.75), Vec3(2, 0.5, 3.5))
@@ -625,7 +624,7 @@ class Terrace(Materials):
             angle = -90 + 30 * i
             x, y = self.point_on_circumference(angle, 2.5)
             pos = Point3(center.x + x, center.y + y, i + 0.5)
-            self.block(f'step_{i}', steps, pos, Vec3(4, 0.5, 2), hpr=Vec3(angle, 90, 0), bitmask=2)
+            self.block(f'step_{i}', steps, pos, Vec3(4, 0.5, 2), hpr=Vec3(angle, 90, 0), bitmask=BitMask32.bit(2))
 
         # handrail
         for i in range(21):
@@ -686,7 +685,7 @@ class Observatory(Materials):
             angle = -90 + 30 * i
             x, y = self.point_on_circumference(angle, 2.5)
             pos = Point3(center.x + x, center.y + y, i + 0.5)
-            self.block(f'step_{i}', steps, pos, Vec3(4, 0.5, 2), hpr=Vec3(angle, 90, 0), bitmask=2)
+            self.block(f'step_{i}', steps, pos, Vec3(4, 0.5, 2), hpr=Vec3(angle, 90, 0), bitmask=BitMask32.bit(2))
 
         # handrail
         for i in range(57):
@@ -709,7 +708,7 @@ class Observatory(Materials):
             Point3(-14, 2.5, 3.5)
         ]
         for i, pos in enumerate(materials):
-            self.block(f'floor_{i}', landings, pos, Vec3(4, 0.5, 4), hpr=Vec3(0, 90, 0), bitmask=2)
+            self.block(f'floor_{i}', landings, pos, Vec3(4, 0.5, 4), hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
 
         # support post
         materials = [
@@ -732,7 +731,7 @@ class Observatory(Materials):
         materials += [[Point3(-16.5 - i, 2.5, 3.25 - i), False] for i in range(3)]
 
         for i, (pos, hor) in enumerate(materials):
-            self.block(f'step_{i}', steps, pos, Vec3(4, 1, 1), horizontal=hor, bitmask=2)
+            self.block(f'step_{i}', steps, pos, Vec3(4, 1, 1), horizontal=hor, bitmask=BitMask32.bit(2))
 
             # falling preventions
             for f in [1.875, -1.875]:
