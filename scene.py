@@ -33,13 +33,11 @@ class Scene:
         brick_house.build()
         terrace = Terrace(self.world, Point3(-30, 10, -3.5), 45)
         terrace.build()
-
         observatory = Observatory(self.world, Point3(-93, 42, -2.5))
         observatory.build()
 
-
     def create_terrain(self):
-        img = PNMImage(Filename('mytest.png'))
+        img = PNMImage(Filename('terrains/heightfield.png'))
         shape = BulletHeightfieldShape(img, 10, ZUp)
         np = NodePath(BulletRigidBodyNode('test'))
         np.node().addShape(shape)
@@ -47,7 +45,7 @@ class Scene:
         self.world.attachRigidBody(np.node())
 
         terrain_node = ShaderTerrainMesh()
-        heightfield = base.loader.loadTexture('mytest.png')
+        heightfield = base.loader.loadTexture('terrains/heightfield.png')
         heightfield.wrap_u = SamplerState.WM_clamp
         heightfield.wrap_v = SamplerState.WM_clamp
         terrain_node.heightfield = heightfield
@@ -59,10 +57,10 @@ class Scene:
         offset = img.getXSize() / 2.0 - 0.5
         self.terrain.setPos(-offset, -offset, -10 / 2.0)
 
-        terrain_shader = Shader.load(Shader.SL_GLSL, "terrain.vert.glsl", "terrain.frag.glsl")
+        terrain_shader = Shader.load(Shader.SL_GLSL, "shaders/terrain.vert.glsl", "shaders/terrain.frag.glsl")
         self.terrain.set_shader(terrain_shader)
         self.terrain.set_shader_input("camera", base.camera)
-        grass_tex = base.loader.loadTexture('grass.png')
+        grass_tex = base.loader.loadTexture('textures/grass.png')
         grass_tex.setMinfilter(SamplerState.FT_linear_mipmap_linear)
         grass_tex.set_anisotropic_degree(16)
         self.terrain.setTexture(grass_tex)
