@@ -38,6 +38,8 @@ class Walker(NodePath):
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.allOn())
         self.setPos(Point3(16, -20, -3))
+        # self.setPos(Point3(30.7107, 121.199, -0.326272))
+
         self.setScale(0.5)
 
         self.direction_node = NodePath(PandaNode('direction'))
@@ -145,8 +147,9 @@ class Walking(ShowBase):
 
     def __init__(self):
         super().__init__()
+        # self.trackball.node().setPos(-128, 150, -50)
+        # self.trackball.node().setHpr(0, 40, 0)
         self.disableMouse()
-
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
 
@@ -164,7 +167,7 @@ class Walking(ShowBase):
         self.floater = NodePath('floater')
         self.floater.reparentTo(self.walker)
         self.floater.setZ(2.0)
-
+        
         # using camera_np***************
         # self.camera_np = NodePath('cameraNp')
         # self.camera_np.reparentTo(self.walker)
@@ -178,6 +181,8 @@ class Walking(ShowBase):
         self.camera.setPos(self.walker.navigate())
         self.camera.lookAt(self.floater)
         # *******************************
+        # self.camera.setPos(Point3(16, -20, 50))
+        # self.camera.lookAt(self.floater)
 
         self.camLens.setFov(90)
         # self.setup_lights()

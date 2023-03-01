@@ -1,103 +1,32 @@
-import array
 import math
+from enum import Enum
 
-from panda3d.core import Vec3, Vec2, LColor, Point3, Point2
-from panda3d.core import Geom, GeomNode, GeomTriangles
-from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
+from panda3d.core import Vec3, Vec2, Point3
 from panda3d.core import CardMaker, Texture, TextureStage
-
 from panda3d.core import BitMask32, TransformState
 from panda3d.core import NodePath, PandaNode
 from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletPlaneShape
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConeTwistConstraint
 
-import numpy as np
+from utils import Cube, DecagonalPrism
 
 
-def get_prim_indices(start, n):
-    match n:
-        case 3:
-            yield (start, start + 1, start + 2)
-        case 4:
-            for x, y, z in [(0, 1, 3), (1, 2, 3)]:
-                yield (start + x, start + y, start + z)
-        case _:
-            for i in range(2, n):
-                if i == 2:
-                    yield (start, start + i - 1, start + i)
-                else:
-                    yield (start + i - 1, start, start + i)
+class Images(Enum):
 
+    FIELD_STONE = 'fieldstone.jpg'
+    IRON = 'iron.jpg'
+    BOARD = 'board.jpg'
+    BRICK = 'brick.jpg'
+    CONCRETE = 'concrete.jpg'
+    LAYINGBROCK = 'layingrock.jpg'
+    COBBLESTONES = 'cobblestones.jpg'
+    METALBOARD = 'metalboard.jpg'
+    CONCRETE2 = 'concrete2.jpg'
 
-def calc_uv(vertices):
-    """
-    vertices: list of Vec3
-    """
-    total = Vec3()
-    length = len(vertices)
-    for vertex in vertices:
-        total += vertex
-    center = total / length
-
-    pt = vertices[0]
-    vec = pt - center
-    radius = sum(v ** 2 for v in vec) ** 0.5
-
-    for vertex in vertices:
-        nm = (vertex - center) / radius
-        phi = np.arctan2(nm.z, nm.x)
-        theta = np.arcsin(nm.y)
-        u = (phi + np.pi) / (2 * np.pi)
-        v = (theta + np.pi / 2) / np.pi
-        yield Vec2(u, v)
-
-
-# def make_geomnode(faces, texcoords, normal_vecs):
-def make_geomnode(faces, texcoords):
-    arr_format = GeomVertexArrayFormat()
-    arr_format.addColumn('vertex', 3, Geom.NTFloat32, Geom.CPoint)
-    arr_format.addColumn('color', 4, Geom.NTFloat32, Geom.CColor)
-    # arr_format.addColumn('normal', 3, Geom.NTFloat32, Geom.CNormal)
-    arr_format.addColumn('texcoord', 2, Geom.NTFloat32, Geom.CTexcoord)
-    format_ = GeomVertexFormat.registerFormat(arr_format)
-
-    vdata_values = array.array('f', [])
-    prim_indices = array.array('H', [])
-    start = 0
-
-    # for face, coords, vecs in zip(faces, texcoords, normal_vecs):
-    for face, coords in zip(faces, texcoords):
-        for pt, uv in zip(face, coords):
-            vdata_values.extend(pt)
-            vdata_values.extend(LColor(1, 1, 1, 1))
-            # vdata_values.extend(pt.normalized())
-            # vdata_values.extend(vec)
-            # vdata_values.extend((0, 0, 0))
-            vdata_values.extend(uv)
-
-        for indices in get_prim_indices(start, len(face)):
-            prim_indices.extend(indices)
-        start += len(face)
-
-    vdata = GeomVertexData('cube', format_, Geom.UHStatic)
-    num_rows = sum(len(face) for face in faces)
-    vdata.uncleanSetNumRows(num_rows)
-    vdata_mem = memoryview(vdata.modifyArray(0)).cast('B').cast('f')
-    vdata_mem[:] = vdata_values
-
-    prim = GeomTriangles(Geom.UHStatic)
-    prim_array = prim.modifyVertices()
-    prim_array.uncleanSetNumRows(len(prim_indices))
-    prim_mem = memoryview(prim_array).cast('B').cast('H')
-    prim_mem[:] = prim_indices
-
-    node = GeomNode('geomnode')
-    geom = Geom(vdata)
-    geom.addPrimitive(prim)
-    node.addGeom(geom)
-
-    return node
+    @property
+    def path(self):
+        return f'textures/{self.value}'
 
 
 class Block(NodePath):
@@ -143,68 +72,23 @@ class Cylinder(NodePath):
         self.setCollideMask(bitmask)
 
 
-# class TriangularPrism(NodePath):
-
-#     def __init__(self, name, parent, np, pos, hpr, scale, bitmask=1):
-#         super().__init__(name, parent, np, pos, hpr, scale)
-#         shape = BulletConvexHullShape()
-#         shape.addGeom(self.model.node().getGeom(0))
-#         self.node().addShape(shape)
-#         self.setCollideMask(BitMask32.bit(bitmask))
-
-
-class CubeModel(NodePath):
-
-    def __new__(cls, *args, **kargs):
-        if not hasattr(cls, '_instance'):
-            cls._instance = super(CubeModel, cls).__new__(cls)
-        return cls._instance
-
-    def __init__(self, nd):
-        super().__init__(nd)
-        self.setTwoSided(True)
-
-
 class Materials:
+
+    _textures = dict()
 
     def __init__(self, world):
         self.world = world
-        self.cube = self.make_cube()
-        self.cylinder = self.make_cylinder()
+        self.cube = Cube.make()
+        self.cylinder = DecagonalPrism.make()
 
-    def make_cylinder(self):
-        vertices = DECAGONAL_PRISM['vertices']
-        idx_faces = DECAGONAL_PRISM['faces']
-        vertices = [Vec3(vertex) for vertex in vertices]
-        faces = [[vertices[i] for i in face] for face in idx_faces]
-        uv = DECAGONAL_PRISM['uv']
+    def texture(self, image):
+        if image not in self._textures:
+            tex = base.loader.loadTexture(image.path)
+            tex.setWrapU(Texture.WM_repeat)
+            tex.setWrapV(Texture.WM_repeat)
+            self._textures[image] = tex
 
-        geomnode = make_geomnode(faces, uv)
-        cylinder = NodePath(geomnode)
-        cylinder.setTwoSided(True)
-        return cylinder
-
-    def make_cube(self):
-        vertices = CUBE['vertices']
-        idx_faces = CUBE['faces']
-        vertices = [Vec3(vertex) for vertex in vertices]
-        faces = [[vertices[i] for i in face] for face in idx_faces]
-        uv = CUBE['uv']
-
-        normal_vecs = [
-            [Vec3(-1, 0, 0), Vec3(-1, 0, 0), Vec3(-1, 0, 0), Vec3(-1, 0, 0)],
-            [Vec3(0, -1, 0), Vec3(0, -1, 0), Vec3(0, -1, 0), Vec3(0, -1, 0)],
-            [Vec3(0, 0, 1), Vec3(0, 0, 1), Vec3(0, 0, 1), Vec3(0, 0, 1)],
-            [Vec3(0, 1, 0), Vec3(0, 1, 0), Vec3(0, 1, 0), Vec3(0, 1, 0)],
-            [Vec3(1, 0, 0), Vec3(1, 0, 0), Vec3(1, 0, 0), Vec3(1, 0, 0)],
-            [Vec3(0, 0, -1), Vec3(0, 0, -1), Vec3(0, 0, -1), Vec3(0, 0, -1)]
-        ]
-
-        geomnode = make_geomnode(faces, uv)
-        # cube = CubeModel(geomnode) # copyto -> NodePathを継承して作った自作クラスのメソッドはコピーされない
-        cube = NodePath(geomnode)
-        cube.setTwoSided(True)
-        return cube
+        return self._textures[image]
 
     def block(self, name, parent, pos, scale, hpr=None, horizontal=True, active_always=False, bitmask=BitMask32.bit(1)):
         if not hpr:
@@ -305,19 +189,9 @@ class StoneHouse(Materials):
         self.house.setH(h)
 
     def make_textures(self):
-        # for walls
-        self.wall_tex = base.loader.loadTexture('textures/fieldstone.jpg')
-        self.wall_tex.setWrapU(Texture.WM_repeat)
-        self.wall_tex.setWrapV(Texture.WM_repeat)
-        # for floors, steps and roof
-        self.floor_tex = base.loader.loadTexture('textures/iron.jpg')
-        self.floor_tex.setWrapU(Texture.WM_repeat)
-        self.floor_tex.setWrapV(Texture.WM_repeat)
-
-        # for doors
-        self.door_tex = base.loader.loadTexture('textures/board.jpg')
-        self.door_tex.setWrapU(Texture.WM_repeat)
-        self.door_tex.setWrapV(Texture.WM_repeat)
+        self.wall_tex = self.texture(Images.FIELD_STONE)   # for walls
+        self.floor_tex = self.texture(Images.IRON)         # for floors, steps and roof
+        self.door_tex = self.texture(Images.BOARD)         # for doors
 
     def build(self):
         self.make_textures()
@@ -445,25 +319,10 @@ class BrickHouse(Materials):
         self.house.setH(h)
 
     def make_textures(self):
-        # for walls
-        self.wall_tex = base.loader.loadTexture('textures/brick.jpg')
-        self.wall_tex.setWrapU(Texture.WM_repeat)
-        self.wall_tex.setWrapV(Texture.WM_repeat)
-
-        # for floors
-        self.floor_tex = base.loader.loadTexture('textures/concrete.jpg')
-        self.floor_tex.setWrapU(Texture.WM_repeat)
-        self.floor_tex.setWrapV(Texture.WM_repeat)
-
-        # for roofs
-        self.roof_tex = base.loader.loadTexture('textures/iron.jpg')
-        self.roof_tex.setWrapU(Texture.WM_repeat)
-        self.roof_tex.setWrapV(Texture.WM_repeat)
-
-        # for doors
-        self.door_tex = base.loader.loadTexture('textures/board.jpg')
-        self.door_tex.setWrapU(Texture.WM_repeat)
-        self.door_tex.setWrapV(Texture.WM_repeat)
+        self.wall_tex = self.texture(Images.BRICK)      # for walls
+        self.floor_tex = self.texture(Images.CONCRETE)  # for floors
+        self.roof_tex = self.texture(Images.IRON)       # for roofs
+        self.door_tex = self.texture(Images.BOARD)      # for doors
 
     def build(self):
         self.make_textures()
@@ -556,25 +415,10 @@ class Terrace(Materials):
         self.terrace.setH(h)
 
     def make_textures(self):
-        # for walls
-        self.wall_tex = base.loader.loadTexture('textures/layingrock.jpg')
-        self.wall_tex.setWrapU(Texture.WM_repeat)
-        self.wall_tex.setWrapV(Texture.WM_repeat)
-
-        # for floor
-        self.floor_tex = base.loader.loadTexture('textures/cobblestones.jpg')
-        self.floor_tex.setWrapU(Texture.WM_repeat)
-        self.floor_tex.setWrapV(Texture.WM_repeat)
-
-        # for roofs
-        self.roof_tex = base.loader.loadTexture('textures/iron.jpg')
-        self.roof_tex.setWrapU(Texture.WM_repeat)
-        self.roof_tex.setWrapV(Texture.WM_repeat)
-
-        # for steps
-        self.steps_tex = base.loader.loadTexture('textures/metalboard.jpg ')
-        self.steps_tex.setWrapU(Texture.WM_repeat)
-        self.steps_tex.setWrapV(Texture.WM_repeat)
+        self.wall_tex = self.texture(Images.LAYINGBROCK)    # for walls
+        self.floor_tex = self.texture(Images.COBBLESTONES)  # for floor
+        self.roof_tex = self.texture(Images.IRON)           # for roofs
+        self.steps_tex = self.texture(Images.METALBOARD)    # for steps
 
     def build(self):
         self.make_textures()
@@ -653,20 +497,9 @@ class Observatory(Materials):
         self.observatory.setH(h)
 
     def make_textures(self):
-        # for steps
-        self.steps_tex = base.loader.loadTexture('textures/metalboard.jpg')
-        self.steps_tex.setWrapU(Texture.WM_repeat)
-        self.steps_tex.setWrapV(Texture.WM_repeat)
-
-        # for floors
-        self.landing_tex = base.loader.loadTexture('textures/concrete2.jpg')
-        self.landing_tex.setWrapU(Texture.WM_repeat)
-        self.landing_tex.setWrapV(Texture.WM_repeat)
-
-        # for posts
-        self.posts_tex = base.loader.loadTexture('textures/iron.jpg')
-        self.posts_tex.setWrapU(Texture.WM_repeat)
-        self.posts_tex.setWrapV(Texture.WM_repeat)
+        self.steps_tex = self.texture(Images.METALBOARD)   # for steps
+        self.landing_tex = self.texture(Images.CONCRETE2)  # for floors
+        self.posts_tex = self.texture(Images.IRON)         # for posts
 
     def build(self):
         self.make_textures()
@@ -759,96 +592,3 @@ class Observatory(Materials):
         steps.setTexture(self.steps_tex)
         landings.setTexture(self.landing_tex)
         posts.setTexture(self.posts_tex)
-
-
-CUBE = {
-    'vertices': [
-        (-0.5, -0.5, 0.5), (-0.5, 0.5, 0.5), (0.5, 0.5, 0.5), (0.5, -0.5, 0.5),
-        (-0.5, -0.5, -0.5), (-0.5, 0.5, -0.5), (0.5, 0.5, -0.5), (0.5, -0.5, -0.5)
-    ],
-    'faces': [
-        (0, 1, 5, 4), (0, 4, 7, 3), (0, 3, 2, 1),
-        (1, 2, 6, 5), (2, 3, 7, 6), (4, 5, 6, 7)
-    ],
-    'uv': [
-        ((1, 1), (0.9, 1), (0.9, 0), (1, 0)),
-        ((0, 1), (0, 0), (0.4, 0), (0.4, 1)),
-        # [(0, 1), (0.4, 1), Vec2(0.5, 1), Vec2(0.9, 1)],
-        ((0, 0), (1, 0), (1, 1), (0, 1)),
-        ((0.9, 1), (0.5, 1), (0.5, 0), (0.9, 0)),
-        ((0.5, 1), (0.4, 1), (0.4, 0), (0.5, 0)),
-        # ((0, 0), (1, 0), (1, 1), (0, 1))
-        ((1, 0), (0.9, 0), (0.5, 0), (0.4, 0))
-    ]
-}
-
-DECAGONAL_PRISM = {
-    'vertices': [
-        (-0.29524181, -0.90866085, 0.29524181),
-        (-0.77295309, -0.56158329, 0.29524181),
-        (-0.95542256, 0.0, 0.29524181),
-        (-0.77295309, 0.56158329, 0.29524181),
-        (-0.29524181, 0.90866085, 0.29524181),
-        (0.29524181, 0.90866085, 0.29524181),
-        (0.77295309, 0.56158329, 0.29524181),
-        (0.95542256, -0.0, 0.29524181),
-        (0.77295309, -0.56158329, 0.29524181),
-        (0.29524181, -0.90866085, 0.29524181),
-        (-0.29524181, -0.90866085, -0.2952418),
-        (-0.77295309, -0.56158329, -0.2952418),
-        (-0.95542256, 0.0, -0.29524181),
-        (-0.77295309, 0.56158329, -0.29524181),
-        (-0.29524181, 0.90866085, -0.29524181),
-        (0.29524181, 0.90866085, -0.29524181),
-        (0.77295309, 0.56158329, -0.29524181),
-        (0.95542256, -0.0, -0.29524181),
-        (0.77295309, -0.56158329, -0.29524181),
-        (0.29524181, -0.90866085, -0.29524181),
-    ],
-    'faces': [
-        (0, 1, 11, 10),
-        (0, 10, 19, 9),
-        (0, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-        (1, 2, 12, 11),
-        (2, 3, 13, 12),
-        (3, 4, 14, 13),
-        (4, 5, 15, 14),
-        (5, 6, 16, 15),
-        (6, 7, 17, 16),
-        (7, 8, 18, 17),
-        (8, 9, 19, 18),
-        (10, 11, 12, 13, 14, 15, 16, 17, 18, 19),
-    ],
-    'uv': [
-        ((0.9, 1), (0.8, 1), (0.8, 0), (0.9, 0)),
-        ((0.9, 1), (0.9, 0), (1, 0), (1, 1)),
-        ((0.9, 1), (1, 1), (0.1, 1), (0.2, 1), (0.3, 1), (0.4, 1), (0.5, 1), (0.6, 1), (0.7, 1), (0.8, 1)),
-        ((0.8, 1), (0.7, 1), (0.7, 0), (0.8, 0)),
-        ((0.7, 1), (0.6, 1), (0.6, 0), (0.7, 0)),
-        ((0.6, 1), (0.5, 1), (0.5, 0), (0.6, 0)),
-        ((0.5, 1), (0.4, 1), (0.4, 0), (0.5, 0)),
-        ((0.4, 1), (0.3, 1), (0.3, 0), (0.4, 0)),
-        ((0.3, 1), (0.2, 1), (0.2, 0), (0.3, 0)),
-        ((0.2, 1), (0.1, 1), (0.1, 0), (0.2, 0)),
-        ((0.1, 1), (0, 1), (0, 0), (0.1, 0)),
-        ((0.9, 0), (1, 0), (0.1, 0), (0.2, 0), (0.3, 0), (0.4, 0), (0.5, 0), (0.6, 0), (0.7, 0), (0.8, 0)),
-    ]
-}
-
-TRIANGULAR_PRISM = {
-    'vertices': [
-        (-0.65465367, -0.37796447, 0.65465367),
-        (0.0, 0.75592895, 0.65465367),
-        (0.65465367, -0.37796447, 0.65465367),
-        (-0.65465367, -0.37796447, -0.65465367),
-        (0.0, 0.75592895, -0.65465367),
-        (0.65465367, -0.37796447, -0.65465367)
-    ],
-    'faces': [
-        (0, 1, 4, 3),
-        (0, 3, 5, 2),
-        (0, 2, 1),
-        (1, 2, 5, 4),
-        (3, 4, 5)
-    ]
-}
