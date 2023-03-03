@@ -38,7 +38,7 @@ class Walker(NodePath):
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.allOn())
         self.setPos(Point3(16, -20, -3))
-        # self.setPos(Point3(30.7107, 121.199, -0.326272))
+        self.setPos(Point3(16, -20, 20))
 
         self.setScale(0.5)
 
@@ -147,16 +147,14 @@ class Walking(ShowBase):
 
     def __init__(self):
         super().__init__()
-        # self.trackball.node().setPos(-128, 150, -50)
-        # self.trackball.node().setHpr(0, 40, 0)
         self.disableMouse()
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
 
         # ****************************************
-        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        # self.world.setDebugNode(collide_debug.node())
-        # collide_debug.show()
+        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        self.world.setDebugNode(collide_debug.node())
+        collide_debug.show()
         # ****************************************
         self.scene = Scene(self.world)
 
