@@ -37,8 +37,8 @@ class Walker(NodePath):
         self.world = world
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.allOn())
-        self.setPos(Point3(16, -20, -3))
-        self.setPos(Point3(16, -20, 20))
+        # self.setPos(Point3(16, -20, -3))
+        self.setPos(Point3(38, 2, 3))
 
         self.setScale(0.5)
 
@@ -152,9 +152,9 @@ class Walking(ShowBase):
         self.world.setGravity(Vec3(0, 0, -9.81))
 
         # ****************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
+        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        # self.world.setDebugNode(collide_debug.node())
+        # collide_debug.show()
         # ****************************************
         self.scene = Scene(self.world)
 
@@ -179,7 +179,7 @@ class Walking(ShowBase):
         self.camera.setPos(self.walker.navigate())
         self.camera.lookAt(self.floater)
         # *******************************
-        # self.camera.setPos(Point3(16, -20, 50))
+        # self.camera.setPos(Point3(16, -20, 100))
         # self.camera.lookAt(self.floater)
 
         self.camLens.setFov(90)

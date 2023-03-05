@@ -96,7 +96,7 @@ class Materials:
 
         block = Block(name, parent, self.cube, pos, hpr, scale, bitmask)
         su = (scale.x * 2 + scale.y * 2) / 4
-        sv = scale.z / 4
+        sv = scale.z / 4 
         block.setTexScale(TextureStage.getDefault(), su, sv)
 
         if active_always:
@@ -189,9 +189,10 @@ class StoneHouse(Materials):
         self.house.setH(h)
 
     def make_textures(self):
-        self.wall_tex = self.texture(Images.FIELD_STONE)   # for walls
-        self.floor_tex = self.texture(Images.IRON)         # for floors, steps and roof
-        self.door_tex = self.texture(Images.BOARD)         # for doors
+        self.wall_tex = self.texture(Images.FIELD_STONE)    # for walls
+        self.floor_tex = self.texture(Images.IRON)          # for floors, steps and roof
+        self.door_tex = self.texture(Images.BOARD)          # for doors
+        self.column_tex = self.texture(Images.CONCRETE)     # for columns
 
     def build(self):
         self.make_textures()
@@ -201,6 +202,18 @@ class StoneHouse(Materials):
         floors.reparentTo(self.house)
         doors = NodePath(PandaNode('doors'))
         doors.reparentTo(self.house)
+        columns = NodePath(PandaNode('columns'))
+        columns.reparentTo(self.house)
+
+        # columns
+        materials = [
+            Point3(-15, -11, -3),
+            Point3(15, -11, -3),
+            Point3(15, 11, -3),
+            Point3(-15, 11, -3)
+        ]
+        for i, pos in enumerate(materials):
+            self.pole(f'column_{i}', columns, pos, Vec3(1, 1, 9), Vec2(1, 1))
 
         # the 1st outside floor
         materials = [
@@ -291,9 +304,10 @@ class StoneHouse(Materials):
         self.block('roof', floors, Point3(-4, 4.25, 13.25), Vec3(20, 8.5, 0.5))
 
         # steps
-        steps = [Point3(-9.75, -7.5 + i, 1 + i) for i in range(6)]
-        for i, pos in enumerate(steps):
-            self.block(f'step_{i}', floors, pos, Vec3(7.5, 1, 1), hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
+        steps = [[Point3(-9.75, -7.5 + i, 1 + i), Vec3(7.5, 1, 1)] for i in range(6)]
+        steps += [[Point3(0, 12.5 + i, 0 - i), Vec3(32, 1, 1)] for i in range(4)]
+        for i, (pos, scale) in enumerate(steps):
+            self.block(f'step_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
 
         # doors
         materials = [
@@ -307,6 +321,7 @@ class StoneHouse(Materials):
         doors.setTexture(self.door_tex)
         walls.setTexture(self.wall_tex)
         floors.setTexture(self.floor_tex)
+        columns.setTexture(self.column_tex)
 
 
 class BrickHouse(Materials):
@@ -340,6 +355,7 @@ class BrickHouse(Materials):
             [Point3(0, 0, 0), Vec3(13, 9, 2)],     # big room
             [Point3(3, -6.5, 0), Vec3(7, 4, 2)],   # small room
         ]
+
         for i, (pos, scale) in enumerate(materials):
             self.block(f'room_brick{i}', floors, pos, scale)
 
@@ -440,12 +456,12 @@ class Terrace(Materials):
 
         # columns
         materials = [
-            [Point3(-7.5, -5.5, 3.25), Vec3(0.25, 0.25, 10.5)],
-            [Point3(7.5, -5.5, 3.25), Vec3(0.25, 0.25, 10.5)],
-            [Point3(7.5, 5.5, 3.25), Vec3(0.25, 0.25, 10.5)],
+            Point3(-7.5, -5.5, 2),
+            Point3(7.5, -5.5, 2),
+            Point3(7.5, 5.5, 2),
         ]
-        for i, (pos, scale) in enumerate(materials):
-            self.pole(f'column_{i}', walls, pos, scale, Vec2(1, 3))
+        for i, pos in enumerate(materials):
+            self.pole(f'column_{i}', walls, pos, Vec3(0.25, 0.25, 16), Vec2(1, 3))
 
         # roof
         self.block('roof', roofs, Point3(0, 0, 6.5), Vec3(16, 0.5, 12), hpr=Vec3(0, 90, 0))
@@ -462,7 +478,7 @@ class Terrace(Materials):
 
         # spiral staircase
         center = Point3(9, 1.5, 3.5)
-        self.pole('center_pole', steps, center, Vec3(0.15, 0.15, 13), Vec2(1, 3))
+        self.pole('center_pole', steps, center, Vec3(0.15, 0.15, 16), Vec2(1, 3))
 
         for i in range(7):
             angle = -90 + 30 * i
