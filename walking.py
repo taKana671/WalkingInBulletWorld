@@ -39,6 +39,7 @@ class Walker(NodePath):
         self.setCollideMask(BitMask32.allOn())
         # self.setPos(Point3(16, -20, -3))
         self.setPos(Point3(38, 2, 3))
+    
 
         self.setScale(0.5)
 
@@ -116,10 +117,12 @@ class Walker(NodePath):
         pos = self.getPos() + orientation * dist
 
         if below_hit := self.current_location():
+            print('below', below_hit.getNode().getName())
             if steps_hit := self.watch_steps():
+                print('step', steps_hit.getNode().getName())
                 below_height = below_hit.getHitPos().z
                 step_height = steps_hit.getHitPos().z
-
+                print(step_height, below_height)
                 if 0.5 < (diff := step_height - below_height) < 1.2:
                     pos.z += diff
         self.setPos(pos)
@@ -151,11 +154,9 @@ class Walking(ShowBase):
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
 
-        # ****************************************
-        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        # self.world.setDebugNode(collide_debug.node())
-        # collide_debug.show()
-        # ****************************************
+        self.debug_np = self.render.attachNewNode(BulletDebugNode('debug'))
+        self.world.setDebugNode(self.debug_np.node())
+
         self.scene = Scene(self.world)
 
         self.walker = Walker(self.world)
@@ -165,7 +166,7 @@ class Walking(ShowBase):
         self.floater = NodePath('floater')
         self.floater.reparentTo(self.walker)
         self.floater.setZ(2.0)
-        
+
         # using camera_np***************
         # self.camera_np = NodePath('cameraNp')
         # self.camera_np.reparentTo(self.walker)
@@ -193,7 +194,14 @@ class Walking(ShowBase):
 
         self.accept('escape', sys.exit)
         self.accept('p', self.print_info)
+        self.accept('d', self.toggle_debug)
         self.taskMgr.add(self.update, 'update')
+
+    def toggle_debug(self):
+        if self.debug_np.isHidden():
+            self.debug_np.show()
+        else:
+            self.debug_np.hide()
 
     def setup_lights(self):
         ambient_light = self.render.attachNewNode(AmbientLight('ambientLignt'))

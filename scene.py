@@ -1,19 +1,16 @@
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletHeightfieldShape, ZUp
-from panda3d.core import NodePath, PandaNode, TransformState
-from panda3d.core import Vec3, Point3, LColor, BitMask32
+from panda3d.core import NodePath, PandaNode
+from panda3d.core import Vec3, Point3
 from panda3d.core import Filename
 from panda3d.core import PNMImage
 from panda3d.core import ShaderTerrainMesh, Shader, load_prc_file_data
 from panda3d.core import SamplerState
-
 from panda3d.core import CardMaker, TextureStage
-
 from panda3d.core import TransparencyAttrib
-from panda3d.core import BitMask32, LPoint3, NodePath, PandaNode
 from direct.interval.LerpInterval import LerpTexOffsetInterval
 
-from buildings import StoneHouse, BrickHouse, Terrace, Observatory
+from buildings import StoneHouse, BrickHouse, Terrace, Observatory, Bridge
 
 load_prc_file_data("", """
     textures-power-2 none
@@ -30,53 +27,61 @@ class Scene(NodePath):
         super().__init__(PandaNode('scene'))
         self.reparentTo(base.render)
         self.world = world
+        self.size = 256  # size of terrain and water
+
+        # make sky
+        self.sky = NodePath('sky')
+        self.sky.reparentTo(self)
+        self.make_sky()
+
+        # make terrain
+        self.terrains = NodePath('terrain')
+        self.terrains.reparentTo(self)
         self.make_terrain('terrains/heightfield7.png')
-        self.make_water()
+
+        # make water
+        self.water = NodePath('water')
+        self.water.reparentTo(self)
+        water_pos = self.terrain.getPos()
+        water_pos.z = -3
+        self.make_water(water_pos)
+
+        # make buildings
+        self.buildings = NodePath('buildings')
+        self.buildings.reparentTo(self)
         self.make_buildings()
-        print(self.getChildren())
 
     def make_buildings(self):
-        # buildings = [
-        #     [StoneHouse, Point3(20, 10, -4), 0],
-        #     [BrickHouse, Point3(60, 30, -2.8), -45],
-        #     [Terrace, Point3(-30, 10, -3.5), 45],
-        #     [Observatory, Point3(-93, 42, -2.5), 0]
-        # ]
 
-        # for _class, pos, h in buildings:
-        #     building = _class(self.world, pos, h)
-        #     building.build()
+        buildings = [
+            [StoneHouse, Point3(38, 75, 1), 0],
+            [BrickHouse, Point3(75, -39, -2), 160],
+            [Terrace, Point3(1, 1, -2), -180],
+            [Observatory, Point3(-80, 80, -2.5), 45],
+            [Bridge, Point3(38, 43, 1), 0]
+        ]
+        for bldg, pos, h in buildings:
+            building = bldg(self.world, self.buildings, pos, h)
+            building.build()
 
-        stone_house = StoneHouse(self.world, Point3(38, 75, 1))
-        stone_house.build()
-
-        brick_house = BrickHouse(self.world, Point3(75, -39, -2), 160)
-        brick_house.build()
-
-        terrace = Terrace(self.world, Point3(1, 1, -2), -180)
-        terrace.build()
-        observatory = Observatory(self.world, Point3(-80, 80, -2.5), 45)
-        observatory.build()
-
-    def make_terrain(self, img_heightfield):
-        img = PNMImage(Filename(img_heightfield))
+    def make_terrain(self, img_file):
+        img = PNMImage(Filename(img_file))
         shape = BulletHeightfieldShape(img, 10, ZUp)
-        nd = BulletRigidBodyNode('test')
+        nd = BulletRigidBodyNode('terrain')
         nd.addShape(shape)
         nd.setMass(0)
-        # np.setCollideMask(BitMask32.bit(1))
         self.world.attachRigidBody(nd)
 
         terrain_node = ShaderTerrainMesh()
-        heightfield = base.loader.loadTexture(img_heightfield)
+        heightfield = base.loader.loadTexture(img_file)
         heightfield.wrap_u = SamplerState.WM_clamp
         heightfield.wrap_v = SamplerState.WM_clamp
         terrain_node.heightfield = heightfield
         terrain_node.target_triangle_width = 10.0
         terrain_node.generate()
 
-        self.terrain = self.attachNewNode(terrain_node)
-        self.terrain.setScale(256, 256, 10)
+        self.terrain = self.terrains.attachNewNode(terrain_node)
+        self.terrain.setScale(self.size, self.size, 10)
         offset = img.getXSize() / 2.0 - 0.5
         self.terrain.setPos(-offset, -offset, -10 / 2.0)  # terrain bottom left. terrain_pos LPoint3f(-127.5, -127.5, -5)
 
@@ -88,13 +93,19 @@ class Scene(NodePath):
         grass_tex.set_anisotropic_degree(16)
         self.terrain.setTexture(grass_tex)
 
-    def make_water(self):
+    def make_water(self, pos):
         card = CardMaker('water')
-        card.setFrame(0, 256, 0, 256)
-        self.water = self.attachNewNode(card.generate())
-        self.water.lookAt(Vec3.down())
-        self.water.setPos(Point3(-127.5, -127.5, -3))
-        self.water.setTransparency(TransparencyAttrib.MAlpha)
-        self.water.setTexture(base.loader.loadTexture('textures/water2.png'))
-        self.water.setTexScale(TextureStage.getDefault(), 4)
-        LerpTexOffsetInterval(self.water, 200, (1, 0), (0, 0)).loop()
+        card.setFrame(0, self.size, 0, self.size)
+        water = self.water.attachNewNode(card.generate())
+        water.lookAt(Vec3.down())
+        water.setPos(pos)
+        water.setTransparency(TransparencyAttrib.MAlpha)
+        water.setTexture(base.loader.loadTexture('textures/water2.png'))
+        water.setTexScale(TextureStage.getDefault(), 4)
+        LerpTexOffsetInterval(water, 200, (1, 0), (0, 0)).loop()
+
+    def make_sky(self):
+        blue_sky = base.loader.loadModel('models/blue-sky/blue-sky-sphere')
+        blue_sky.setColor(2, 2, 2, 1)
+        blue_sky.setScale(0.2)
+        blue_sky.reparentTo(self.sky)

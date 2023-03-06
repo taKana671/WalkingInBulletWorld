@@ -1,5 +1,6 @@
 import math
 from enum import Enum
+from itertools import product
 
 from panda3d.core import Vec3, Vec2, Point3
 from panda3d.core import CardMaker, Texture, TextureStage
@@ -96,7 +97,7 @@ class Materials:
 
         block = Block(name, parent, self.cube, pos, hpr, scale, bitmask)
         su = (scale.x * 2 + scale.y * 2) / 4
-        sv = scale.z / 4 
+        sv = scale.z / 4
         block.setTexScale(TextureStage.getDefault(), su, sv)
 
         if active_always:
@@ -181,10 +182,10 @@ class Materials:
 
 class StoneHouse(Materials):
 
-    def __init__(self, world, center, h=0):
+    def __init__(self, world, parent, center, h=0):
         super().__init__(world)
         self.house = NodePath(PandaNode('stoneHouse'))
-        self.house.reparentTo(base.render)
+        self.house.reparentTo(parent)
         self.house.setPos(center)
         self.house.setH(h)
 
@@ -304,8 +305,8 @@ class StoneHouse(Materials):
         self.block('roof', floors, Point3(-4, 4.25, 13.25), Vec3(20, 8.5, 0.5))
 
         # steps
-        steps = [[Point3(-9.75, -7.5 + i, 1 + i), Vec3(7.5, 1, 1)] for i in range(6)]
-        steps += [[Point3(0, 12.5 + i, 0 - i), Vec3(32, 1, 1)] for i in range(4)]
+        steps = [[Point3(-9.75, -7.5 + i, 1 + i), Vec3(7.5, 1, 1)] for i in range(6)]  # steps that leads to the 2nd floor
+        steps += [[Point3(0, 12.5 + i, 0 - i), Vec3(32, 1, 1)] for i in range(4)]      # steps that leade to the 1st floor
         for i, (pos, scale) in enumerate(steps):
             self.block(f'step_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
 
@@ -326,10 +327,10 @@ class StoneHouse(Materials):
 
 class BrickHouse(Materials):
 
-    def __init__(self, world, center, h=0):
+    def __init__(self, world, parent, center, h=0):
         super().__init__(world)
         self.house = NodePath(PandaNode('brickHouse'))
-        self.house.reparentTo(base.render)
+        self.house.reparentTo(parent)
         self.house.setPos(center)
         self.house.setH(h)
 
@@ -423,10 +424,10 @@ class BrickHouse(Materials):
 
 class Terrace(Materials):
 
-    def __init__(self, world, center, h=0):
+    def __init__(self, world, parent, center, h=0):
         super().__init__(world)
         self.terrace = NodePath(PandaNode('terrace'))
-        self.terrace.reparentTo(base.render)
+        self.terrace.reparentTo(parent)
         self.terrace.setPos(center)
         self.terrace.setH(h)
 
@@ -505,10 +506,10 @@ class Terrace(Materials):
 
 class Observatory(Materials):
 
-    def __init__(self, world, center, h=0):
+    def __init__(self, world, parent, center, h=0):
         super().__init__(world)
         self.observatory = NodePath(PandaNode('observatory'))
-        self.observatory.reparentTo(base.render)
+        self.observatory.reparentTo(parent)
         self.observatory.setPos(center)
         self.observatory.setH(h)
 
@@ -608,3 +609,51 @@ class Observatory(Materials):
         steps.setTexture(self.steps_tex)
         landings.setTexture(self.landing_tex)
         posts.setTexture(self.posts_tex)
+
+
+class Bridge(Materials):
+
+    def __init__(self, world, parent, center, h=0):
+        super().__init__(world)
+        self.bridge = NodePath(PandaNode('bridge'))
+        self.bridge.reparentTo(parent)
+        self.bridge.setPos(center)
+        self.bridge.setH(h)
+
+    def make_textures(self):
+        self.bridge_tex = self.texture(Images.IRON)         # for bridge girder
+        self.column_tex = self.texture(Images.CONCRETE)     # for columns
+        # self.steps_tex = self.texture(Images.METALBOARD)   # for steps
+        # self.landing_tex = self.texture(Images.CONCRETE2)  # for floors
+        # self.posts_tex = self.texture(Images.IRON)         # for posts
+
+    def build(self):
+        self.make_textures()
+        girder = NodePath('girder')
+        girder.reparentTo(self.bridge)
+        columns = NodePath('columns')
+        columns.reparentTo(self.bridge)
+
+        # columns supporting bridge girder
+        materials = [Point3(x, y, -3) for x, y in product((3, -3), (3, -3))]
+        materials += [Point3(0, y, -3) for y in (12, -12)]
+
+        for i, pos in enumerate(materials):
+            self.pole(f'column_{i}', columns, pos, Vec3(1, 1, 9), Vec2(1, 1))
+
+        # bridge girder
+        materials = [
+            [Point3(0, 0, 0), Vec3(8, 1, 8)],
+            [Point3(0, 12, 0), Vec3(4, 1, 16)],
+            [Point3(0, -12, 0), Vec3(4, 1, 16)],
+        ]
+        for i, (pos, scale) in enumerate(materials):
+            self.block(f'girder_{i}', girder, pos, scale, hpr=Vec3(0, 90, 0))
+
+        # steps
+        steps = [Point3(0, -20.5 - i, -1 - i) for i in range(5)]
+        for i, pos in enumerate(steps):
+            self.block(f'step_{i}', girder, pos, Vec3(4, 1, 2), hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
+
+        girder.setTexture(self.bridge_tex)
+        columns.setTexture(self.column_tex)
