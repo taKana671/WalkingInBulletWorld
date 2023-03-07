@@ -38,8 +38,8 @@ class Walker(NodePath):
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.allOn())
         # self.setPos(Point3(16, -20, -3))
-        self.setPos(Point3(38, 2, 3))
-    
+        self.setPos(Point3(38, -47, 3))
+        # self.setPos(Point3(38, 50, 5))
 
         self.setScale(0.5)
 
@@ -117,12 +117,10 @@ class Walker(NodePath):
         pos = self.getPos() + orientation * dist
 
         if below_hit := self.current_location():
-            print('below', below_hit.getNode().getName())
             if steps_hit := self.watch_steps():
-                print('step', steps_hit.getNode().getName())
                 below_height = below_hit.getHitPos().z
                 step_height = steps_hit.getHitPos().z
-                print(step_height, below_height)
+
                 if 0.5 < (diff := step_height - below_height) < 1.2:
                     pos.z += diff
         self.setPos(pos)
@@ -246,21 +244,21 @@ class Walking(ShowBase):
         print('navigator', self.walker.getRelativePoint(self.walker.direction_node, Vec3(0, 10, 2)))
         print('navigator + walker_pos', self.walker.getPos() + self.walker.getRelativePoint(self.walker.direction_node, Vec3(0, 10, 2)))
 
-    def rotate_camera(self):
-        next_pos = self.walker.navigate()
+    def rotate_camera(self, next_pos=None):
+        if not next_pos:
+            next_pos = self.walker.navigate()
         walker_pos = self.walker.getPos()
         point = Point3(0, 0, 0)
         q = Quat()
 
         for _ in range(4):
-            # print(next_pos)
             camera_pos = next_pos + walker_pos
             result = self.world.rayTestClosest(camera_pos, walker_pos, self.mask)
 
             if result.getNode() == self.walker.node():
                 return next_pos
 
-            q.setFromAxisAngle(90, Vec3.up())
+            q.setFromAxisAngle(360 / 4, Vec3.up())
             r = q.xform(next_pos - point)
             next_pos = point + r
 
@@ -276,10 +274,9 @@ class Walking(ShowBase):
         if result.hasHit():
             if result.getNode() != self.walker.node():
                 if not result.getNode().getName().startswith('door'):
-                    # self.camera_np.setPos(self.walker.navigate())
-
                     if next_pos := self.rotate_camera():
                         self.camera.setPos(next_pos)
+                        # self.camera_np.setPos(next_pos)
                         self.camera.lookAt(self.floater)
                     # self.camera.setPos(self.walker.navigate())
                     # self.camera.lookAt(self.floater)
@@ -310,6 +307,11 @@ class Walking(ShowBase):
                 self.camera.reparentTo(self.walker)
                 self.camera.setPos(0, -10, 2)
                 self.camera.lookAt(self.floater)
+
+                # if next_pos := self.rotate_camera(Point3(0, -10, 2)):
+                #     print('called')
+                #     self.camera.setPos(next_pos)
+                #     self.camera.lookAt(self.floater)
 
                 # *****using self.camera_np*************
                 # self.camera.detachNode()

@@ -207,12 +207,7 @@ class StoneHouse(Materials):
         columns.reparentTo(self.house)
 
         # columns
-        materials = [
-            Point3(-15, -11, -3),
-            Point3(15, -11, -3),
-            Point3(15, 11, -3),
-            Point3(-15, 11, -3)
-        ]
+        materials = [Point3(x, y, -3) for x, y in product((-15, 15), (-11, 11))]
         for i, pos in enumerate(materials):
             self.pole(f'column_{i}', columns, pos, Vec3(1, 1, 9), Vec2(1, 1))
 
@@ -353,68 +348,63 @@ class BrickHouse(Materials):
 
         # floors
         materials = [
-            [Point3(0, 0, 0), Vec3(13, 9, 2)],     # big room
-            [Point3(3, -6.5, 0), Vec3(7, 4, 2)],   # small room
+            [Point3(0, 0, 0), Vec3(13, 9, 3)],     # big room
+            [Point3(3, -6.5, 0), Vec3(7, 4, 3)],   # small room
         ]
-
         for i, (pos, scale) in enumerate(materials):
             self.block(f'room_brick{i}', floors, pos, scale)
 
         # room_camera
-        self.room_camera('room_brick1_camera', self.house, Point3(3, 3, 5))
+        self.room_camera('room_brick1_camera', self.house, Point3(3, 3, 5.5))
 
         # steps
-        steps = [
-            [Point3(3, -9.5, 0), Vec3(4, 2, 2)],
-            [Point3(3, -11.5, -0.5), Vec3(4, 2, 1)],
-        ]
+        steps = [[Point3(3, -9.5 - i * 2, 0 - 0.5 * i), Vec3(4, 2, 3 - i)] for i in range(3)]
         for i, (pos, scale) in enumerate(steps):
             self.block(f'step_{i}', floors, pos, scale, bitmask=BitMask32.bit(2))
 
         # rear and front walls
-        wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 2.75), Vec3(2, 0.5, 3.5))
-
+        wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5))
         materials = [
-            [Point3(0, 4.25, 5), Vec3(12, 0.5, 8)],          # rear
-            [Point3(5, -8.25, 2.75), Vec3(2, 0.5, 3.5)],     # front right
-            [Point3(3, -8.25, 4.75), Vec3(6, 0.5, 0.5)],     # front_top
-            [Point3(-1.5, -4.25, 5), Vec3(2, 0.5, 8)],       # back room front right
-            [Point3(-5.25, -4.25, 5), Vec3(1.5, 0.5, 8)],    # back room front left
-            [Point3(-3.5, -4.25, 2.5), Vec3(2, 0.5, 3)],     # back room front under
-            [Point3(-3.5, -4.25, 7.5), Vec3(2, 0.5, 3)],     # back room front under
-            [Point3(3, -4.25, 7), Vec3(7, 0.5, 4)],          # back room front
+            [Point3(0, 4.25, 5.5), Vec3(12, 0.5, 8)],        # rear
+            [Point3(5, -8.25, 3.25), Vec3(2, 0.5, 3.5)],     # front right
+            [Point3(3, -8.25, 5.25), Vec3(6, 0.5, 0.5)],     # front_top
+            [Point3(-1.5, -4.25, 5.5), Vec3(2, 0.5, 8)],     # back room front right
+            [Point3(-5.25, -4.25, 5.5), Vec3(1.5, 0.5, 8)],  # back room front left
+            [Point3(-3.5, -4.25, 3.0), Vec3(2, 0.5, 3)],     # back room front under
+            [Point3(-3.5, -4.25, 8.0), Vec3(2, 0.5, 3)],     # back room front under
+            [Point3(3, -4.25, 7.5), Vec3(7, 0.5, 4)],        # back room front
         ]
         for i, (pos, scale) in enumerate(materials):
             self.block(f'wall1_fr{i}', walls, pos, scale)
 
         # side walls
         materials = [
-            [Point3(-0.25, -6.25, 3), Vec3(4.5, 0.5, 4)],    # left
-            [Point3(-6.25, -3, 5), Vec3(3, 0.5, 8)],
-            [Point3(-6.25, 3, 5), Vec3(3, 0.5, 8)],
-            [Point3(-6.25, 0, 2.5), Vec3(3, 0.5, 3)],
-            [Point3(-6.25, 0, 7.5), Vec3(3, 0.5, 3)],
-            [Point3(6.25, -6.25, 3), Vec3(4.5, 0.5, 4)],     # right
-            [Point3(6.25, -2.75, 5), Vec3(2.5, 0.5, 8)],
-            [Point3(6.25, 3, 5), Vec3(3, 0.5, 8)],
-            [Point3(6.25, 0, 2.5), Vec3(3, 0.5, 3)],
-            [Point3(6.25, 0, 7.5), Vec3(3, 0.5, 3)]
+            [Point3(-0.25, -6.25, 3.5), Vec3(4.5, 0.5, 4)],    # left
+            [Point3(-6.25, -3, 5.5), Vec3(3, 0.5, 8)],
+            [Point3(-6.25, 3, 5.5), Vec3(3, 0.5, 8)],
+            [Point3(-6.25, 0, 3.0), Vec3(3, 0.5, 3)],
+            [Point3(-6.25, 0, 8.0), Vec3(3, 0.5, 3)],
+            [Point3(6.25, -6.25, 3.5), Vec3(4.5, 0.5, 4)],     # right
+            [Point3(6.25, -2.75, 5.5), Vec3(2.5, 0.5, 8)],
+            [Point3(6.25, 3, 5.5), Vec3(3, 0.5, 8)],
+            [Point3(6.25, 0, 3.0), Vec3(3, 0.5, 3)],
+            [Point3(6.25, 0, 8.0), Vec3(3, 0.5, 3)]
         ]
         for i, (pos, scale) in enumerate(materials):
             self.block(f'wall1_side{i}', walls, pos, scale, horizontal=False)
 
         # roofs
         materials = [
-            [Point3(3, -6.5, 5.25), Vec3(7, 4, 0.5)],       # small room
-            [Point3(3, -6.5, 5.5), Vec3(6, 3, 0.5)],        # small room
-            [Point3(0, 0, 9.25), Vec3(13, 9, 0.5)],         # big room
-            [Point3(0, 0, 9.5), Vec3(12, 8, 0.5)],          # big room
+            [Point3(3, -6.5, 5.75), Vec3(7, 4, 0.5)],       # small room
+            [Point3(3, -6.5, 6.0), Vec3(6, 3, 0.5)],        # small room
+            [Point3(0, 0, 9.75), Vec3(13, 9, 0.5)],         # big room
+            [Point3(0, 0, 10.0), Vec3(12, 8, 0.5)],         # big room
         ]
         for i, (pos, scale) in enumerate(materials):
             self.block(f'roof_{i}', roofs, pos, scale)
 
         # doors
-        self.door('door_1', doors, Point3(3, -8.25, 2.75), Vec3(2, 0.5, 3.5), wall1_l, )
+        self.door('door_1', doors, Point3(3, -8.25, 3.25), Vec3(2, 0.5, 3.5), wall1_l)
 
         floors.setTexture(self.floor_tex)
         walls.setTexture(self.wall_tex)
@@ -449,18 +439,13 @@ class Terrace(Materials):
         steps.reparentTo(self.terrace)
 
         # the 1st floor
-        self.block('floor1', floors, Point3(0, 0, 0), Vec3(16, 0.5, 12), hpr=Vec3(0, 90, 0))
+        self.block('floor1', floors, Point3(0, 0, 0), Vec3(16, 0.5, 12), hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
 
         # walls
         self.block('wall1_r', walls, Point3(-5.5, 5.75, 3.25), Vec3(5, 0.5, 6))                       # rear
         self.block('wall1_r', walls, Point3(-7.75, 3.25, 3.25), Vec3(4.5, 0.5, 6), horizontal=False)  # side
 
-        # columns
-        materials = [
-            Point3(-7.5, -5.5, 2),
-            Point3(7.5, -5.5, 2),
-            Point3(7.5, 5.5, 2),
-        ]
+        materials = [Point3(x, y, 2) for x, y in product((-7.5, 7.5), (-5.5, 5.5))]
         for i, pos in enumerate(materials):
             self.pole(f'column_{i}', walls, pos, Vec3(0.25, 0.25, 16), Vec2(1, 3))
 
@@ -623,9 +608,7 @@ class Bridge(Materials):
     def make_textures(self):
         self.bridge_tex = self.texture(Images.IRON)         # for bridge girder
         self.column_tex = self.texture(Images.CONCRETE)     # for columns
-        # self.steps_tex = self.texture(Images.METALBOARD)   # for steps
-        # self.landing_tex = self.texture(Images.CONCRETE2)  # for floors
-        # self.posts_tex = self.texture(Images.IRON)         # for posts
+        self.fence_tex = self.texture(Images.METALBOARD)    # for fences
 
     def build(self):
         self.make_textures()
@@ -633,6 +616,8 @@ class Bridge(Materials):
         girder.reparentTo(self.bridge)
         columns = NodePath('columns')
         columns.reparentTo(self.bridge)
+        fences = NodePath('fences')
+        fences.reparentTo(self.bridge)
 
         # columns supporting bridge girder
         materials = [Point3(x, y, -3) for x, y in product((3, -3), (3, -3))]
@@ -651,9 +636,19 @@ class Bridge(Materials):
             self.block(f'girder_{i}', girder, pos, scale, hpr=Vec3(0, 90, 0))
 
         # steps
-        steps = [Point3(0, -20.5 - i, -1 - i) for i in range(5)]
-        for i, pos in enumerate(steps):
-            self.block(f'step_{i}', girder, pos, Vec3(4, 1, 2), hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
+        materials = [Point3(0, -20.5 - i, 0 - i) for i in range(5)]
+        for i, pos in enumerate(materials):
+            self.block(f'step_{i}', girder, pos, Vec3(4, 1, 1), bitmask=BitMask32.bit(2))
+
+        # materials = [Point3(1.9, 4.5 + i, 1) for i in range(16)]
+        # materials += [Point3(-1.9, 4.5 + i, 1) for i in range(16)]
+        # materials += [Point3(1.9, -19.5 + i, 1) for i in range(16)]
+        # materials += [Point3(-1.9, -19.5 + i, 1) for i in range(16)]
+        materials = [Point3(x, y + i, 1) for i in range(16) for x, y in product((1.9, -1.9), (4.5, -19.5))]
+
+        for i, pos in enumerate(materials):
+            self.pole(f'fence_{i}', fences, pos, Vec3(0.05, 0.05, 3), Vec2(1, 2))
 
         girder.setTexture(self.bridge_tex)
         columns.setTexture(self.column_tex)
+        fences.setTexture(self.fence_tex)
