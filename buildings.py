@@ -1,6 +1,6 @@
 import math
 from enum import Enum
-from itertools import product
+from itertools import product, chain
 
 from panda3d.core import Vec3, Vec2, Point3
 from panda3d.core import CardMaker, Texture, TextureStage
@@ -207,7 +207,7 @@ class StoneHouse(Materials):
         columns.reparentTo(self.house)
 
         # columns
-        materials = [Point3(x, y, -3) for x, y in product((-15, 15), (-11, 11))]
+        materials = (Point3(x, y, -3) for x, y in product((-15, 15), (-11, 11)))
         for i, pos in enumerate(materials):
             self.pole(f'column_{i}', columns, pos, Vec3(1, 1, 9), Vec2(1, 1))
 
@@ -300,9 +300,11 @@ class StoneHouse(Materials):
         self.block('roof', floors, Point3(-4, 4.25, 13.25), Vec3(20, 8.5, 0.5))
 
         # steps
-        steps = [[Point3(-9.75, -7.5 + i, 1 + i), Vec3(7.5, 1, 1)] for i in range(6)]  # steps that leads to the 2nd floor
-        steps += [[Point3(0, 12.5 + i, 0 - i), Vec3(32, 1, 1)] for i in range(4)]      # steps that leade to the 1st floor
-        for i, (pos, scale) in enumerate(steps):
+        steps = [
+            ([Point3(-9.75, -7.5 + i, 1 + i), Vec3(7.5, 1, 1)] for i in range(6)),  # steps that leads to the 2nd floor
+            ([Point3(0, 12.5 + i, 0 - i), Vec3(32, 1, 1)] for i in range(4))        # steps that leade to the 1st floor
+        ]
+        for i, (pos, scale) in enumerate(chain(*steps)):
             self.block(f'step_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
 
         # doors
@@ -358,7 +360,7 @@ class BrickHouse(Materials):
         self.room_camera('room_brick1_camera', self.house, Point3(3, 3, 5.5))
 
         # steps
-        steps = [[Point3(3, -9.5 - i * 2, 0 - 0.5 * i), Vec3(4, 2, 3 - i)] for i in range(3)]
+        steps = ([Point3(3, -9.5 - i * 2, 0 - 0.5 * i), Vec3(4, 2, 3 - i)] for i in range(3))
         for i, (pos, scale) in enumerate(steps):
             self.block(f'step_{i}', floors, pos, scale, bitmask=BitMask32.bit(2))
 
@@ -445,7 +447,7 @@ class Terrace(Materials):
         self.block('wall1_r', walls, Point3(-5.5, 5.75, 3.25), Vec3(5, 0.5, 6))                       # rear
         self.block('wall1_r', walls, Point3(-7.75, 3.25, 3.25), Vec3(4.5, 0.5, 6), horizontal=False)  # side
 
-        materials = [Point3(x, y, 2) for x, y in product((-7.5, 7.5), (-5.5, 5.5))]
+        materials = (Point3(x, y, 2) for x, y in product((-7.5, 7.5), (-5.5, 5.5)))
         for i, pos in enumerate(materials):
             self.pole(f'column_{i}', walls, pos, Vec3(0.25, 0.25, 16), Vec2(1, 3))
 
@@ -558,14 +560,15 @@ class Observatory(Materials):
             self.pole(f'support_{i}', posts, pos, scale, Vec2(1, 3))
 
         # steps
-        materials = [[Point3(7, 5 + i, 18.25 - i), True] for i in range(3)]
-        materials += [[Point3(4.5 - i, 9.5, 15.25 - i), False] for i in range(3)]
-        materials += [[Point3(-2.5 - i, 9.5, 12.25 - i), False] for i in range(3)]
-        materials += [[Point3(-7, 7 - i, 9.25 - i), True] for i in range(3)]
-        materials += [[Point3(-9.5 - i, 2.5, 6.25 - i), False] for i in range(3)]
-        materials += [[Point3(-16.5 - i, 2.5, 3.25 - i), False] for i in range(3)]
-
-        for i, (pos, hor) in enumerate(materials):
+        materials = [
+            ([Point3(7, 5 + i, 18.25 - i), True] for i in range(3)),
+            ([Point3(4.5 - i, 9.5, 15.25 - i), False] for i in range(3)),
+            ([Point3(-2.5 - i, 9.5, 12.25 - i), False] for i in range(3)),
+            ([Point3(-7, 7 - i, 9.25 - i), True] for i in range(3)),
+            ([Point3(-9.5 - i, 2.5, 6.25 - i), False] for i in range(3)),
+            ([Point3(-16.5 - i, 2.5, 3.25 - i), False] for i in range(3))
+        ]
+        for i, (pos, hor) in enumerate(chain(*materials)):
             self.block(f'step_{i}', steps, pos, Vec3(4, 1, 1), horizontal=hor, bitmask=BitMask32.bit(2))
 
             # falling preventions
@@ -574,21 +577,21 @@ class Observatory(Materials):
                 fence_pos = pos + diff
                 self.pole(f'fence_{i}', steps, fence_pos, Vec3(0.05, 0.05, 3.5), Vec2(1, 2))
 
-        # falling preventions for stair landings
-        materials = [Point3(-15.5 + i, 4.375, 4.6) for i in range(4)]
-        materials += [Point3(-15.5 + i, 0.625, 4.6) for i in range(4)]
-        materials += [Point3(-8.5 + i, 0.625, 7.6) for i in range(4)]
-        materials += [Point3(-5.125, 4 - i, 7.6) for i in range(4)]
-        materials += [Point3(-8.5 + i, 11.375, 10.6) for i in range(4)]
-        materials += [Point3(-8.875, 8 + i, 10.6) for i in range(4)]
-        materials += [Point3(-1.5 + i, 7.625, 13.6) for i in range(4)]
-        materials += [Point3(-1.5 + i, 11.375, 13.6) for i in range(4)]
-        materials += [Point3(5.5 + i, 11.375, 16.6) for i in range(4)]
-        materials += [Point3(8.875, 8 + i, 16.6) for i in range(4)]
-        materials += [Point3(5.5 + i, 0.625, 19.6) for i in range(6)]
-        materials += [Point3(5.125, 1 + i, 19.6) for i in range(4)]
-
-        for i, pos in enumerate(materials):
+        materials = [
+            (Point3(-15.5 + i, 4.375, 4.6) for i in range(4)),
+            (Point3(-15.5 + i, 0.625, 4.6) for i in range(4)),
+            (Point3(-8.5 + i, 0.625, 7.6) for i in range(4)),
+            (Point3(-5.125, 4 - i, 7.6) for i in range(4)),
+            (Point3(-8.5 + i, 11.375, 10.6) for i in range(4)),
+            (Point3(-8.875, 8 + i, 10.6) for i in range(4)),
+            (Point3(-1.5 + i, 7.625, 13.6) for i in range(4)),
+            (Point3(-1.5 + i, 11.375, 13.6) for i in range(4)),
+            (Point3(5.5 + i, 11.375, 16.6) for i in range(4)),
+            (Point3(8.875, 8 + i, 16.6) for i in range(4)),
+            (Point3(5.5 + i, 0.625, 19.6) for i in range(6)),
+            (Point3(5.125, 1 + i, 19.6) for i in range(4))
+        ]
+        for i, pos in enumerate(chain(*materials)):
             self.pole(f'fence_landing_{i}', steps, pos, Vec3(0.05, 0.05, 4), Vec2(1, 2))
 
         steps.setTexture(self.steps_tex)
@@ -620,10 +623,11 @@ class Bridge(Materials):
         fences.reparentTo(self.bridge)
 
         # columns supporting bridge girder
-        materials = [Point3(x, y, -3) for x, y in product((3, -3), (3, -3))]
-        materials += [Point3(0, y, -3) for y in (12, -12)]
-
-        for i, pos in enumerate(materials):
+        materials = [
+            (Point3(x, y, -3) for x, y in product((3, -3), (3, -3))),
+            (Point3(0, y, -3) for y in (12, -12))
+        ]
+        for i, pos in enumerate(chain(*materials)):
             self.pole(f'column_{i}', columns, pos, Vec3(1, 1, 9), Vec2(1, 1))
 
         # bridge girder
@@ -636,19 +640,48 @@ class Bridge(Materials):
             self.block(f'girder_{i}', girder, pos, scale, hpr=Vec3(0, 90, 0))
 
         # steps
-        materials = [Point3(0, -20.5 - i, 0 - i) for i in range(5)]
+        materials = (Point3(0, -20.5 - i, 0 - i) for i in range(5))
         for i, pos in enumerate(materials):
             self.block(f'step_{i}', girder, pos, Vec3(4, 1, 1), bitmask=BitMask32.bit(2))
 
-        # materials = [Point3(1.9, 4.5 + i, 1) for i in range(16)]
-        # materials += [Point3(-1.9, 4.5 + i, 1) for i in range(16)]
-        # materials += [Point3(1.9, -19.5 + i, 1) for i in range(16)]
-        # materials += [Point3(-1.9, -19.5 + i, 1) for i in range(16)]
-        materials = [Point3(x, y + i, 1) for i in range(16) for x, y in product((1.9, -1.9), (4.5, -19.5))]
-
-        for i, pos in enumerate(materials):
+        # fences
+        materials = [
+            (Point3(x, y + i, 1) for i in range(16) for x, y in product((1.9, -1.9), (4.5, -19.5))),
+            (Point3(x + i, y, 1) for i in range(2) for x, y in product((-3.5, 2.5), (-3.9, 3.9))),
+            (Point3(x, -3.5 + i, 1) for i in range(8) for x in (-3.9, 3.9)),
+            (Point3(x, -20.5 - i, 1 - i) for i in range(5) for x in (1.9, -1.9))
+        ]
+        for i, pos in enumerate(chain(*materials)):
             self.pole(f'fence_{i}', fences, pos, Vec3(0.05, 0.05, 3), Vec2(1, 2))
 
         girder.setTexture(self.bridge_tex)
         columns.setTexture(self.column_tex)
         fences.setTexture(self.fence_tex)
+
+
+class Garden(Materials):
+
+    def __init__(self, world, parent, center, h=0):
+        super().__init__(world)
+        self.garden = NodePath(PandaNode('garden'))
+        self.garden.reparentTo(parent)
+        self.garden.setPos(center)
+        self.garden.setH(h)
+
+    def make_textures(self):
+        self.bridge_tex = self.texture(Images.IRON)         # for bridge girder
+        self.column_tex = self.texture(Images.CONCRETE)     # for columns
+        self.fence_tex = self.texture(Images.METALBOARD)    # for fences
+
+    def build(self):
+        self.make_textures()
+        flowers = NodePath('flowers')
+        flowers.reparentTo(self.garden)
+
+        self.plane('yellow', flowers, Point3(0, 0, 0), 3, 3, size=2)
+
+        tex = base.loader.loadTexture('textures/flowers.png')
+        tex.setWrapU(Texture.WM_repeat)
+        tex.setWrapV(Texture.WM_repeat)
+
+        flowers.setTexture(tex)

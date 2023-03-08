@@ -37,10 +37,7 @@ class Walker(NodePath):
         self.world = world
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.allOn())
-        # self.setPos(Point3(16, -20, -3))
         self.setPos(Point3(38, -47, 3))
-        # self.setPos(Point3(38, 50, 5))
-
         self.setScale(0.5)
 
         self.direction_node = NodePath(PandaNode('direction'))
@@ -165,6 +162,8 @@ class Walking(ShowBase):
         self.floater.reparentTo(self.walker)
         self.floater.setZ(2.0)
 
+        self.before_pos = None
+
         # using camera_np***************
         # self.camera_np = NodePath('cameraNp')
         # self.camera_np.reparentTo(self.walker)
@@ -244,45 +243,47 @@ class Walking(ShowBase):
         print('navigator', self.walker.getRelativePoint(self.walker.direction_node, Vec3(0, 10, 2)))
         print('navigator + walker_pos', self.walker.getPos() + self.walker.getRelativePoint(self.walker.direction_node, Vec3(0, 10, 2)))
 
-    def rotate_camera(self, next_pos=None):
-        if not next_pos:
-            next_pos = self.walker.navigate()
-        walker_pos = self.walker.getPos()
-        point = Point3(0, 0, 0)
-        q = Quat()
+    def ray_cast(self, from_pos, to_pos):
+        result = self.world.rayTestClosest(from_pos, to_pos, self.mask)
 
-        for _ in range(4):
-            camera_pos = next_pos + walker_pos
-            result = self.world.rayTestClosest(camera_pos, walker_pos, self.mask)
-
-            if result.getNode() == self.walker.node():
-                return next_pos
-
-            q.setFromAxisAngle(360 / 4, Vec3.up())
-            r = q.xform(next_pos - point)
-            next_pos = point + r
+        if result.hasHit():
+            return result.getNode()
 
         return None
 
+    def find_camera_pos(self, walker_pos, next_pos):
+        q = Quat()
+        point = Point3(0, 0, 0)
+        start = self.camera.getPos()
+        angle = r = None
+
+        for i in range(36):
+            camera_pos = next_pos + walker_pos
+            if self.ray_cast(camera_pos, walker_pos) == self.walker.node():
+                return next_pos
+
+            times = i // 2 + 1
+            angle = 10 * times if i % 2 == 0 else -10 * times
+            q.setFromAxisAngle(angle, Vec3.up())
+            r = q.xform(start - point)
+            next_pos = point + r
+        return None
+
     def control_camera_outdoors(self):
-        # If the camera's view is blocked by an object like walls,
-        # the camera is repositioned.
+        """Repositions the camera if the camera's view is blocked by objects like walls, and
+           reparents the camera to the room_camera if the character goes into a room.
+        """
+        # reposition
         walker_pos = self.walker.getPos()
         camera_pos = self.camera.getPos() + walker_pos
-        result = self.world.rayTestClosest(camera_pos, walker_pos, self.mask)
 
-        if result.hasHit():
-            if result.getNode() != self.walker.node():
-                if not result.getNode().getName().startswith('door'):
-                    if next_pos := self.rotate_camera():
-                        self.camera.setPos(next_pos)
-                        # self.camera_np.setPos(next_pos)
-                        self.camera.lookAt(self.floater)
-                    # self.camera.setPos(self.walker.navigate())
-                    # self.camera.lookAt(self.floater)
+        if self.ray_cast(camera_pos, walker_pos) != self.walker.node():
+            if next_pos := self.find_camera_pos(walker_pos, self.walker.navigate()):
+                self.camera.setPos(next_pos)
+                # self.camera_np.setPos(next_pos)
+                self.camera.lookAt(self.floater)
 
-        # if the character goes into a room,
-        # the camera is reparented to a room-camera np.
+        # reparent camera
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
             if (name := location.getNode().getName()).startswith('room'):
                 room_camera = self.render.find(f'**/{name}_camera')
@@ -307,11 +308,6 @@ class Walking(ShowBase):
                 self.camera.reparentTo(self.walker)
                 self.camera.setPos(0, -10, 2)
                 self.camera.lookAt(self.floater)
-
-                # if next_pos := self.rotate_camera(Point3(0, -10, 2)):
-                #     print('called')
-                #     self.camera.setPos(next_pos)
-                #     self.camera.lookAt(self.floater)
 
                 # *****using self.camera_np*************
                 # self.camera.detachNode()

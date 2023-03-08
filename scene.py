@@ -10,7 +10,7 @@ from panda3d.core import CardMaker, TextureStage
 from panda3d.core import TransparencyAttrib
 from direct.interval.LerpInterval import LerpTexOffsetInterval
 
-from buildings import StoneHouse, BrickHouse, Terrace, Observatory, Bridge
+from buildings import StoneHouse, BrickHouse, Terrace, Observatory, Bridge, Garden
 
 load_prc_file_data("", """
     textures-power-2 none
@@ -91,7 +91,8 @@ class Scene(NodePath):
             [BrickHouse, Point3(50, -27, 0), -45],
             [Terrace, Point3(1, 1, -2), -180],
             [Observatory, Point3(-80, 80, -2.5), 45],
-            [Bridge, Point3(38, 43, 1), 0]
+            [Bridge, Point3(38, 43, 1), 0],
+            # [Garden, Point3(38, -47, 2), 0]
         ]
         for bldg, pos, h in buildings:
             building = bldg(self.world, self.buildings, pos, h)
