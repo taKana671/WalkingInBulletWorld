@@ -37,7 +37,8 @@ class Walker(NodePath):
         self.world = world
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.allOn())
-        self.setPos(Point3(38, -47, 3))
+        # self.setPos(Point3(38, -47, 3))
+        self.setPos(Point3(-42, -71, 3))
         self.setScale(0.5)
 
         self.direction_node = NodePath(PandaNode('direction'))
@@ -211,8 +212,8 @@ class Walking(ShowBase):
         directional_light.node().setColor((1, 1, 1, 1))
         # directional_light.setPosHpr(Point3(0, 0, 30), Vec3(-30, -45, 0))
         directional_light.setHpr((-30, -90, 0))
-        # directional_light.node().setShadowCaster(True)
-        # self.render.setShaderAuto()
+        directional_light.node().setShadowCaster(True)
+        self.render.setShaderAuto()
         self.render.setLight(directional_light)
 
     def control_walker(self, dt):

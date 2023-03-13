@@ -6,11 +6,11 @@ from panda3d.core import Vec3, Vec2, Point3
 from panda3d.core import CardMaker, Texture, TextureStage
 from panda3d.core import BitMask32, TransformState
 from panda3d.core import NodePath, PandaNode
-from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletPlaneShape
+from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletPlaneShape, BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConeTwistConstraint
 
-from utils import Cube, DecagonalPrism
+from utils import Cube, DecagonalPrism, make_tube, make_torus
 
 
 class Images(Enum):
@@ -71,6 +71,25 @@ class Cylinder(NodePath):
         shape.addGeom(self.model.node().getGeom(0))
         self.node().addShape(shape)
         self.setCollideMask(bitmask)
+
+
+class Ring(NodePath):
+
+    def __init__(self, name, parent, geomnode, pos, hpr, scale, bitmask):
+        super().__init__(BulletRigidBodyNode(name))
+        self.reparentTo(parent)
+        self.model = self.attachNewNode(geomnode)
+        self.model.setTwoSided(True)
+
+        mesh = BulletTriangleMesh()
+        mesh.addGeom(geomnode.getGeom(0))
+        shape = BulletTriangleMeshShape(mesh, dynamic=False)
+
+        self.node().addShape(shape)
+        self.setCollideMask(bitmask)
+        self.setPos(pos)
+        self.setHpr(hpr)
+        self.setScale(scale)
 
 
 class Materials:
@@ -178,6 +197,27 @@ class Materials:
         y = math.sin(rad) * radius
 
         return x, y
+
+    def tube(self, name, parent, pos, scale, hpr=None, horizontal=True, **kwargs):
+        if not hpr:
+            hpr = Vec3(0, 90, 0) if horizontal else Vec3(90, 0, 0)
+
+        geomnode = make_tube(**kwargs)
+        tube = Ring(name, parent, geomnode, pos, hpr, scale, BitMask32.allOn())
+        self.world.attachRigidBody(tube.node())
+
+        return tube
+
+    def torus(self, name, parent, pos, scale, tex_scale, hpr=None, horizontal=True, **kwargs):
+        if not hpr:
+            hpr = Vec3(0, 90, 0) if horizontal else Vec3(90, 0, 0)
+
+        geomnode = make_torus(**kwargs)
+        torus = Ring(name, parent, geomnode, pos, hpr, scale, BitMask32.allOn())
+        torus.setTexScale(TextureStage.getDefault(), tex_scale)
+        self.world.attachRigidBody(torus.node())
+
+        return torus
 
 
 class StoneHouse(Materials):
@@ -489,6 +529,7 @@ class Terrace(Materials):
         floors.setTexture(self.floor_tex)
         roofs.setTexture(self.roof_tex)
         steps.setTexture(self.steps_tex)
+        self.terrace.flatten_strong()
 
 
 class Observatory(Materials):
@@ -597,6 +638,7 @@ class Observatory(Materials):
         steps.setTexture(self.steps_tex)
         landings.setTexture(self.landing_tex)
         posts.setTexture(self.posts_tex)
+        self.observatory.flatten_strong()
 
 
 class Bridge(Materials):
@@ -657,31 +699,75 @@ class Bridge(Materials):
         girder.setTexture(self.bridge_tex)
         columns.setTexture(self.column_tex)
         fences.setTexture(self.fence_tex)
+        self.bridge.flatten_strong()
 
 
-class Garden(Materials):
+class Tunnel(Materials):
 
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)
-        self.garden = NodePath(PandaNode('garden'))
-        self.garden.reparentTo(parent)
-        self.garden.setPos(center)
-        self.garden.setH(h)
+        self.tunnel = NodePath(PandaNode('tunnel'))
+        self.tunnel.reparentTo(parent)
+        self.tunnel.setPos(center)
+        self.tunnel.setH(h)
 
     def make_textures(self):
-        self.bridge_tex = self.texture(Images.IRON)         # for bridge girder
-        self.column_tex = self.texture(Images.CONCRETE)     # for columns
-        self.fence_tex = self.texture(Images.METALBOARD)    # for fences
+        self.wall_tex = self.texture(Images.IRON)           # for tunnel
+        self.metal_tex = self.texture(Images.METALBOARD)
+        self.pedestal_tex = self.texture(Images.FIELD_STONE)
 
     def build(self):
         self.make_textures()
-        flowers = NodePath('flowers')
-        flowers.reparentTo(self.garden)
+        walls = NodePath('wall')
+        walls.reparentTo(self.tunnel)
+        metal = NodePath('rings')
+        metal.reparentTo(self.tunnel)
+        pedestals = NodePath('pedestals')
+        pedestals.reparentTo(self.tunnel)
 
-        self.plane('yellow', flowers, Point3(0, 0, 0), 3, 3, size=2)
+        # tunnel
+        self.tube('tunnel', walls, Point3(0, 0, 0), Vec3(4, 4, 4), height=20)
 
-        tex = base.loader.loadTexture('textures/flowers.png')
-        tex.setWrapU(Texture.WM_repeat)
-        tex.setWrapV(Texture.WM_repeat)
+        positions = [Point3(0, 0, 0), Point3(0, -80, 0)]
+        for i, pos in enumerate(positions):
+            self.torus(f'edge_{i}', walls, pos, Vec3(4, 4, 4), Vec2(2, 2), ring_radius=0.5, section_radius=0.05)
 
-        flowers.setTexture(tex)
+        # steps
+        materials = [
+            (Point3(0, 0.75 + i, -2.5 - i) for i in range(5)),
+            (Point3(0, -80.75 - i, -2.5 - i) for i in range(5))
+        ]
+        for i, pos in enumerate(chain(*materials)):
+            self.block(f'step_{i}', walls, pos, Vec3(4, 1, 1), bitmask=BitMask32.bit(2))
+
+        # falling preventions
+        materials = [
+            (Point3(x, 0.75 + i, -1.5 - i) for i in range(5) for x in [1.9, -1.9]),
+            (Point3(x, -80.75 - i, -1.5 - i) for i in range(5) for x in [1.9, -1.9]),
+        ]
+        for i, pos in enumerate(chain(*materials)):
+            self.pole(f'fence_{i}', metal, pos, Vec3(0.05, 0.05, 3), Vec2(1, 2))
+
+        # rings supporting tunnel
+        positions = (Point3(0, -20 * i, 0) for i in range(5))
+        for i, pos in enumerate(positions):
+            self.torus(f'edge_{i}', metal, pos, Vec3(5, 5, 5), Vec2(2, 4), ring_radius=0.8, section_radius=0.1)
+
+        # poles of rings
+        materials = [
+            (Point3(0, -20 * i, z) for i in range(5) for z in [3, -3]),
+            (Point3(x, -20 * i, 0) for i in range(5) for x in [3, -3])
+        ]
+        for i, pos in enumerate(chain(*materials)):
+            kwargs = dict(vertical=True) if pos.x == 0 else dict(hpr=Vec3(90, 90, 0))
+            self.pole(f'pole_{i}', metal, pos, Vec3(0.5, 0.5, 3), Vec2(1, 1), **kwargs)
+
+        # culumns supporting rings
+        positions = (Point3(0, -20 * i, -7.3) for i in range(5))
+        for i, pos in enumerate(positions):
+            self.block(f'column_{i}', pedestals, pos, Vec3(2, 2, 6))
+
+        walls.setTexture(self.wall_tex)
+        metal.setTexture(self.metal_tex)
+        pedestals.setTexture(self.pedestal_tex)
+        self.tunnel.flatten_strong()
