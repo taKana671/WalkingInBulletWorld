@@ -6,7 +6,8 @@ from panda3d.core import Vec3, Vec2, Point3
 from panda3d.core import CardMaker, Texture, TextureStage
 from panda3d.core import BitMask32, TransformState
 from panda3d.core import NodePath, PandaNode
-from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletPlaneShape, BulletTriangleMeshShape, BulletTriangleMesh
+from panda3d.bullet import BulletConvexHullShape, BulletBoxShape
+from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConeTwistConstraint
 

@@ -22,12 +22,11 @@ def get_prim_indices(start, n):
                     yield (start + i - 1, start, start + i)
 
 
-# def make_geomnode(faces, texcoords, normal_vecs):
-def make_geometry(faces, texcoords):
+def make_geomnode(faces, texcoords, normal_vecs):
     arr_format = GeomVertexArrayFormat()
     arr_format.addColumn('vertex', 3, Geom.NTFloat32, Geom.CPoint)
     arr_format.addColumn('color', 4, Geom.NTFloat32, Geom.CColor)
-    # arr_format.addColumn('normal', 3, Geom.NTFloat32, Geom.CNormal)
+    arr_format.addColumn('normal', 3, Geom.NTFloat32, Geom.CNormal)
     arr_format.addColumn('texcoord', 2, Geom.NTFloat32, Geom.CTexcoord)
     format_ = GeomVertexFormat.registerFormat(arr_format)
 
@@ -35,14 +34,11 @@ def make_geometry(faces, texcoords):
     prim_indices = array.array('H', [])
     start = 0
 
-    # for face, coords, vecs in zip(faces, texcoords, normal_vecs):
-    for face, coords in zip(faces, texcoords):
-        for pt, uv in zip(face, coords):
+    for face, coords, vecs in zip(faces, texcoords, normal_vecs):
+        for pt, uv, vec in zip(face, coords, vecs):
             vdata_values.extend(pt)
             vdata_values.extend(LColor(1, 1, 1, 1))
-            # vdata_values.extend(pt.normalized())
-            # vdata_values.extend(vec)
-            # vdata_values.extend((0, 0, 0))
+            vdata_values.extend(vec)
             vdata_values.extend(uv)
 
         for indices in get_prim_indices(start, len(face)):
@@ -67,16 +63,6 @@ def make_geometry(faces, texcoords):
     node.addGeom(geom)
 
     return node
-
-
-def make_node(polh_dic):
-    vertices = polh_dic['vertices']
-    idx_faces = polh_dic['faces']
-    vertices = [Vec3(vertex) for vertex in vertices]
-    faces = [[vertices[i] for i in face] for face in idx_faces]
-    uv = polh_dic['uv']
-    geomnode = make_geometry(faces, uv)
-    return geomnode
 
 
 def make_tube(segs_a=5, segs_c=12, height=2.0, radius=0.5):
@@ -217,7 +203,8 @@ class Cube(Singleton):
     @classmethod
     def make(cls):
         if cls not in cls._instances:
-            geomnode = make_node(CUBE)
+            face_vertices = [[CUBE['vertices'][i] for i in face] for face in CUBE['faces']]
+            geomnode = make_geomnode(face_vertices, CUBE['uv'], CUBE['normal'])
             cls._instances[cls] = cls(geomnode)
         return cls._instances[cls]
 
@@ -227,7 +214,17 @@ class DecagonalPrism(Singleton):
     @classmethod
     def make(cls):
         if cls not in cls._instances:
-            geomnode = make_node(DECAGONAL_PRISM)
+            face_vertices = [[DECAGONAL_PRISM['vertices'][i] for i in face] for face in DECAGONAL_PRISM['faces']]
+            normal = []
+
+            for vertices, z in zip(face_vertices, DECAGONAL_PRISM['z']):
+                sub = []
+                for pt in vertices:
+                    norm = Vec3(pt[0], pt[1], 0).normalized() if z == 0 else Vec3(0, 0, z)
+                    sub.append(norm)
+                normal.append(sub)
+
+            geomnode = make_geomnode(face_vertices, DECAGONAL_PRISM['uv'], normal)
             cls._instances[cls] = cls(geomnode)
         return cls._instances[cls]
 
@@ -244,14 +241,21 @@ CUBE = {
     'uv': [
         ((1, 1), (0.9, 1), (0.9, 0), (1, 0)),
         ((0, 1), (0, 0), (0.4, 0), (0.4, 1)),
-        # [(0, 1), (0.4, 1), Vec2(0.5, 1), Vec2(0.9, 1)],
         ((0, 0), (1, 0), (1, 1), (0, 1)),
         ((0.9, 1), (0.5, 1), (0.5, 0), (0.9, 0)),
         ((0.5, 1), (0.4, 1), (0.4, 0), (0.5, 0)),
-        # ((0, 0), (1, 0), (1, 1), (0, 1))
         ((1, 0), (0.9, 0), (0.5, 0), (0.4, 0))
+    ],
+    'normal': [
+        [(-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)],
+        [(0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0)],
+        [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)],
+        [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)],
+        [(1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0)],
+        [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)]
     ]
 }
+
 
 DECAGONAL_PRISM = {
     'vertices': [
@@ -277,9 +281,9 @@ DECAGONAL_PRISM = {
         (0.29524181, -0.90866085, -0.29524181),
     ],
     'faces': [
+        (0, 9, 8, 7, 6, 5, 4, 3, 2, 1),
         (0, 1, 11, 10),
         (0, 10, 19, 9),
-        (0, 9, 8, 7, 6, 5, 4, 3, 2, 1),
         (1, 2, 12, 11),
         (2, 3, 13, 12),
         (3, 4, 14, 13),
@@ -291,9 +295,9 @@ DECAGONAL_PRISM = {
         (10, 11, 12, 13, 14, 15, 16, 17, 18, 19),
     ],
     'uv': [
+        ((0.9, 1), (1, 1), (0.1, 1), (0.2, 1), (0.3, 1), (0.4, 1), (0.5, 1), (0.6, 1), (0.7, 1), (0.8, 1)),
         ((0.9, 1), (0.8, 1), (0.8, 0), (0.9, 0)),
         ((0.9, 1), (0.9, 0), (1, 0), (1, 1)),
-        ((0.9, 1), (1, 1), (0.1, 1), (0.2, 1), (0.3, 1), (0.4, 1), (0.5, 1), (0.6, 1), (0.7, 1), (0.8, 1)),
         ((0.8, 1), (0.7, 1), (0.7, 0), (0.8, 0)),
         ((0.7, 1), (0.6, 1), (0.6, 0), (0.7, 0)),
         ((0.6, 1), (0.5, 1), (0.5, 0), (0.6, 0)),
@@ -303,7 +307,8 @@ DECAGONAL_PRISM = {
         ((0.2, 1), (0.1, 1), (0.1, 0), (0.2, 0)),
         ((0.1, 1), (0, 1), (0, 0), (0.1, 0)),
         ((0.9, 0), (1, 0), (0.1, 0), (0.2, 0), (0.3, 0), (0.4, 0), (0.5, 0), (0.6, 0), (0.7, 0), (0.8, 0)),
-    ]
+    ],
+    'z': [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1]
 }
 
 TRIANGULAR_PRISM = {
@@ -323,12 +328,3 @@ TRIANGULAR_PRISM = {
         (3, 4, 5)
     ]
 }
-
-# cube_normal_vecs = [
-#     [Vec3(-1, 0, 0), Vec3(-1, 0, 0), Vec3(-1, 0, 0), Vec3(-1, 0, 0)],
-#     [Vec3(0, -1, 0), Vec3(0, -1, 0), Vec3(0, -1, 0), Vec3(0, -1, 0)],
-#     [Vec3(0, 0, 1), Vec3(0, 0, 1), Vec3(0, 0, 1), Vec3(0, 0, 1)],
-#     [Vec3(0, 1, 0), Vec3(0, 1, 0), Vec3(0, 1, 0), Vec3(0, 1, 0)],
-#     [Vec3(1, 0, 0), Vec3(1, 0, 0), Vec3(1, 0, 0), Vec3(1, 0, 0)],
-#     [Vec3(0, 0, -1), Vec3(0, 0, -1), Vec3(0, 0, -1), Vec3(0, 0, -1)]
-# ]
