@@ -12,6 +12,7 @@ from direct.interval.LerpInterval import LerpTexOffsetInterval
 
 from buildings import StoneHouse, BrickHouse, Terrace, Observatory, Bridge, Tunnel
 
+
 load_prc_file_data("", """
     textures-power-2 none
     gl-coordinate-system default

@@ -74,12 +74,7 @@ def make_tube(segs_a=5, segs_c=12, height=2.0, radius=0.5):
 
     vdata_values = array.array('f', [])
     prim_indices = array.array('H', [])
-
-    # segs_c = 12
-    # segs_a = 5
-    # height = 2.0
     delta_angle = 2.0 * math.pi / segs_c
-    # radius = 0.5
 
     for i in range(segs_a + 1):
         z = height * i / segs_a
@@ -132,11 +127,6 @@ def make_torus(segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
 
     vdata_values = array.array('f', [])
     prim_indices = array.array('H', [])
-
-    # segs_r = 24  # 24
-    # segs_s = 12  # 16
-    # ring_radius = 1.2
-    # section_radius = 0.5
 
     delta_angle_h = 2.0 * math.pi / segs_r
     delta_angle_v = 2.0 * math.pi / segs_s

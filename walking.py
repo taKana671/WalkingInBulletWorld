@@ -13,16 +13,17 @@ from panda3d.core import Vec3, Point3, BitMask32, Quat
 from panda3d.core import AmbientLight, DirectionalLight
 
 from scene import Scene
+from utils import Cube
 
 
-class Sphere(NodePath):
+class DebugCube(NodePath):
 
-    def __init__(self, color):
-        super().__init__(PandaNode('spehre'))
-        self.reparentTo(base.render)
-        sphere = base.loader.loadModel('models/sphere/sphere')
-        sphere.reparentTo(self)
-        self.setScale(0.05, 0.05, 0.05)
+    def __init__(self, name, cube, color):
+        super().__init__(PandaNode(name))
+        self.cube = cube.copyTo(self)
+        self.cube.reparentTo(self)
+        self.setScale(0.15, 0.15, 0.15)
+        self.setHpr(45, 45, 45)
         self.setColor(color)
 
 
@@ -56,8 +57,6 @@ class Walker(NodePath):
 
         self.right_eye = self.actor.exposeJoint(None, 'modelRoot', 'RightEyeLid')
         self.left_eye = self.actor.exposeJoint(None, 'modelRoot', 'LeftEyeLid')
-        # joint = self.actor.controlJoint(None, 'modelRoot', 'RightEyeLid')
-        # joint.setPos(-0.3, -0.3, -0.3)
 
         # the point at which the right eye looks
         self.front_right = NodePath('frontRight')
@@ -69,12 +68,21 @@ class Walker(NodePath):
         self.front_left.reparentTo(self.direction_node)
         self.front_left.setPos(0.3, -2, -2.7)
 
-        # **debug***************************************
-        sphere1 = Sphere((1, 0, 0, 1))  # Red
-        sphere1.reparentTo(self.front_right)
-        sphere2 = Sphere((0, 0, 1, 1))  # Blue
-        sphere2.reparentTo(self.front_left)
-        # **********************************************
+        self.debug_right = None
+        self.debug_left = None
+
+    def toggle_debug(self):
+        if not self.debug_right:
+            cube = Cube.make()
+            self.debug_right = DebugCube('right', cube, (1, 0, 0, 1))  # Red
+            self.debug_left = DebugCube('left', cube, (0, 0, 1, 1))  # Blue
+
+        if self.debug_right.hasParent():
+            self.debug_right.detach_node()
+            self.debug_left.detach_node()
+        else:
+            self.debug_right.reparentTo(self.front_right)
+            self.debug_left.reparentTo(self.front_left)
 
     def navigate(self):
         """Returns a relative point to enable camera to follow a character
@@ -124,7 +132,6 @@ class Walker(NodePath):
         self.setPos(pos)
 
     def go_back(self, dist):
-        # pos = base.render.getRelativePoint(self, Point3(0, 10, 0))
         orientation = self.direction_node.getQuat(base.render).getForward()
         self.setPos(self.getPos() + orientation * dist)
 
@@ -157,27 +164,14 @@ class Walking(ShowBase):
 
         self.walker = Walker(self.world)
         self.world.attachCharacter(self.walker.node())
-        # print(self.walker.walker.actor.listJoints())
 
         self.floater = NodePath('floater')
         self.floater.reparentTo(self.walker)
         self.floater.setZ(2.0)
 
-        self.before_pos = None
-
-        # using camera_np***************
-        # self.camera_np = NodePath('cameraNp')
-        # self.camera_np.reparentTo(self.walker)
-        # self.camera.reparentTo(self.camera_np)
-        # self.camera_np.setPos(self.walker.navigate())
-        # self.camera.lookAt(self.floater)
-        # *******************************
-
-        # not using camera_np***************
         self.camera.reparentTo(self.walker)
         self.camera.setPos(self.walker.navigate())
         self.camera.lookAt(self.floater)
-        # *******************************
         # self.camera.setPos(Point3(16, -20, 100))
         # self.camera.lookAt(self.floater)
 
@@ -193,6 +187,7 @@ class Walking(ShowBase):
         self.accept('escape', sys.exit)
         self.accept('p', self.print_info)
         self.accept('d', self.toggle_debug)
+        self.accept('f', self.walker.toggle_debug)
         self.taskMgr.add(self.update, 'update')
 
     def toggle_debug(self):
@@ -211,13 +206,13 @@ class Walking(ShowBase):
         directional_light.node().getLens().setNearFar(1, 100)
         directional_light.node().setColor((1, 1, 1, 1))
         directional_light.setPosHpr(Point3(-127, -127, 30), Vec3(-30, -45, 0))
-        # directional_light.setHpr((-30, -45, 0))  
+        # directional_light.setHpr((-30, -45, 0))
         # directional_light.node().setShadowCaster(True)
- 
+
         # self.render.setShaderAuto()
         self.render.setLight(directional_light)
         # self.render.setDepthOffset(-2)
-        
+
         state = directional_light.node().getInitialState()
         temp = NodePath(PandaNode('temp'))
         temp.setState(state)
@@ -250,7 +245,6 @@ class Walking(ShowBase):
             self.walker.stop_anim()
 
     def print_info(self):
-        # print(self.camera.getH(self.walker))
         print('camera', self.camera.getPos(), self.camera.getPos(self.walker))
         print('walker', self.walker.getPos(), 'camera', self.camera.getPos(self.walker) + self.walker.getPos())
         print('navigator', self.walker.getRelativePoint(self.walker.direction_node, Vec3(0, 10, 2)))
@@ -280,6 +274,7 @@ class Walking(ShowBase):
             q.setFromAxisAngle(angle, Vec3.up())
             r = q.xform(start - point)
             next_pos = point + r
+
         return None
 
     def control_camera_outdoors(self):
@@ -293,40 +288,26 @@ class Walking(ShowBase):
         if self.ray_cast(camera_pos, walker_pos) != self.walker.node():
             if next_pos := self.find_camera_pos(walker_pos, self.walker.navigate()):
                 self.camera.setPos(next_pos)
-                # self.camera_np.setPos(next_pos)
                 self.camera.lookAt(self.floater)
 
         # reparent camera
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
             if (name := location.getNode().getName()).startswith('room'):
                 room_camera = self.render.find(f'**/{name}_camera')
-                # *****not using self.camera_np*************
                 self.camera.detachNode()
                 self.camera.reparentTo(room_camera)
                 self.camera.setPos(0, 0, 0)
                 self.camera.lookAt(self.floater)
-
-                # *****using self.camera_np*************
-                # self.camera.detachNode()
-                # self.camera.reparentTo(room_camera)
-                # self.camera.lookAt(self.floater)
 
     def control_camera_indoors(self):
         self.camera.lookAt(self.floater)
 
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
             if not location.getNode().getName().startswith('room'):
-                # *****not using self.camera_np*************
                 self.camera.detachNode()
                 self.camera.reparentTo(self.walker)
                 self.camera.setPos(0, -10, 2)
                 self.camera.lookAt(self.floater)
-
-                # *****using self.camera_np*************
-                # self.camera.detachNode()
-                # self.camera.reparentTo(self.camera_np)
-                # self.camera_np.setPos(Vec3(0, -10, 2))
-                # self.camera.lookAt(self.floater)
 
     def update(self, task):
         dt = globalClock.getDt()
