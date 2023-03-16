@@ -176,7 +176,7 @@ class Walking(ShowBase):
         # self.camera.lookAt(self.floater)
 
         self.camLens.setFov(90)
-        # self.setup_lights()
+        self.setup_lights()
         self.mask = BitMask32.bit(2) | BitMask32.bit(1)
 
         inputState.watchWithModifiers('forward', 'arrow_up')
@@ -197,31 +197,29 @@ class Walking(ShowBase):
             self.debug_np.hide()
 
     def setup_lights(self):
-        ambient_light = self.render.attachNewNode(AmbientLight('ambientLignt'))
+        ambient_light = NodePath(AmbientLight('ambientLignt'))
         ambient_light.node().setColor((0.6, 0.6, 0.6, 1))
         self.render.setLight(ambient_light)
+        ambient_light.reparentTo(self.render)
 
-        directional_light = self.render.attachNewNode(DirectionalLight('directionalLight'))
-        directional_light.node().getLens().setFilmSize(200, 200)
-        directional_light.node().getLens().setNearFar(1, 100)
-        directional_light.node().setColor((1, 1, 1, 1))
-        directional_light.setPosHpr(Point3(-127, -127, 30), Vec3(-30, -45, 0))
-        # directional_light.setHpr((-30, -45, 0))
-        # directional_light.node().setShadowCaster(True)
-
-        # self.render.setShaderAuto()
-        self.render.setLight(directional_light)
-        # self.render.setDepthOffset(-2)
+        directional_light = NodePath(DirectionalLight('directionalLight'))
 
         state = directional_light.node().getInitialState()
-        temp = NodePath(PandaNode('temp'))
+        temp = NodePath(PandaNode('temp_np'))
         temp.setState(state)
         temp.setDepthOffset(-2)
         directional_light.node().setInitialState(temp.getState())
-        # self.render.setDepthOffset(-2)
 
+        directional_light.node().getLens().setFilmSize(200, 200)
+        directional_light.node().getLens().setNearFar(10, 200)
+        directional_light.node().setColor((1, 1, 1, 1))
+        directional_light.setPosHpr(Point3(0, 0, 50), Vec3(-30, -45, 0))
         directional_light.node().setShadowCaster(True)
+
+        self.render.setLight(directional_light)
+        directional_light.reparentTo(self.camera)
         self.render.setShaderAuto()
+        directional_light.node().showFrustum()
 
     def control_walker(self, dt):
         # contol walker movement
@@ -255,7 +253,6 @@ class Walking(ShowBase):
 
         if result.hasHit():
             return result.getNode()
-
         return None
 
     def find_camera_pos(self, walker_pos, next_pos):
