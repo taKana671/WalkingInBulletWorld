@@ -51,7 +51,7 @@ class Water(NodePath):
         self.surface = self.attachNewNode(card.generate())
         self.surface.lookAt(Vec3.down())
         self.surface.setTransparency(TransparencyAttrib.MAlpha)
-        self.surface.setTexture(base.loader.loadTexture('textures/water2.png'))
+        self.surface.setTexture(base.loader.loadTexture('textures/water.png'))
         self.surface.setTexScale(TextureStage.getDefault(), 4)
 
 

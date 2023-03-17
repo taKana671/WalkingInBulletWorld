@@ -36,11 +36,12 @@ class Walker(NodePath):
         shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'character'))
         self.world = world
-        self.reparentTo(base.render)
         self.setCollideMask(BitMask32.allOn())
         self.setPos(Point3(38, -47, 3))
         # self.setPos(Point3(-42, -71, 3))
         self.setScale(0.5)
+        self.reparentTo(base.render)
+        self.world.attachCharacter(self.node())
 
         self.direction_node = NodePath(PandaNode('direction'))
         self.direction_node.reparentTo(self)
@@ -90,12 +91,7 @@ class Walker(NodePath):
         """
         return self.getRelativePoint(self.direction_node, Vec3(0, 10, 2))
 
-    def ray_cast(self, from_pos, to_pos, mask=None):
-        if mask is None:
-            result = self.world.rayTestAll(from_pos, to_pos)
-        else:
-            result = self.world.rayTestAll(from_pos, to_pos, mask)
-
+    def get_rayhit(self, result):
         for hit in result.getHits():
             if hit.getNode() != self.node():
                 return hit
@@ -103,33 +99,36 @@ class Walker(NodePath):
 
     def current_location(self):
         below = base.render.getRelativePoint(self, Vec3(0, 0, -3))
-        return self.ray_cast(self.getPos(), below)
+        result = self.world.rayTestAll(self.getPos(), below)
+        return self.get_rayhit(result)
 
     def watch_steps(self):
         right_eye = self.right_eye.getPos() + self.getPos()
         front_right = self.front_right.getPos(self) + self.getPos()
+        right_result = self.world.rayTestAll(right_eye, front_right, BitMask32.bit(2))
 
         left_eye = self.left_eye.getPos() + self.getPos()
         front_left = self.front_left.getPos(self) + self.getPos()
+        left_result = self.world.rayTestAll(left_eye, front_left, BitMask32.bit(2))
 
-        if (right_hit := self.ray_cast(right_eye, front_right, BitMask32.bit(2))) and \
-                (lelt_hit := self.ray_cast(left_eye, front_left, BitMask32.bit(2))):
+        if (right_hit := self.get_rayhit(right_result)) and \
+                (lelt_hit := self.get_rayhit(left_result)):
             if right_hit.getNode() == lelt_hit.getNode():
                 return right_hit
         return None
 
     def go_forward(self, dist):
         orientation = self.direction_node.getQuat(base.render).getForward()
-        pos = self.getPos() + orientation * dist
+        next_pos = self.getPos() + orientation * dist
 
         if below_hit := self.current_location():
-            if steps_hit := self.watch_steps():
+            if forward_hit := self.watch_steps():
                 below_height = below_hit.getHitPos().z
-                step_height = steps_hit.getHitPos().z
+                forward_height = forward_hit.getHitPos().z
 
-                if 0.5 < (diff := step_height - below_height) < 1.2:
-                    pos.z += diff
-        self.setPos(pos)
+                if 0.5 < (diff := forward_height - below_height) < 1.2:
+                    next_pos.z += diff
+        self.setPos(next_pos)
 
     def go_back(self, dist):
         orientation = self.direction_node.getQuat(base.render).getForward()
@@ -149,6 +148,36 @@ class Walker(NodePath):
             self.actor.pose(self.WALK, 5)
 
 
+class BasicAmbientLight(NodePath):
+
+    def __init__(self):
+        super().__init__(AmbientLight('ambient_light'))
+        self.node().setColor((0.6, 0.6, 0.6, 1))
+        base.render.setLight(self)
+        self.reparentTo(base.render)
+
+
+class BasicDayLight(NodePath):
+
+    def __init__(self, parent):
+        super().__init__(DirectionalLight('directional_light'))
+        self.node().getLens().setFilmSize(200, 200)
+        self.node().getLens().setNearFar(10, 200)
+        self.node().setColor((1, 1, 1, 1))
+        self.setPosHpr(Point3(0, 0, 50), Vec3(-30, -45, 0))
+        self.node().setShadowCaster(True, 8192, 8192)
+
+        state = self.node().getInitialState()
+        temp = NodePath(PandaNode('temp_np'))
+        temp.setState(state)
+        temp.setDepthOffset(-3)
+        self.node().setInitialState(temp.getState())
+
+        base.render.setLight(self)
+        base.render.setShaderAuto()
+        self.reparentTo(parent)
+
+
 class Walking(ShowBase):
 
     def __init__(self):
@@ -161,22 +190,21 @@ class Walking(ShowBase):
         self.world.setDebugNode(self.debug_np.node())
 
         self.scene = Scene(self.world)
-
         self.walker = Walker(self.world)
-        self.world.attachCharacter(self.walker.node())
 
         self.floater = NodePath('floater')
-        self.floater.reparentTo(self.walker)
         self.floater.setZ(2.0)
+        self.floater.reparentTo(self.walker)
 
         self.camera.reparentTo(self.walker)
         self.camera.setPos(self.walker.navigate())
         self.camera.lookAt(self.floater)
-        # self.camera.setPos(Point3(16, -20, 100))
-        # self.camera.lookAt(self.floater)
-
         self.camLens.setFov(90)
-        self.setup_lights()
+
+        # setup light
+        self.ambient_light = BasicAmbientLight()
+        self.directional_light = BasicDayLight(self.camera)
+
         self.mask = BitMask32.bit(2) | BitMask32.bit(1)
 
         inputState.watchWithModifiers('forward', 'arrow_up')
@@ -195,31 +223,6 @@ class Walking(ShowBase):
             self.debug_np.show()
         else:
             self.debug_np.hide()
-
-    def setup_lights(self):
-        ambient_light = NodePath(AmbientLight('ambientLignt'))
-        ambient_light.node().setColor((0.6, 0.6, 0.6, 1))
-        self.render.setLight(ambient_light)
-        ambient_light.reparentTo(self.render)
-
-        directional_light = NodePath(DirectionalLight('directionalLight'))
-
-        state = directional_light.node().getInitialState()
-        temp = NodePath(PandaNode('temp_np'))
-        temp.setState(state)
-        temp.setDepthOffset(-2)
-        directional_light.node().setInitialState(temp.getState())
-
-        directional_light.node().getLens().setFilmSize(200, 200)
-        directional_light.node().getLens().setNearFar(10, 200)
-        directional_light.node().setColor((1, 1, 1, 1))
-        directional_light.setPosHpr(Point3(0, 0, 50), Vec3(-30, -45, 0))
-        directional_light.node().setShadowCaster(True)
-
-        self.render.setLight(directional_light)
-        directional_light.reparentTo(self.camera)
-        self.render.setShaderAuto()
-        directional_light.node().showFrustum()
 
     def control_walker(self, dt):
         # contol walker movement
