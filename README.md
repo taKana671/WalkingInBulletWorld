@@ -14,6 +14,12 @@ enjoyed procedurally making all of the houses and bridges.
 * Python 3.11
 * Windows10
 
+# Usage
+* Execute a command below on your command line.
+```
+>>>python walking.py
+```
+
 # Controls:
 * Press [Esc] to quit.
 * Press [up arrow] key to go foward and to go up stairs.
