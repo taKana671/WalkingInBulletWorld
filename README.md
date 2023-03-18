@@ -24,7 +24,7 @@ enjoyed procedurally making all of the houses and bridges.
 
 # Controls:
 * Press [Esc] to quit.
-* Press [up arrow] key to go foward and to go up stairs.
+* Press [up arrow] key to go foward, go up stairs and open doors.
 * Press [left arrow] key to turn left.
 * Press [right arrow] key to turn right.
 * Press [down arrow] key to go back.
