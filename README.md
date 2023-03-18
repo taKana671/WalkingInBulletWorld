@@ -14,7 +14,7 @@ enjoyed procedurally making all of the houses and bridges.
 
 # Environment
 * Python 3.11
-* Windows1
+* Windows11
 
 # Usage
 * Execute a command below on your command line.
