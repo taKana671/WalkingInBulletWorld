@@ -16,7 +16,7 @@ from buildings import StoneHouse, BrickHouse, Terrace, Observatory, Bridge, Tunn
 load_prc_file_data("", """
     textures-power-2 none
     gl-coordinate-system default
-    window-title Panda3D ShaderTerrainMesh Demo
+    window-title Panda3D Walking In BulletWorld
     filled-wireframe-apply-shader true
     stm-max-views 8
     stm-max-chunk-count 2048""")
