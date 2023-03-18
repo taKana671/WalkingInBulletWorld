@@ -5,6 +5,8 @@ A character walking around on uneven terrain in Bullet World
 I thought out the way of rotating camera while avoiding walls and other obstacles to follow a character, and
 enjoyed procedurally making all of the houses and bridges. 
 
+![demo](https://user-images.githubusercontent.com/48859041/226113923-9c45fa18-dc63-4530-8d69-d934241b3661.png)
+
 # Requirements
 * Panda3D 1.10.12
 * pandas 1.5.2
