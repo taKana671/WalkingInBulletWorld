@@ -28,4 +28,4 @@ enjoyed procedurally making all of the houses and bridges.
 * Press [left arrow] key to turn left.
 * Press [right arrow] key to turn right.
 * Press [down arrow] key to go back.
-* Press [D] or [F] key to debug.
+* Press [d] or [f] key to debug.
