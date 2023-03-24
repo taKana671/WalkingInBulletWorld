@@ -24,11 +24,11 @@ def get_prim_indices(start, n):
 
 def make_geomnode(faces, texcoords, normal_vecs):
     arr_format = GeomVertexArrayFormat()
-    arr_format.addColumn('vertex', 3, Geom.NTFloat32, Geom.CPoint)
-    arr_format.addColumn('color', 4, Geom.NTFloat32, Geom.CColor)
-    arr_format.addColumn('normal', 3, Geom.NTFloat32, Geom.CNormal)
-    arr_format.addColumn('texcoord', 2, Geom.NTFloat32, Geom.CTexcoord)
-    format_ = GeomVertexFormat.registerFormat(arr_format)
+    arr_format.add_column('vertex', 3, Geom.NTFloat32, Geom.CPoint)
+    arr_format.add_column('color', 4, Geom.NTFloat32, Geom.CColor)
+    arr_format.add_column('normal', 3, Geom.NTFloat32, Geom.CNormal)
+    arr_format.add_column('texcoord', 2, Geom.NTFloat32, Geom.CTexcoord)
+    format_ = GeomVertexFormat.register_format(arr_format)
 
     vdata_values = array.array('f', [])
     prim_indices = array.array('H', [])
@@ -47,20 +47,20 @@ def make_geomnode(faces, texcoords, normal_vecs):
 
     vdata = GeomVertexData('cube', format_, Geom.UHStatic)
     num_rows = sum(len(face) for face in faces)
-    vdata.uncleanSetNumRows(num_rows)
-    vdata_mem = memoryview(vdata.modifyArray(0)).cast('B').cast('f')
+    vdata.unclean_set_num_rows(num_rows)
+    vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
     vdata_mem[:] = vdata_values
 
     prim = GeomTriangles(Geom.UHStatic)
-    prim_array = prim.modifyVertices()
-    prim_array.uncleanSetNumRows(len(prim_indices))
+    prim_array = prim.modify_vertices()
+    prim_array.unclean_set_num_rows(len(prim_indices))
     prim_mem = memoryview(prim_array).cast('B').cast('H')
     prim_mem[:] = prim_indices
 
     node = GeomNode('geomnode')
     geom = Geom(vdata)
-    geom.addPrimitive(prim)
-    node.addGeom(geom)
+    geom.add_primitive(prim)
+    node.add_geom(geom)
 
     return node
 
@@ -101,7 +101,7 @@ def make_tube(segs_a=5, segs_c=12, height=2.0, radius=0.5):
     vdata = GeomVertexData('tube', fmt, Geom.UHStatic)
     rows = (segs_c + 1) * (segs_a + 1)
     vdata.unclean_set_num_rows(rows)
-    vdata_mem = memoryview(vdata.modifyArray(0)).cast('B').cast('f')
+    vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
     vdata_mem[:] = vdata_values
 
     prim = GeomTriangles(Geom.UHStatic)
@@ -185,7 +185,7 @@ class Singleton(NodePath):
 
     def __init__(self, geomnode):
         super().__init__(geomnode)
-        self.setTwoSided(True)
+        self.set_two_sided(True)
 
 
 class Cube(Singleton):

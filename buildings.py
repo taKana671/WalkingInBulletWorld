@@ -35,62 +35,62 @@ class Block(NodePath):
 
     def __init__(self, name, parent, model, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
-        self.reparentTo(parent)
-        self.model = model.copyTo(self)
-        self.setPos(pos)
-        self.setHpr(hpr)
-        self.setScale(scale)
-        end, tip = self.model.getTightBounds()
-        self.node().addShape(BulletBoxShape((tip - end) / 2))
-        self.setCollideMask(bitmask)
+        self.reparent_to(parent)
+        self.model = model.copy_to(self)
+        self.set_pos(pos)
+        self.set_hpr(hpr)
+        self.set_scale(scale)
+        end, tip = self.model.get_tight_bounds()
+        self.node().add_shape(BulletBoxShape((tip - end) / 2))
+        self.set_collide_mask(bitmask)
 
 
 class Plane(NodePath):
 
     def __init__(self, name, parent, model, pos):
         super().__init__(BulletRigidBodyNode(name))
-        self.reparentTo(parent)
+        self.reparent_to(parent)
         self.model = model
-        self.model.reparentTo(self)
-        self.setPos(pos)
+        self.model.reparent_to(self)
+        self.set_pos(pos)
 
-        end, tip = self.model.getTightBounds()
-        self.node().addShape(BulletBoxShape((tip - end) / 2))
-        self.setCollideMask(BitMask32.bit(1))
+        end, tip = self.model.get_tight_bounds()
+        self.node().add_shape(BulletBoxShape((tip - end) / 2))
+        self.set_collide_mask(BitMask32.bit(1))
 
 
 class Cylinder(NodePath):
 
     def __init__(self, name, parent, model, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
-        self.reparentTo(parent)
-        self.model = model.copyTo(self)
-        self.setPos(pos)
-        self.setHpr(hpr)
-        self.setScale(scale)
+        self.reparent_to(parent)
+        self.model = model.copy_to(self)
+        self.set_pos(pos)
+        self.set_hpr(hpr)
+        self.set_scale(scale)
         shape = BulletConvexHullShape()
-        shape.addGeom(self.model.node().getGeom(0))
-        self.node().addShape(shape)
-        self.setCollideMask(bitmask)
+        shape.add_geom(self.model.node().get_geom(0))
+        self.node().add_shape(shape)
+        self.set_collide_mask(bitmask)
 
 
 class Ring(NodePath):
 
     def __init__(self, name, parent, geomnode, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
-        self.reparentTo(parent)
-        self.model = self.attachNewNode(geomnode)
-        self.model.setTwoSided(True)
+        self.reparent_to(parent)
+        self.model = self.attach_new_node(geomnode)
+        self.model.set_two_sided(True)
 
         mesh = BulletTriangleMesh()
-        mesh.addGeom(geomnode.getGeom(0))
+        mesh.add_geom(geomnode.get_geom(0))
         shape = BulletTriangleMeshShape(mesh, dynamic=False)
 
-        self.node().addShape(shape)
-        self.setCollideMask(bitmask)
-        self.setPos(pos)
-        self.setHpr(hpr)
-        self.setScale(scale)
+        self.node().add_shape(shape)
+        self.set_collide_mask(bitmask)
+        self.set_pos(pos)
+        self.set_hpr(hpr)
+        self.set_scale(scale)
 
 
 class Materials:
@@ -104,9 +104,9 @@ class Materials:
 
     def texture(self, image):
         if image not in self._textures:
-            tex = base.loader.loadTexture(image.path)
-            tex.setWrapU(Texture.WM_repeat)
-            tex.setWrapV(Texture.WM_repeat)
+            tex = base.loader.load_texture(image.path)
+            tex.set_wrap_u(Texture.WM_repeat)
+            tex.set_wrap_v(Texture.WM_repeat)
             self._textures[image] = tex
 
         return self._textures[image]
@@ -118,13 +118,13 @@ class Materials:
         block = Block(name, parent, self.cube, pos, hpr, scale, bitmask)
         su = (scale.x * 2 + scale.y * 2) / 4
         sv = scale.z / 4
-        block.setTexScale(TextureStage.getDefault(), su, sv)
+        block.set_tex_scale(TextureStage.get_default(), su, sv)
 
         if active_always:
-            block.node().setMass(1)
-            block.node().setDeactivationEnabled(False)
+            block.node().set_mass(1)
+            block.node().set_deactivation_enabled(False)
 
-        self.world.attachRigidBody(block.node())
+        self.world.attach(block.node())
         return block
 
     def knob(self, parent, left_hinge):
@@ -133,15 +133,15 @@ class Materials:
         hpr = Vec3(90, 0, 0)
         scale = Vec3(1.5, 0.05, 0.05)
         knob = Block('knob', parent, self.cube, pos, hpr, scale, BitMask32.bit(1))
-        knob.setColor(0, 0, 0, 1)
+        knob.set_color(0, 0, 0, 1)
 
     def door(self, name, parent, pos, scale, static_body, hpr=None, horizontal=True, left_hinge=True):
         door = self.block(name, parent, pos, scale, hpr, horizontal, active_always=True, bitmask=BitMask32.allOn())
         self.knob(door, left_hinge)
 
-        end, tip = door.getTightBounds()
+        end, tip = door.get_tight_bounds()
         door_size = tip - end
-        end, tip = static_body.getTightBounds()
+        end, tip = static_body.get_tight_bounds()
         static_size = tip - end
 
         door_x = -(door_size.x / 2) if left_hinge else door_size.x / 2
@@ -150,45 +150,45 @@ class Materials:
         twist = BulletConeTwistConstraint(
             static_body.node(),
             door.node(),
-            TransformState.makePos(Point3(wall_x, static_size.y / 2, 0)),
-            TransformState.makePos(Point3(door_x, door_size.y / 2, 0)),
+            TransformState.make_pos(Point3(wall_x, static_size.y / 2, 0)),
+            TransformState.make_pos(Point3(door_x, door_size.y / 2, 0)),
         )
 
         twist.setLimit(60, 60, 0, softness=0.1, bias=0.1, relaxation=8.0)
-        self.world.attachConstraint(twist)
+        self.world.attach_constraint(twist)
 
     def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True, bitmask=BitMask32.bit(3)):
         if not hpr:
             hpr = Vec3(0, 0, 0) if vertical else Vec3(0, 90, 0)
 
         pole = Cylinder(name, parent, self.cylinder, pos, hpr, scale, bitmask)
-        pole.setTexScale(TextureStage.getDefault(), tex_scale)
+        pole.set_tex_scale(TextureStage.get_default(), tex_scale)
 
-        self.world.attachRigidBody(pole.node())
+        self.world.attach(pole.node())
         return pole
 
     def room_camera(self, name, parent, pos):
         room_camera = NodePath(name)
-        room_camera.reparentTo(parent)
-        room_camera.setPos(pos)
+        room_camera.reparent_to(parent)
+        room_camera.set_pos(pos)
         return room_camera
 
     def plane(self, name, parent, pos, rows, cols, size=2):
         model = NodePath(PandaNode(f'{name}Model'))
         card = CardMaker('card')
         half = size / 2
-        card.setFrame(-half, half, -half, half)
+        card.set_frame(-half, half, -half, half)
 
         for r in range(rows):
             for c in range(cols):
-                g = model.attachNewNode(card.generate())
+                g = model.attach_new_node(card.generate())
                 g.setP(-90)
                 x = (c - cols / 2) * size
                 y = (r - rows / 2) * size
-                g.setPos(x, y, 0)
+                g.set_pos(x, y, 0)
 
         plane = Plane(name, parent, model, pos)
-        self.world.attachRigidBody(plane.node())
+        self.world.attach(plane.node())
 
         return plane
 
@@ -205,7 +205,7 @@ class Materials:
 
         geomnode = make_tube(**kwargs)
         tube = Ring(name, parent, geomnode, pos, hpr, scale, BitMask32.allOn())
-        self.world.attachRigidBody(tube.node())
+        self.world.attach(tube.node())
 
         return tube
 
@@ -215,8 +215,8 @@ class Materials:
 
         geomnode = make_torus(**kwargs)
         torus = Ring(name, parent, geomnode, pos, hpr, scale, BitMask32.allOn())
-        torus.setTexScale(TextureStage.getDefault(), tex_scale)
-        self.world.attachRigidBody(torus.node())
+        torus.set_tex_scale(TextureStage.get_default(), tex_scale)
+        self.world.attach(torus.node())
 
         return torus
 
@@ -226,9 +226,9 @@ class StoneHouse(Materials):
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)
         self.house = NodePath(PandaNode('stoneHouse'))
-        self.house.reparentTo(parent)
-        self.house.setPos(center)
-        self.house.setH(h)
+        self.house.reparent_to(parent)
+        self.house.set_pos(center)
+        self.house.set_h(h)
 
     def make_textures(self):
         self.wall_tex = self.texture(Images.FIELD_STONE)    # for walls
@@ -239,13 +239,13 @@ class StoneHouse(Materials):
     def build(self):
         self.make_textures()
         walls = NodePath(PandaNode('walls'))
-        walls.reparentTo(self.house)
+        walls.reparent_to(self.house)
         floors = NodePath(PandaNode('floors'))
-        floors.reparentTo(self.house)
+        floors.reparent_to(self.house)
         doors = NodePath(PandaNode('doors'))
-        doors.reparentTo(self.house)
+        doors.reparent_to(self.house)
         columns = NodePath(PandaNode('columns'))
-        columns.reparentTo(self.house)
+        columns.reparent_to(self.house)
 
         # columns
         materials = (Point3(x, y, -3) for x, y in product((-15, 15), (-11, 11)))
@@ -357,10 +357,10 @@ class StoneHouse(Materials):
         for i, (pos, scale, body, hinge) in enumerate(materials):
             self.door(f'door_{i}', doors, pos, scale, body, horizontal=True, left_hinge=hinge)
 
-        doors.setTexture(self.door_tex)
-        walls.setTexture(self.wall_tex)
-        floors.setTexture(self.floor_tex)
-        columns.setTexture(self.column_tex)
+        doors.set_texture(self.door_tex)
+        walls.set_texture(self.wall_tex)
+        floors.set_texture(self.floor_tex)
+        columns.set_texture(self.column_tex)
 
 
 class BrickHouse(Materials):
@@ -368,9 +368,9 @@ class BrickHouse(Materials):
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)
         self.house = NodePath(PandaNode('brickHouse'))
-        self.house.reparentTo(parent)
-        self.house.setPos(center)
-        self.house.setH(h)
+        self.house.reparent_to(parent)
+        self.house.set_pos(center)
+        self.house.set_h(h)
 
     def make_textures(self):
         self.wall_tex = self.texture(Images.BRICK)      # for walls
@@ -381,13 +381,13 @@ class BrickHouse(Materials):
     def build(self):
         self.make_textures()
         floors = NodePath('foundation')
-        floors.reparentTo(self.house)
+        floors.reparent_to(self.house)
         walls = NodePath('wall')
-        walls.reparentTo(self.house)
+        walls.reparent_to(self.house)
         roofs = NodePath('roof')
-        roofs.reparentTo(self.house)
+        roofs.reparent_to(self.house)
         doors = NodePath('door')
-        doors.reparentTo(self.house)
+        doors.reparent_to(self.house)
 
         # floors
         materials = [
@@ -449,10 +449,10 @@ class BrickHouse(Materials):
         # doors
         self.door('door_1', doors, Point3(3, -8.25, 3.25), Vec3(2, 0.5, 3.5), wall1_l)
 
-        floors.setTexture(self.floor_tex)
-        walls.setTexture(self.wall_tex)
-        roofs.setTexture(self.roof_tex)
-        doors.setTexture(self.door_tex)
+        floors.set_texture(self.floor_tex)
+        walls.set_texture(self.wall_tex)
+        roofs.set_texture(self.roof_tex)
+        doors.set_texture(self.door_tex)
 
 
 class Terrace(Materials):
@@ -460,9 +460,9 @@ class Terrace(Materials):
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)
         self.terrace = NodePath(PandaNode('terrace'))
-        self.terrace.reparentTo(parent)
-        self.terrace.setPos(center)
-        self.terrace.setH(h)
+        self.terrace.reparent_to(parent)
+        self.terrace.set_pos(center)
+        self.terrace.set_h(h)
 
     def make_textures(self):
         self.wall_tex = self.texture(Images.LAYINGBROCK)    # for walls
@@ -473,13 +473,13 @@ class Terrace(Materials):
     def build(self):
         self.make_textures()
         floors = NodePath('floors')
-        floors.reparentTo(self.terrace)
+        floors.reparent_to(self.terrace)
         walls = NodePath('walls')
-        walls.reparentTo(self.terrace)
+        walls.reparent_to(self.terrace)
         roofs = NodePath('roofs')
-        roofs.reparentTo(self.terrace)
+        roofs.reparent_to(self.terrace)
         steps = NodePath('steps')
-        steps.reparentTo(self.terrace)
+        steps.reparent_to(self.terrace)
 
         # the 1st floor
         self.block('floor1', floors, Point3(0, 0, 0), Vec3(16, 0.5, 12), hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
@@ -526,10 +526,10 @@ class Terrace(Materials):
             pos = Point3(center.x + x, center.y + y, rail_h)
             self.pole(f'fence_{i}', steps, pos, Vec3(0.05, 0.05, 3.5 + i % 3), Vec2(1, 2))
 
-        walls.setTexture(self.wall_tex)
-        floors.setTexture(self.floor_tex)
-        roofs.setTexture(self.roof_tex)
-        steps.setTexture(self.steps_tex)
+        walls.set_texture(self.wall_tex)
+        floors.set_texture(self.floor_tex)
+        roofs.set_texture(self.roof_tex)
+        steps.set_texture(self.steps_tex)
         self.terrace.flatten_strong()
 
 
@@ -538,9 +538,9 @@ class Observatory(Materials):
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)
         self.observatory = NodePath(PandaNode('observatory'))
-        self.observatory.reparentTo(parent)
-        self.observatory.setPos(center)
-        self.observatory.setH(h)
+        self.observatory.reparent_to(parent)
+        self.observatory.set_pos(center)
+        self.observatory.set_h(h)
 
     def make_textures(self):
         self.steps_tex = self.texture(Images.METALBOARD)   # for steps
@@ -550,11 +550,11 @@ class Observatory(Materials):
     def build(self):
         self.make_textures()
         steps = NodePath('steps')
-        steps.reparentTo(self.observatory)
+        steps.reparent_to(self.observatory)
         landings = NodePath('landings')
-        landings.reparentTo(self.observatory)
+        landings.reparent_to(self.observatory)
         posts = NodePath('posts')
-        posts.reparentTo(self.observatory)
+        posts.reparent_to(self.observatory)
 
         # spiral staircase
         center = Point3(10, 0, 9)
@@ -636,9 +636,9 @@ class Observatory(Materials):
         for i, pos in enumerate(chain(*materials)):
             self.pole(f'fence_landing_{i}', steps, pos, Vec3(0.05, 0.05, 4), Vec2(1, 2))
 
-        steps.setTexture(self.steps_tex)
-        landings.setTexture(self.landing_tex)
-        posts.setTexture(self.posts_tex)
+        steps.set_texture(self.steps_tex)
+        landings.set_texture(self.landing_tex)
+        posts.set_texture(self.posts_tex)
         self.observatory.flatten_strong()
 
 
@@ -647,9 +647,9 @@ class Bridge(Materials):
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)
         self.bridge = NodePath(PandaNode('bridge'))
-        self.bridge.reparentTo(parent)
-        self.bridge.setPos(center)
-        self.bridge.setH(h)
+        self.bridge.reparent_to(parent)
+        self.bridge.set_pos(center)
+        self.bridge.set_h(h)
 
     def make_textures(self):
         self.bridge_tex = self.texture(Images.IRON)         # for bridge girder
@@ -659,11 +659,11 @@ class Bridge(Materials):
     def build(self):
         self.make_textures()
         girder = NodePath('girder')
-        girder.reparentTo(self.bridge)
+        girder.reparent_to(self.bridge)
         columns = NodePath('columns')
-        columns.reparentTo(self.bridge)
+        columns.reparent_to(self.bridge)
         fences = NodePath('fences')
-        fences.reparentTo(self.bridge)
+        fences.reparent_to(self.bridge)
 
         # columns supporting bridge girder
         materials = [
@@ -697,9 +697,9 @@ class Bridge(Materials):
         for i, pos in enumerate(chain(*materials)):
             self.pole(f'fence_{i}', fences, pos, Vec3(0.05, 0.05, 3), Vec2(1, 2))
 
-        girder.setTexture(self.bridge_tex)
-        columns.setTexture(self.column_tex)
-        fences.setTexture(self.fence_tex)
+        girder.set_texture(self.bridge_tex)
+        columns.set_texture(self.column_tex)
+        fences.set_texture(self.fence_tex)
         self.bridge.flatten_strong()
 
 
@@ -708,9 +708,9 @@ class Tunnel(Materials):
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)
         self.tunnel = NodePath(PandaNode('tunnel'))
-        self.tunnel.reparentTo(parent)
-        self.tunnel.setPos(center)
-        self.tunnel.setH(h)
+        self.tunnel.reparent_to(parent)
+        self.tunnel.set_pos(center)
+        self.tunnel.set_h(h)
 
     def make_textures(self):
         self.wall_tex = self.texture(Images.IRON)           # for tunnel
@@ -720,11 +720,11 @@ class Tunnel(Materials):
     def build(self):
         self.make_textures()
         walls = NodePath('wall')
-        walls.reparentTo(self.tunnel)
+        walls.reparent_to(self.tunnel)
         metal = NodePath('rings')
-        metal.reparentTo(self.tunnel)
+        metal.reparent_to(self.tunnel)
         pedestals = NodePath('pedestals')
-        pedestals.reparentTo(self.tunnel)
+        pedestals.reparent_to(self.tunnel)
 
         # tunnel
         self.tube('tunnel', walls, Point3(0, 0, 0), Vec3(4, 4, 4), height=20)
@@ -768,7 +768,7 @@ class Tunnel(Materials):
         for i, pos in enumerate(positions):
             self.block(f'column_{i}', pedestals, pos, Vec3(2, 2, 6))
 
-        walls.setTexture(self.wall_tex)
-        metal.setTexture(self.metal_tex)
-        pedestals.setTexture(self.pedestal_tex)
+        walls.set_texture(self.wall_tex)
+        metal.set_texture(self.metal_tex)
+        pedestals.set_texture(self.pedestal_tex)
         self.tunnel.flatten_strong()
