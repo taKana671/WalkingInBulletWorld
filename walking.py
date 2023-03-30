@@ -61,15 +61,6 @@ class Walking(ShowBase):
 
     def control_walker(self, dt):
         # contol walker movement
-        # if inputState.is_set('forward'):
-        #     self.walker.go_forward(-10 * dt)
-        # if inputState.is_set('backward'):
-        #     self.walker.go_back(10 * dt)
-        # if inputState.is_set('left'):
-        #     self.walker.turn(100 * dt)
-        # if inputState.is_set('right'):
-        #     self.walker.turn(-100 * dt)
-
         distance = 0
         angle = 0
 
@@ -84,16 +75,18 @@ class Walking(ShowBase):
 
         self.walker.move(dt, distance, angle)
 
-
         # play animation
+        anim = None
+        rate = 1
+
         if inputState.is_set('forward'):
-            self.walker.play_anim(self.walker.RUN)
+            anim = self.walker.RUN
         elif inputState.is_set('backward'):
-            self.walker.play_anim(self.walker.WALK, -1)
+            anim, rate = self.walker.WALK, -1
         elif inputState.is_set('left') or inputState.is_set('right'):
-            self.walker.play_anim(self.walker.WALK)
-        else:
-            self.walker.stop_anim()
+            anim = self.walker.WALK
+
+        self.walker.play_anim(anim, rate)
 
     def print_info(self):
         print('camera', self.camera.get_pos(), self.camera.get_pos(self.walker))
