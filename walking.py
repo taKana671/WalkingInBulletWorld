@@ -61,14 +61,29 @@ class Walking(ShowBase):
 
     def control_walker(self, dt):
         # contol walker movement
+        # if inputState.is_set('forward'):
+        #     self.walker.go_forward(-10 * dt)
+        # if inputState.is_set('backward'):
+        #     self.walker.go_back(10 * dt)
+        # if inputState.is_set('left'):
+        #     self.walker.turn(100 * dt)
+        # if inputState.is_set('right'):
+        #     self.walker.turn(-100 * dt)
+
+        distance = 0
+        angle = 0
+
         if inputState.is_set('forward'):
-            self.walker.go_forward(-10 * dt)
+            distance += -10 * dt
         if inputState.is_set('backward'):
-            self.walker.go_back(10 * dt)
+            distance += 10 * dt
         if inputState.is_set('left'):
-            self.walker.turn(100 * dt)
+            angle += 100 * dt
         if inputState.is_set('right'):
-            self.walker.turn(-100 * dt)
+            angle += -100 * dt
+
+        self.walker.move(dt, distance, angle)
+
 
         # play animation
         if inputState.is_set('forward'):

@@ -45,6 +45,20 @@ class Block(NodePath):
         self.set_collide_mask(bitmask)
 
 
+class InvisibleLift(NodePath):
+
+    def __init__(self, name, shape, pos, hpr, scale, bitmask):
+        super().__init__(BulletRigidBodyNode(name))
+        # self.reparent_to(parent)
+        self.set_pos(pos)
+        self.set_hpr(hpr)
+        self.set_scale(scale)
+        self.node().add_shape(shape)
+        self.set_collide_mask(bitmask)
+        self.node().set_kinematic(True)
+        self.hide()
+
+
 class Plane(NodePath):
 
     def __init__(self, name, parent, model, pos):
@@ -111,7 +125,7 @@ class Materials:
 
         return self._textures[image]
 
-    def block(self, name, parent, pos, scale, hpr=None, horizontal=True, active_always=False, bitmask=BitMask32.bit(1)):
+    def block(self, name, parent, pos, scale, hpr=None, horizontal=True, active_always=False, bitmask=BitMask32.bit(2)):
         if not hpr:
             hpr = Vec3(0, 0, 0) if horizontal else Vec3(90, 0, 0)
 
@@ -126,6 +140,20 @@ class Materials:
 
         self.world.attach(block.node())
         return block
+
+    def lift(self, name, parent, overlap_obj, bitmask=BitMask32.bit(4)):
+        lift = InvisibleLift(
+            name,
+            overlap_obj.node().get_shape(0),
+            overlap_obj.get_pos(),
+            overlap_obj.get_hpr(),
+            overlap_obj.get_scale(),
+            bitmask
+        )
+
+        lift.reparent_to(parent)
+        self.world.attach(lift.node())
+        return lift
 
     def knob(self, parent, left_hinge):
         x = 0.4 if left_hinge else -0.4
@@ -246,6 +274,8 @@ class StoneHouse(Materials):
         doors.reparent_to(self.house)
         columns = NodePath(PandaNode('columns'))
         columns.reparent_to(self.house)
+        lifts = NodePath('lifts')
+        lifts.reparent_to(self.house)
 
         # columns
         materials = (Point3(x, y, -3) for x, y in product((-15, 15), (-11, 11)))
@@ -342,11 +372,13 @@ class StoneHouse(Materials):
 
         # steps
         steps = [
-            ([Point3(-9.75, -7.5 + i, 1 + i), Vec3(7.5, 1, 1)] for i in range(6)),  # steps that leads to the 2nd floor
-            ([Point3(0, 12.5 + i, 0 - i), Vec3(32, 1, 1)] for i in range(4))        # steps that leade to the 1st floor
+            # ([Point3(-9.75, -7.5 + i, 1 + i), Vec3(7.5, 1, 1)] for i in range(6)),  # steps that leads to the 2nd floor
+            ([Point3(-9.75, -8.5 + i, 0 + i), Vec3(7.5, 1, 1)] for i in range(7)),
+            ([Point3(0, 12.5 + i, 0 - i), Vec3(32, 1, 1)] for i in range(5))        # steps that leade to the 1st floor
         ]
         for i, (pos, scale) in enumerate(chain(*steps)):
-            self.block(f'step_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
+            block = self.block(f'step_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0))
+            self.lift(f'lift_{i}', lifts, block)
 
         # doors
         materials = [
@@ -664,6 +696,8 @@ class Bridge(Materials):
         columns.reparent_to(self.bridge)
         fences = NodePath('fences')
         fences.reparent_to(self.bridge)
+        lifts = NodePath('lift')
+        lifts.reparent_to(self.bridge)
 
         # columns supporting bridge girder
         materials = [
@@ -683,9 +717,10 @@ class Bridge(Materials):
             self.block(f'girder_{i}', girder, pos, scale, hpr=Vec3(0, 90, 0))
 
         # steps
-        materials = (Point3(0, -20.5 - i, 0 - i) for i in range(5))
+        materials = (Point3(0, -20.5 - i, 0 - i) for i in range(6))
         for i, pos in enumerate(materials):
-            self.block(f'step_{i}', girder, pos, Vec3(4, 1, 1), bitmask=BitMask32.bit(2))
+            block = self.block(f'step_{i}', girder, pos, Vec3(4, 1, 1))
+            self.lift(f'lift_{i}', lifts, block)
 
         # fences
         materials = [
