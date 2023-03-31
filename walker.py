@@ -66,6 +66,7 @@ class Walker(NodePath):
         # self.under.set_pos(0, -1.5, -10)
         self.under.set_pos(0, -1.2, -10)
 
+        self.shape = shape
         self.state = Status.MOVING
         self.is_jumping = False
         self.debug_front = None
@@ -114,6 +115,16 @@ class Walker(NodePath):
     def move(self, dt, distance, angle):
         orientation = self.direction_node.get_quat(base.render).get_forward()
         next_pos = self.get_pos() + orientation * distance
+
+        ts_from = TransformState.make_pos(self.get_pos())
+        ts_to = TransformState.make_pos(next_pos)
+        # result = self.world.contactTest(self.node())
+        # print([con.get_node1().get_name() for con in result.get_contacts()])
+        result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, BitMask32.bit(3))
+        if result.hasHit():
+            if result.get_node() != self.node():
+                print(result.get_node().get_name())
+
 
         match self.state:
             case Status.MOVING:
@@ -164,7 +175,7 @@ class Walker(NodePath):
             self.lift.set_z(next_z)
 
     def land(self, orientation, dt):
-        next_pos = self.get_pos() + orientation * -10 * dt
+        next_pos = self.get_pos() + orientation * -20 * dt
         self.set_pos(next_pos)
 
         if below := self.current_location(BitMask32.bit(1) | BitMask32.bit(2)):

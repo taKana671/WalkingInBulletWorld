@@ -11,7 +11,7 @@ from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConeTwistConstraint
 
-from utils import Cube, DecagonalPrism, make_tube, make_torus
+from utils import Cube, DecagonalPrism, RightTriangularPrism, make_tube, make_torus
 
 
 class Images(Enum):
@@ -73,7 +73,7 @@ class Plane(NodePath):
         self.set_collide_mask(BitMask32.bit(1))
 
 
-class Cylinder(NodePath):
+class Convex(NodePath):
 
     def __init__(self, name, parent, model, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
@@ -115,6 +115,7 @@ class Materials:
         self.world = world
         self.cube = Cube.make()
         self.cylinder = DecagonalPrism.make()
+        self.right_triangle_prism = RightTriangularPrism.make()
 
     def texture(self, image):
         if image not in self._textures:
@@ -125,7 +126,7 @@ class Materials:
 
         return self._textures[image]
 
-    def block(self, name, parent, pos, scale, hpr=None, horizontal=True, active_always=False, bitmask=BitMask32.bit(2)):
+    def block(self, name, parent, pos, scale, hpr=None, horizontal=True, active_always=False, bitmask=BitMask32.bit(1)):
         if not hpr:
             hpr = Vec3(0, 0, 0) if horizontal else Vec3(90, 0, 0)
 
@@ -189,11 +190,18 @@ class Materials:
         if not hpr:
             hpr = Vec3(0, 0, 0) if vertical else Vec3(0, 90, 0)
 
-        pole = Cylinder(name, parent, self.cylinder, pos, hpr, scale, bitmask)
+        pole = Convex(name, parent, self.cylinder, pos, hpr, scale, bitmask)
         pole.set_tex_scale(TextureStage.get_default(), tex_scale)
 
         self.world.attach(pole.node())
         return pole
+
+    def slope(self, name, parent, pos, hpr, scale, tex_scale, bitmask=BitMask32.bit(1)):
+        slope = Convex(name, parent, self.right_triangle_prism, pos, hpr, scale, bitmask)
+        slope.set_tex_scale(TextureStage.get_default(), tex_scale)
+
+        self.world.attach(slope.node())
+        return slope
 
     def room_camera(self, name, parent, pos):
         room_camera = NodePath(name)
@@ -321,11 +329,11 @@ class StoneHouse(Materials):
 
         # 2nd floor
         materials = [
-            [Point3(4, -4.25, 6.75), Vec3(20, 0.5, 8.5), BitMask32.bit(1)],
-            [Point3(-9.75, -1, 6.75), Vec3(7.5, 0.5, 2), BitMask32.bit(2)]
+            [Point3(4, -4.25, 6.75), Vec3(20, 0.5, 8.5), 1],
+            [Point3(-9.75, -1.25, 6.75), Vec3(7.5, 0.5, 2.5), 2]
         ]
         for i, (pos, scale, mask) in enumerate(materials):
-            self.block(f'floor2_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0), bitmask=mask)
+            self.block(f'floor2_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(mask))
 
         # room and room camera on the 2nd floor
         self.block('room2', floors, Point3(-4, 4.25, 6.75), Vec3(20, 0.5, 8.5), hpr=Vec3(0, 90, 0))
@@ -334,7 +342,7 @@ class StoneHouse(Materials):
         # balcony fence
         materials = [
             [Point3(4, -8.25, 7.5), Vec3(0.5, 1, 20), Vec3(0, 90, 90)],
-            [Point3(-5.75, -5, 7.5), Vec3(0.5, 1, 6), Vec3(0, 90, 0)],
+            [Point3(-5.75, -5.25, 7.5), Vec3(0.5, 1, 5.5), Vec3(0, 90, 0)],
             [Point3(13.75, -4, 7.5), Vec3(0.5, 1, 8), Vec3(0, 90, 0)],
             [Point3(10, 0.25, 7.25), Vec3(0.5, 1.5, 8), Vec3(0, 90, 90)]
         ]
@@ -372,12 +380,11 @@ class StoneHouse(Materials):
 
         # steps
         steps = [
-            # ([Point3(-9.75, -7.5 + i, 1 + i), Vec3(7.5, 1, 1)] for i in range(6)),  # steps that leads to the 2nd floor
-            ([Point3(-9.75, -8.5 + i, 0 + i), Vec3(7.5, 1, 1)] for i in range(7)),
-            ([Point3(0, 12.5 + i, 0 - i), Vec3(32, 1, 1)] for i in range(5))        # steps that leade to the 1st floor
+            ([Point3(-9.75, -9 + i, 0 + i), Vec3(7.5, 1, 1)] for i in range(7)),  # steps that leads to the 2nd floor
+            ([Point3(0, 12.5 + i, 0 - i), Vec3(32, 1, 1)] for i in range(5))      # steps that leade to the 1st floor
         ]
         for i, (pos, scale) in enumerate(chain(*steps)):
-            block = self.block(f'step_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0))
+            block = self.block(f'step_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
             self.lift(f'lift_{i}', lifts, block)
 
         # doors
@@ -420,8 +427,11 @@ class BrickHouse(Materials):
         roofs.reparent_to(self.house)
         doors = NodePath('door')
         doors.reparent_to(self.house)
+        lifts = NodePath('lifts')
+        lifts.reparent_to(self.house)
 
         # floors
+        self.block('entrance_floor', floors, Point3(3, -9.5, 0), Vec3(7, 2, 3))   # front of a door
         materials = [
             [Point3(0, 0, 0), Vec3(13, 9, 3)],     # big room
             [Point3(3, -6.5, 0), Vec3(7, 4, 3)],   # small room
@@ -433,9 +443,18 @@ class BrickHouse(Materials):
         self.room_camera('room_brick1_camera', self.house, Point3(3, 3, 5.5))
 
         # steps
-        steps = ([Point3(3, -9.5 - i * 2, 0 - 0.5 * i), Vec3(4, 2, 3 - i)] for i in range(3))
+        steps = ([Point3(3, -11 - i, 1 - 0.5 * i), Vec3(7, 1, 1)] for i in range(3))
         for i, (pos, scale) in enumerate(steps):
-            self.block(f'step_{i}', floors, pos, scale, bitmask=BitMask32.bit(2))
+            block = self.block(f'step_{i}', floors, pos, scale, bitmask=BitMask32.bit(2))
+            self.lift(f'lift_{i}', lifts, block)
+
+        # fences
+        materials = [
+            (Point3(x, -9 - i, 2) for i in range(2) for x in (-0.25, 6.25)),
+            (Point3(x, -11 - i, 2 - 0.5 * i) for i in range(2) for x in (-0.25, 6.25)),
+        ]
+        for i, pos in enumerate(chain(*materials)):
+            self.pole(f'fence_{i}', doors, pos, Vec3(0.05, 0.1, 3), Vec2(1, 3))
 
         # rear and front walls
         wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5))
@@ -514,7 +533,7 @@ class Terrace(Materials):
         steps.reparent_to(self.terrace)
 
         # the 1st floor
-        self.block('floor1', floors, Point3(0, 0, 0), Vec3(16, 0.5, 12), hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(2))
+        self.block('floor1', floors, Point3(0, 0, 0), Vec3(16, 0.5, 12), hpr=Vec3(0, 90, 0))  #, bitmask=BitMask32.bit(2))
 
         # walls
         self.block('wall1_r', walls, Point3(-5.5, 5.75, 3.25), Vec3(5, 0.5, 6))                       # rear
@@ -558,12 +577,23 @@ class Terrace(Materials):
             pos = Point3(center.x + x, center.y + y, rail_h)
             self.pole(f'fence_{i}', steps, pos, Vec3(0.05, 0.05, 3.5 + i % 3), Vec2(1, 2))
 
+        # slope
+        self.slope('slope_0', floors, Point3(-9.5, -2.5, 0), Vec3(180, 90, 0), Vec3(3, 0.5, 7), Vec2(1, 3))
+        # tri = TriangularPrism.make()                                                     # heignt
+        # obj = Cylinder('test', floors, tri, Point3(-9.5, -2.5, 0), Vec3(180, 90, 0), Vec3(3, 0.5, 7), BitMask32.bit(1))
+        # # obj.reparent_to(walls)
+        # self.world.attach(obj.node())
+        
+        
+        
         walls.set_texture(self.wall_tex)
         floors.set_texture(self.floor_tex)
         roofs.set_texture(self.roof_tex)
         steps.set_texture(self.steps_tex)
         self.terrace.flatten_strong()
 
+       
+        
 
 class Observatory(Materials):
 
@@ -719,7 +749,7 @@ class Bridge(Materials):
         # steps
         materials = (Point3(0, -20.5 - i, 0 - i) for i in range(6))
         for i, pos in enumerate(materials):
-            block = self.block(f'step_{i}', girder, pos, Vec3(4, 1, 1))
+            block = self.block(f'step_{i}', girder, pos, Vec3(4, 1, 1), bitmask=BitMask32.bit(2))
             self.lift(f'lift_{i}', lifts, block)
 
         # fences
@@ -760,6 +790,8 @@ class Tunnel(Materials):
         metal.reparent_to(self.tunnel)
         pedestals = NodePath('pedestals')
         pedestals.reparent_to(self.tunnel)
+        lifts = NodePath('lifts')
+        lifts.reparent_to(self.tunnel)
 
         # tunnel
         self.tube('tunnel', walls, Point3(0, 0, 0), Vec3(4, 4, 4), height=20)
@@ -770,11 +802,13 @@ class Tunnel(Materials):
 
         # steps
         materials = [
-            (Point3(0, 0.75 + i, -2.5 - i) for i in range(5)),
-            (Point3(0, -80.75 - i, -2.5 - i) for i in range(5))
+            (Point3(0, 0.75 + i, -2.5 - i) for i in range(4)),
+            (Point3(0, -80.75 - i, -2.5 - i) for i in range(4))
         ]
         for i, pos in enumerate(chain(*materials)):
-            self.block(f'step_{i}', walls, pos, Vec3(4, 1, 1), bitmask=BitMask32.bit(2))
+            block = self.block(f'step_{i}', walls, pos, Vec3(4, 1, 1), bitmask=BitMask32.bit(2))
+            if i > 0:
+                self.lift(f'lift_{i}', lifts, block)
 
         # falling preventions
         materials = [
@@ -782,7 +816,7 @@ class Tunnel(Materials):
             (Point3(x, -80.75 - i, -1.5 - i) for i in range(5) for x in [1.9, -1.9]),
         ]
         for i, pos in enumerate(chain(*materials)):
-            self.pole(f'fence_{i}', metal, pos, Vec3(0.05, 0.05, 3), Vec2(1, 2))
+            self.pole(f'fence_{i}', metal, pos, Vec3(0.05, 0.1, 3), Vec2(1, 2))
 
         # rings supporting tunnel
         positions = (Point3(0, -20 * i, 0) for i in range(5))
