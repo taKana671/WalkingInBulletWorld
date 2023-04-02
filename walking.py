@@ -40,7 +40,8 @@ class Walking(ShowBase):
         self.ambient_light = BasicAmbientLight()
         self.directional_light = BasicDayLight(self.walker)
 
-        self.mask = BitMask32.bit(2) | BitMask32.bit(1)
+        # self.mask = BitMask32.bit(2) | BitMask32.bit(1)
+        self.mask = BitMask32.bit(1)
 
         inputState.watch_with_modifiers('forward', 'arrow_up')
         inputState.watch_with_modifiers('backward', 'arrow_down')

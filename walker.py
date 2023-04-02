@@ -38,7 +38,8 @@ class Walker(NodePath):
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'character'))
         self.world = world
         self.set_collide_mask(BitMask32.allOn())
-        self.set_pos(Point3(25, -10, 1))
+        # self.set_pos(Point3(25, -10, 1))
+        self.set_pos(Point3(-87, 74, 6))
         self.set_scale(0.5)
         self.reparent_to(base.render)
         self.world.attach_character(self.node())
@@ -116,15 +117,15 @@ class Walker(NodePath):
         orientation = self.direction_node.get_quat(base.render).get_forward()
         next_pos = self.get_pos() + orientation * distance
 
-        ts_from = TransformState.make_pos(self.get_pos())
-        ts_to = TransformState.make_pos(next_pos)
+        # ts_from = TransformState.make_pos(self.get_pos())
+        # ts_to = TransformState.make_pos(next_pos)
         # result = self.world.contactTest(self.node())
-        # print([con.get_node1().get_name() for con in result.get_contacts()])
-        result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, BitMask32.bit(3))
-        if result.hasHit():
-            if result.get_node() != self.node():
-                print(result.get_node().get_name())
-
+        # # print([con.get_node1().get_name() for con in result.get_contacts()])
+        # result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, BitMask32.bit(3))
+        # if result.hasHit():
+        #     if result.get_node() != self.node():
+        #         print(result.get_node().get_name())
+        #         return
 
         match self.state:
             case Status.MOVING:
@@ -145,8 +146,9 @@ class Walker(NodePath):
                     self.state = Status.MOVING
 
     def go_forward(self, next_pos):
-        if (below := self.current_location(BitMask32.bit(1) | BitMask32.bit(2))) and \
-                (front := self.watch_steps(BitMask32.bit(2))):
+        if (below := self.current_location(BitMask32.bit(1))) and \
+                (front := self.watch_steps(BitMask32.bit(1))):
+
             diff = (front.get_hit_pos() - below.get_hit_pos()).z
 
             if 0.3 < diff < 1.2:
@@ -178,9 +180,15 @@ class Walker(NodePath):
         next_pos = self.get_pos() + orientation * -20 * dt
         self.set_pos(next_pos)
 
-        if below := self.current_location(BitMask32.bit(1) | BitMask32.bit(2)):
+        if below := self.current_location(BitMask32.bit(1)):
             if below.get_node() == self.dest.node():
                 self.lift.set_z(self.lift_original_z)
+
+                # # print('lift_hpr', self.lift.get_hpr(), 'dest_hpr', self.dest.get_hpr())
+                # diff = self.dest.get_h() - self.lift.get_h()
+                # if diff:
+                #     self.direction_node.set_h(self.direction_node.get_h() + diff)
+
                 return True
 
     def play_anim(self, command, rate=1):
