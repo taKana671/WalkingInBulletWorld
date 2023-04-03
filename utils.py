@@ -6,6 +6,8 @@ from panda3d.core import NodePath
 from panda3d.core import Geom, GeomNode, GeomTriangles
 from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
 
+from panda3d.core import Quat, Point3
+
 
 def get_prim_indices(start, n):
     match n:
@@ -189,16 +191,17 @@ def make_spiral(segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
 
     delta_angle_h = 2.0 * math.pi / segs_r
     delta_angle_v = 2.0 * math.pi / segs_s
+    
+    segs_r = 40
+    # h = (0.5 - (-0.5)) / segs_r
+    h = 0.3
 
-    diff = 0.2
-
-    for i in range(segs_r + 1):
+    for i in range(segs_r + 1):  
         angle_h = delta_angle_h * i
         u = i / segs_r
 
-        val = diff * i
-
-        for j in range(segs_s + 1):
+        
+        for j in range(segs_s + 1):   
             angle_v = delta_angle_v * j
             r = ring_radius - section_radius * math.cos(angle_v)
             c = math.cos(angle_h)
@@ -209,10 +212,15 @@ def make_spiral(segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
             z = section_radius * math.sin(angle_v)
             nx = x - ring_radius * c
             ny = y - ring_radius * s
-            normal_vec = Vec3(nx, ny, z).normalized()
+            
+            pt = Point3(x, y, z + h * i)
+            print(pt)
+            normal_vec = pt.normalized()
+            # normal_vec = Vec3(nx, ny, z).normalized()
             v = 1.0 - j / segs_s
 
-            vdata_values.extend((x, y, z))
+
+            vdata_values.extend(pt)
             vdata_values.extend(normal_vec)
             vdata_values.extend((u, v))
 
@@ -239,9 +247,6 @@ def make_spiral(segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
     geom.add_primitive(prim)
     node.add_geom(geom)
     return node
-
-
-
 
 
 class Singleton(NodePath):

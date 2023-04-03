@@ -107,6 +107,41 @@ class Ring(NodePath):
         self.set_scale(scale)
 
 
+class Convex2(NodePath):
+
+    def __init__(self, name, parent, geomnode, pos, hpr, scale, bitmask):
+        super().__init__(BulletRigidBodyNode(name))
+        self.reparent_to(parent)
+        self.model = self.attach_new_node(geomnode)
+        self.model.set_two_sided(True)
+
+        mesh = BulletTriangleMesh()
+        mesh.add_geom(geomnode.get_geom(0))
+        shape = BulletTriangleMeshShape(mesh, dynamic=False)
+
+        self.node().add_shape(shape)
+        self.set_collide_mask(bitmask)
+        self.set_pos(pos)
+        self.set_hpr(hpr)
+        # self.set_scale(scale)
+
+
+        # self.reparent_to(parent)
+        # self.model = self.attach_new_node(geomnode)
+        # # self.model.set_two_sided(True)
+        # self.set_pos(pos)
+        # self.set_hpr(hpr)
+        # # self.set_scale(scale)
+        # shape = BulletConvexHullShape()
+        # shape.add_geom(self.model.node().get_geom(0))
+        # self.node().add_shape(shape)
+        # self.set_collide_mask(bitmask)
+
+
+
+
+
+
 class Materials:
 
     _textures = dict()
@@ -715,8 +750,11 @@ class Observatory(Materials):
         self.slope('hidden_slope', lifts, Point3(-15.5, 2.5, 1.25), Vec3(180, 90, 0), Vec3(1, 1, 4), hide=True)
 
 
-        geomnode = make_spiral(segs_r=24, segs_s=12, ring_radius=2, section_radius=0.1)
-        torus = Ring('test', steps, geomnode, Point3(6, -2, 2), Vec3(0, 0, 0), Vec3(0, 0, 0), BitMask32.allOn())
+        geomnode = make_spiral(segs_r=32, segs_s=12, ring_radius=4.3, section_radius=0.2)
+        torus = Convex2('test', steps, geomnode, Point3(10, 0, 3), Vec3(260, 0, 0), Vec3(1, 1, 1), BitMask32.allOn())
+        # node_path = NodePath(geomnode)
+        # node_path.reparent_to(self.observatory)
+        # node_path.setPos(Point3(6, -2, 2))
         self.world.attach(torus.node())
 
 
