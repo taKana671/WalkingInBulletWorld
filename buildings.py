@@ -126,17 +126,6 @@ class Convex2(NodePath):
         # self.set_scale(scale)
 
 
-        # self.reparent_to(parent)
-        # self.model = self.attach_new_node(geomnode)
-        # # self.model.set_two_sided(True)
-        # self.set_pos(pos)
-        # self.set_hpr(hpr)
-        # # self.set_scale(scale)
-        # shape = BulletConvexHullShape()
-        # shape.add_geom(self.model.node().get_geom(0))
-        # self.node().add_shape(shape)
-        # self.set_collide_mask(bitmask)
-
 
 
 
@@ -683,25 +672,28 @@ class Observatory(Materials):
             x, y = self.point_on_circumference(angle, 2.5)
             pos = Point3(center.x + x, center.y + y, i + 0.5)
             # step = self.slope(f'spiral_step_{i}', steps, pos, Vec3(angle, 180, 180), Vec3(4.5, 2.5, 0.5))
-            step = self.slope(f'spiral_step_{i}', steps, pos, Vec3(angle, 180, 180), Vec3(4, 2, 0.5))
+            step = self.slope(f'spiral_step_{i}', steps, pos, Vec3(angle, 180, 180), Vec3(4, 2.5, 0.5))
             self.lift(f'spiral_step_lift_{i}', lifts, step)
 
         # falling preventions
         fence_num = (steps_num) * 3
         for i in range(fence_num):
             if i % 3 == 0:
-                h = 1.7 + i // 3
+                # h = 1.7 + i // 3
+                h = i // 3 + 0.5 + 2
 
             angle = -100 + 10 * i
             # x, y = self.point_on_circumference(angle, 4.5)
             x, y = self.point_on_circumference(angle, 4.3)
             rail_h = h + (i % 3 * 0.1)
             pos = Point3(center.x + x, center.y + y, rail_h)
-            self.pole(f'spiral_fence_{i}', steps, pos, Vec3(0.1, 0.1, 3.5 + i % 3), Vec2(1, 2))
+            self.block(f'spiral_fence_{i}', steps, pos, Vec3(0.1, 0.1, 4)) 
+            # self.pole(f'spiral_fence_{i}', steps, pos, Vec3(0.1, 0.1, 3.5 + i % 3), Vec2(1, 2))
 
         # stair landings
         materials = [
             Point3(7, 2.5, 18.25),
+            # Point3(7, 2.5, 21.25),
             Point3(7, 8.5, 15.25),
             Point3(1, 8.5, 12.25),
             Point3(-5, 8.5, 9.25),
@@ -750,8 +742,8 @@ class Observatory(Materials):
         self.slope('hidden_slope', lifts, Point3(-15.5, 2.5, 1.25), Vec3(180, 90, 0), Vec3(1, 1, 4), hide=True)
 
 
-        geomnode = make_spiral(segs_r=32, segs_s=12, ring_radius=4.3, section_radius=0.2)
-        torus = Convex2('test', steps, geomnode, Point3(10, 0, 3), Vec3(260, 0, 0), Vec3(1, 1, 1), BitMask32.allOn())
+        geomnode = make_spiral(segs_r=38, segs_s=12, ring_radius=4.3, section_radius=0.15)
+        torus = Convex2('test', steps, geomnode, Point3(10, 0, 3), Vec3(-100, 0, 0), Vec3(1, 1, 1), BitMask32.allOn())
         # node_path = NodePath(geomnode)
         # node_path.reparent_to(self.observatory)
         # node_path.setPos(Point3(6, -2, 2))

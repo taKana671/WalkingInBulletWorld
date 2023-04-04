@@ -179,7 +179,7 @@ def make_torus(segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
     return node
 
 
-def make_spiral(segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
+def make_spiral(segs_r=36, segs_s=12, ring_radius=1.2, section_radius=0.5):
     arr_format = GeomVertexArrayFormat()
     arr_format.add_column('vertex', 3, Geom.NTFloat32, Geom.CPoint)
     arr_format.add_column('normal', 3, Geom.NTFloat32, Geom.CColor)
@@ -189,18 +189,16 @@ def make_spiral(segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
     vdata_values = array.array('f', [])
     prim_indices = array.array('H', [])
 
-    delta_angle_h = 2.0 * math.pi / segs_r
+    delta_angle_h = 2.0 * math.pi / 24 #segs_r
     delta_angle_v = 2.0 * math.pi / segs_s
     
-    segs_r = 40
     # h = (0.5 - (-0.5)) / segs_r
-    h = 0.3
+    h = 0.5
 
     for i in range(segs_r + 1):  
         angle_h = delta_angle_h * i
         u = i / segs_r
-
-        
+    
         for j in range(segs_s + 1):   
             angle_v = delta_angle_v * j
             r = ring_radius - section_radius * math.cos(angle_v)
@@ -214,7 +212,7 @@ def make_spiral(segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
             ny = y - ring_radius * s
             
             pt = Point3(x, y, z + h * i)
-            print(pt)
+            # print(pt)
             normal_vec = pt.normalized()
             # normal_vec = Vec3(nx, ny, z).normalized()
             v = 1.0 - j / segs_s
