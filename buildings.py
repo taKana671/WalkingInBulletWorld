@@ -704,10 +704,11 @@ class Observatory(Materials):
         for i, pos in enumerate(materials):
             block = self.block(f'landing_{i}', landings, pos, Vec3(4, 1, 4), hpr=Vec3(0, 90, 0))
 
-            for idx, (j, k) in enumerate(product([1.875, -1.875], [1.875, -1.875])):
-                pole_pos = pos + Vec3(j, k, 1.5)
-                # self.pole(f'support_{i}{idx}', landings, pole_pos, Vec3(0.15, 0.15, 4.5), Vec2(2, 1))
-                self.block(f'step_fence_{i}{idx}', steps, pole_pos, Vec3(0.15, 0.15, 2.5), bitmask=BitMask32.bit(3))
+            # # for idx, (j, k) in enumerate(product([1.875, -1.875], [1.875, -1.875])):
+            # for idx, (j, k) in enumerate(product([1.925, -1.925], [1.925, -1.925])):
+            #     pole_pos = pos + Vec3(j, k, 1.5)
+            #     # self.pole(f'support_{i}{idx}', landings, pole_pos, Vec3(0.15, 0.15, 4.5), Vec2(2, 1))
+            #     self.block(f'step_fence_{i}{idx}', steps, pole_pos, Vec3(0.15, 0.15, 2), bitmask=BitMask32.bit(3))
 
             if i > 0:
                 self.lift(f'landing_lift_{i}', lifts, block)
@@ -738,26 +739,89 @@ class Observatory(Materials):
             self.lift(f'step_lift_{i}', lifts, block)
 
             # # falling preventions
-            # for f in [1.875, -1.875]:
+            for f in [1.875, -1.875]:
+                if i % 2 != 0:
+                    diff = Vec3(f, 0, 1) if hor else Vec3(0, f, 1)
+                    # diff = Vec3(f, 0, h) if hor else Vec3(0, f, h)
+
+                    fence_pos = pos + diff
+                    # self.pole(f'fence_{i}', steps, fence_pos, Vec3(0.1, 0.1, 3.5), Vec2(1, 2))
+                    self.pole(f'fence_{i}', steps, fence_pos, Vec3(0.1, 0.1, 4.5), Vec2(1, 2))
+
+                
+                # fence_pos = pos + diff
+                # self.pole(f'fence_{i}', steps, fence_pos, Vec3(0.1, 0.1, 3.5), Vec2(1, 2))
+
+
+
+            # for f in [1.925, -1.925]:  # [1.875, -1.875]:
             #     diff = Vec3(f, 0, 1.5) if hor else Vec3(0, f, 1.5)
             #     fence_pos = pos + diff
 
-            #     self.block(f'step_fence_{i}', steps, fence_pos, Vec3(0.1, 0.1, 2), horizontal=False, bitmask=BitMask32.bit(3))
+            #     self.block(f'step_fence_{i}', steps, fence_pos, Vec3(0.15, 0.15, 2), horizontal=False, bitmask=BitMask32.bit(3))
 
         # a slope for the lowest step
         self.slope('hidden_slope', lifts, Point3(-15.75, 2.5, 1.25), Vec3(180, 90, 0), Vec3(1, 1, 4), hide=True)
 
+        # [1.925, -1.925],
+
+        # materials = [
+        #     [Point3(-11.25, 2.5 + 1.875, 3.25 + 0.5 + 2.5), Vec3(0, 0, 90), Vec3(0.15, 0.15, 4)],
+        #     [Point3(-8.25, 2.5 + 1.875, 4.5 + 0.5 + 2.5), Vec3(0, 0, 45), Vec3(0.15, 0.15, 3.5)]
+        # ]
 
 
         materials = [
-            [Point3(-11.25, 2.5 + 1.875, 3.25 + 0.5 + 2.5), Vec3(0, 0, 90), Vec3(0.15, 0.15, 4)],
-            [Point3(-8.25, 2.5 + 1.875, 4.5 + 0.5 + 2.5), Vec3(0, 0, 45), Vec3(0.15, 0.15, 3.5)]
+            (Point3(-12.75 + i, 2.5 + diff, 3.25 + 1.5) for diff in [1.925, -1.925] for i in [0, 3]),
+            # (Point3(-6.75 + i, 2.5 - 1.925, 6.25 + 1.5) for i in range(4)),
+            # (Point3(-5.25 + 1.925, 4 - i, 6.25 + 1.5) for i in range(4)),
+            # (Point3(-5.25 - 1.925, 9.25 - i, 9.25 + 1.5) for i in range(4)),
+            # (Point3(-3.75 - i, 8.5 + 1.925, 9.25 + 1.5) for i in range(4)),
+            # (Point3(-0.75 + i, 8.5 + diff, 12.25 + 1.5) for diff in [1.925, -1.925] for i in range(4)),
+            # (Point3(5.25 + i, 8.5 + 1.925, 15.25 + 1.5) for i in range(4)),
+            # (Point3(-1.5 + i, 11.375, 13.6) for i in range(4)),
+            
+            
+            # (Point3(5.5 + i, 11.375, 16.6) for i in range(4)),
+            # (Point3(8.875, 8 + i, 16.6) for i in range(4)),
+            # (Point3(5.5 + i, 0.625, 19.6) for i in range(6)),
+            # (Point3(5.125, 1 + i, 19.6) for i in range(4))
         ]
-        for i, (pos, hpr, scale) in enumerate(materials):
-            self.block(f'step_fence_{i}', steps, pos, scale, hpr=hpr, bitmask=BitMask32.bit(3))
+        # for i, pos in enumerate(chain(*materials)):
+        #     # self.pole(f'fence_landing_{i}', steps, pos, Vec3(0.05, 0.05, 4), Vec2(1, 2))
+        #     self.block(f'step_fence_{i}', steps, pos, Vec3(0.15, 0.15, 2), bitmask=BitMask32.bit(3))
 
 
+        materials = [
+            ([Point3(-11.25, 2.5 + diff, 3.25 + 0.5), Vec3(0, 90, 0)] for diff in [1.925, -1.925]),
+            ([Point3(-5.25, 2.5 + diff, 6.25 + 0.5), Vec3(0, 90, 0)] for diff in [-1.925]),
+            ([Point3(-5.25 + diff, 2.5, 6.25 + 0.5), Vec3(90, 90, 0)] for diff in [1.925]),
+            ([Point3(-5.25 + diff, 8.5, 9.25 + 0.5), Vec3(90, 90, 0)] for diff in [-1.925]),
+            ([Point3(-5.25, 8.5 + diff, 9.25 + 0.5), Vec3(0, 90, 0)] for diff in [1.925]),
+            ([Point3(0.75, 8.5 + diff, 12.25 + 0.5), Vec3(0, 90, 0)] for diff in [1.925, -1.925]),
+            ([Point3(6.75, 8.5 + diff, 15.25 + 0.5), Vec3(0, 90, 0)] for diff in [1.925]),
+            ([Point3(6.75 + diff, 8.5, 15.25 + 0.5), Vec3(90, 90, 0)] for diff in [1.925]),
+            
+            ([Point3(6.75 + diff, 2.5, 18.25 + 0.5), Vec3(90, 90, 0)] for diff in [-1.925]),
+            ([Point3(6.75, 2.5 + diff, 18.25 + 0.5), Vec3(0, 90, 0)] for diff in [-1.925]),
+        ]
+        for i, (pos, hpr) in enumerate(chain(*materials)):
+            self.spiral('fence', steps, pos, hpr, Vec3(1, 1, 1), BitMask32.bit(3), 12, 0, 1.85, segs_s=8, section_radius=0.1)
+        
 
+        materials = [
+            ([Point3(-14, 2.5 + diff, 2.25 + 1.5), Vec3(0, 90, 0)] for diff in [1.925, -1.925]),
+        ]
+        for i, (pos, hpr) in enumerate(chain(*materials)):
+            self.spiral('fence', steps, pos, hpr, Vec3(1, 1, 1), BitMask32.bit(3), 12, 0, 0.75, segs_s=8, section_radius=0.1)
+        
+
+        # materials = [
+        #     ([Point3(-13.75, 2.5 + diff, 2.25 + 1), Vec3(0, 90, 0)] for diff in [1.925, -1.925]),
+        # ]
+        # for i, (pos, hpr) in enumerate(chain(*materials)):
+        #     self.spiral('fence', steps, pos, hpr, Vec3(1, 1, 1), BitMask32.bit(3), 24, 0, 0.8, segs_s=8, section_radius=0.1)
+        
 
         steps.set_texture(self.steps_tex)
         landings.set_texture(self.landing_tex)
