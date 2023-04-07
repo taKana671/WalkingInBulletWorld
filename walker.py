@@ -38,8 +38,7 @@ class Walker(NodePath):
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'character'))
         self.world = world
         self.set_collide_mask(BitMask32.allOn())
-        # self.set_pos(Point3(25, -10, 1))
-        self.set_pos(Point3(-87, 74, 6))
+        self.set_pos(Point3(25, -10, 1))
         self.set_scale(0.5)
         self.reparent_to(base.render)
         self.world.attach_character(self.node())
@@ -117,15 +116,15 @@ class Walker(NodePath):
         orientation = self.direction_node.get_quat(base.render).get_forward()
         next_pos = self.get_pos() + orientation * distance
 
-        # ts_from = TransformState.make_pos(self.get_pos())
-        # ts_to = TransformState.make_pos(next_pos)
-        # result = self.world.contactTest(self.node())
-        # # print([con.get_node1().get_name() for con in result.get_contacts()])
-        # result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, BitMask32.bit(3))
-        # if result.hasHit():
-        #     if result.get_node() != self.node():
-        #         print(result.get_node().get_name())
-        #         return
+        ts_from = TransformState.make_pos(self.get_pos())
+        ts_to = TransformState.make_pos(next_pos)
+        result = self.world.contactTest(self.node())
+        # print([con.get_node1().get_name() for con in result.get_contacts()])
+        result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, BitMask32.bit(3))
+        if result.hasHit():
+            if result.get_node() != self.node():
+                print(result.get_node().get_name())
+                # return
 
         match self.state:
             case Status.MOVING:

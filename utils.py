@@ -6,8 +6,6 @@ from panda3d.core import NodePath
 from panda3d.core import Geom, GeomNode, GeomTriangles
 from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
 
-from panda3d.core import Quat, Point3
-
 
 def get_prim_indices(start, n):
     match n:
@@ -120,7 +118,7 @@ def make_tube(segs_a=5, segs_c=12, height=2.0, radius=0.5):
     return node
 
 
-def make_torus(segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
+def make_torus(segs_rcnt=24, segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5, slope=0):
     arr_format = GeomVertexArrayFormat()
     arr_format.add_column('vertex', 3, Geom.NTFloat32, Geom.CPoint)
     arr_format.add_column('normal', 3, Geom.NTFloat32, Geom.CColor)
@@ -133,9 +131,9 @@ def make_torus(segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
     delta_angle_h = 2.0 * math.pi / segs_r
     delta_angle_v = 2.0 * math.pi / segs_s
 
-    for i in range(segs_r + 1):
+    for i in range(segs_rcnt + 1):
         angle_h = delta_angle_h * i
-        u = i / segs_r
+        u = i / segs_rcnt
 
         for j in range(segs_s + 1):
             angle_v = delta_angle_v * j
@@ -145,7 +143,8 @@ def make_torus(segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
 
             x = r * c
             y = r * s
-            z = section_radius * math.sin(angle_v)
+            z = section_radius * math.sin(angle_v) + slope * i
+
             nx = x - ring_radius * c
             ny = y - ring_radius * s
             normal_vec = Vec3(nx, ny, z).normalized()
@@ -154,76 +153,14 @@ def make_torus(segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
             vdata_values.extend(normal_vec)
             vdata_values.extend((u, v))
 
-    for i in range(segs_r):
+    for i in range(segs_rcnt):
         for j in range(0, segs_s):
             idx = j + i * (segs_s + 1)
             prim_indices.extend([idx, idx + 1, idx + segs_s + 1])
             prim_indices.extend([idx + segs_s + 1, idx + 1, idx + 1 + segs_s + 1])
 
     vdata = GeomVertexData('torous', fmt, Geom.UHStatic)
-    rows = (segs_r + 1) * (segs_s + 1)
-    vdata.unclean_set_num_rows(rows)
-    vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
-    vdata_mem[:] = vdata_values
-
-    prim = GeomTriangles(Geom.UHStatic)
-    prim_array = prim.modify_vertices()
-    prim_array.unclean_set_num_rows(len(prim_indices))
-    prim_mem = memoryview(prim_array).cast('B').cast('H')
-    prim_mem[:] = prim_indices
-
-    node = GeomNode('geomnode')
-    geom = Geom(vdata)
-    geom.add_primitive(prim)
-    node.add_geom(geom)
-    return node
-
-
-def make_spiral(length, slope, ring_radius, segs_r=24, segs_s=12, section_radius=0.15):
-    arr_format = GeomVertexArrayFormat()
-    arr_format.add_column('vertex', 3, Geom.NTFloat32, Geom.CPoint)
-    arr_format.add_column('normal', 3, Geom.NTFloat32, Geom.CColor)
-    arr_format.add_column('texcoord', 2, Geom.NTFloat32, Geom.CTexcoord)
-    fmt = GeomVertexFormat.register_format(arr_format)
-
-    vdata_values = array.array('f', [])
-    prim_indices = array.array('H', [])
-
-    delta_angle_h = 2.0 * math.pi / segs_r
-    delta_angle_v = 2.0 * math.pi / segs_s
-
-    for i in range(length + 1):
-        angle_h = delta_angle_h * i
-        u = i / segs_r
-
-        for j in range(segs_s + 1):
-            angle_v = delta_angle_v * j
-            r = ring_radius - section_radius * math.cos(angle_v)
-            c = math.cos(angle_h)
-            s = math.sin(angle_h)
-
-            x = r * c
-            y = r * s
-            z = section_radius * math.sin(angle_v)
-            nx = x - ring_radius * c
-            ny = y - ring_radius * s
-
-            pt = Point3(x, y, z + slope * i)
-            normal_vec = Vec3(nx, ny, z).normalized()
-            v = 1.0 - j / segs_s
-
-            vdata_values.extend(pt)
-            vdata_values.extend(normal_vec)
-            vdata_values.extend((u, v))
-
-    for i in range(length):
-        for j in range(0, segs_s):
-            idx = j + i * (segs_s + 1)
-            prim_indices.extend([idx, idx + 1, idx + segs_s + 1])
-            prim_indices.extend([idx + segs_s + 1, idx + 1, idx + 1 + segs_s + 1])
-
-    vdata = GeomVertexData('torous', fmt, Geom.UHStatic)
-    rows = (length + 1) * (segs_s + 1)
+    rows = (segs_rcnt + 1) * (segs_s + 1)
     vdata.unclean_set_num_rows(rows)
     vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
     vdata_mem[:] = vdata_values
