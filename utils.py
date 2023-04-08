@@ -191,11 +191,16 @@ class Cube(Singleton):
 
     @classmethod
     def make(cls):
-        if cls not in cls._instances:
+        if 'cube' not in cls._instances:
             face_vertices = [[CUBE['vertices'][i] for i in face] for face in CUBE['faces']]
             geomnode = make_geomnode(face_vertices, CUBE['uv'], CUBE['normal'])
-            cls._instances[cls] = cls(geomnode)
-        return cls._instances[cls]
+            cls._instances['cube'] = cls(geomnode)
+        return cls._instances['cube']
+        # if cls not in cls._instances:
+        #     face_vertices = [[CUBE['vertices'][i] for i in face] for face in CUBE['faces']]
+        #     geomnode = make_geomnode(face_vertices, CUBE['uv'], CUBE['normal'])
+        #     cls._instances[cls] = cls(geomnode)
+        # return cls._instances[cls]
 
 
 class DecagonalPrism(Singleton):
@@ -212,7 +217,6 @@ class DecagonalPrism(Singleton):
                     norm = Vec3(pt[0], pt[1], 0).normalized() if z == 0 else Vec3(0, 0, z)
                     sub.append(norm)
                 normal.append(sub)
-
             geomnode = make_geomnode(face_vertices, DECAGONAL_PRISM['uv'], normal)
             cls._instances[cls] = cls(geomnode)
         return cls._instances[cls]
@@ -245,23 +249,23 @@ CUBE = {
         (0, 1, 5, 4), (0, 4, 7, 3), (0, 3, 2, 1),
         (1, 2, 6, 5), (2, 3, 7, 6), (4, 5, 6, 7)
     ],
+    # 'uv': [
+    #     ((1, 1), (0.75, 1), (0.75, 0), (1, 0)),
+    #     ((0, 1), (0, 0), (0.25, 0), (0.25, 1)),
+    #     ((0, 0), (1, 0), (1, 1), (0, 1)),
+    #     ((0.75, 1), (0.5, 1), (0.5, 0), (0.75, 0)),
+    #     ((0.5, 1), (0.25, 1), (0.25, 0), (0.5, 0)),
+    #     ((0, 0), (1, 0), (1, 1), (0, 1)),
+    # ],
     'uv': [
-        ((1, 1), (0.75, 1), (0.75, 0), (1, 0)),
-        ((0, 1), (0, 0), (0.25, 0), (0.25, 1)),
+        ((1, 1), (0.9, 1), (0.9, 0), (1, 0)),
+        ((0, 1), (0, 0), (0.4, 0), (0.4, 1)),
         ((0, 0), (1, 0), (1, 1), (0, 1)),
-        ((0.75, 1), (0.5, 1), (0.5, 0), (0.75, 0)),
-        ((0.5, 1), (0.25, 1), (0.25, 0), (0.5, 0)),
+        ((0.9, 1), (0.5, 1), (0.5, 0), (0.9, 0)),
+        ((0.5, 1), (0.4, 1), (0.4, 0), (0.5, 0)),
+        # ((1, 0), (0.9, 0), (0.5, 0), (0.4, 0))
         ((0, 0), (1, 0), (1, 1), (0, 1)),
     ],
-    # 'uv': [
-    #     ((1, 1), (0.9, 1), (0.9, 0), (1, 0)),
-    #     ((0, 1), (0, 0), (0.4, 0), (0.4, 1)),
-    #     ((0, 0), (1, 0), (1, 1), (0, 1)),
-    #     ((0.9, 1), (0.5, 1), (0.5, 0), (0.9, 0)),
-    #     ((0.5, 1), (0.4, 1), (0.4, 0), (0.5, 0)),
-    #     ((1, 0), (0.9, 0), (0.5, 0), (0.4, 0))
-    #     # ((0, 0), (1, 0), (1, 1), (0, 1)),
-    # ],
     'normal': [
         [(-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)],
         [(0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0)],
