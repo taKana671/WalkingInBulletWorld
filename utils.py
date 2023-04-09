@@ -7,62 +7,63 @@ from panda3d.core import Geom, GeomNode, GeomTriangles
 from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
 
 
-def get_prim_indices(start, n):
-    match n:
-        case 3:
-            yield (start, start + 1, start + 2)
-        case 4:
-            for x, y, z in [(0, 1, 3), (1, 2, 3)]:
-                yield (start + x, start + y, start + z)
-        case _:
-            for i in range(2, n):
-                if i == 2:
-                    yield (start, start + i - 1, start + i)
-                else:
-                    yield (start + i - 1, start, start + i)
+# def get_prim_indices(start, n):
+#     match n:
+#         case 3:
+#             yield (start, start + 1, start + 2)
+#         case 4:
+#             for x, y, z in [(0, 1, 3), (1, 2, 3)]:
+#                 yield (start + x, start + y, start + z)
+#         case _:
+#             for i in range(2, n):
+#                 if i == 2:
+#                     yield (start, start + i - 1, start + i)
+#                 else:
+#                     yield (start + i - 1, start, start + i)
 
 
-def make_geomnode(faces, texcoords, normal_vecs):
-    arr_format = GeomVertexArrayFormat()
-    arr_format.add_column('vertex', 3, Geom.NTFloat32, Geom.CPoint)
-    arr_format.add_column('color', 4, Geom.NTFloat32, Geom.CColor)
-    arr_format.add_column('normal', 3, Geom.NTFloat32, Geom.CNormal)
-    arr_format.add_column('texcoord', 2, Geom.NTFloat32, Geom.CTexcoord)
-    format_ = GeomVertexFormat.register_format(arr_format)
+# def make_geomnode(faces, texcoords, normal_vecs):
+#     arr_format = GeomVertexArrayFormat()
+#     arr_format.add_column('vertex', 3, Geom.NTFloat32, Geom.CPoint)
+#     arr_format.add_column('color', 4, Geom.NTFloat32, Geom.CColor)
+#     arr_format.add_column('normal', 3, Geom.NTFloat32, Geom.CNormal)
+#     arr_format.add_column('texcoord', 2, Geom.NTFloat32, Geom.CTexcoord)
+#     format_ = GeomVertexFormat.register_format(arr_format)
 
-    vdata_values = array.array('f', [])
-    prim_indices = array.array('H', [])
-    start = 0
+#     vdata_values = array.array('f', [])
+#     prim_indices = array.array('H', [])
 
-    for face, coords, vecs in zip(faces, texcoords, normal_vecs):
-        for pt, uv, vec in zip(face, coords, vecs):
-            vdata_values.extend(pt)
-            vdata_values.extend(LColor(1, 1, 1, 1))
-            vdata_values.extend(vec)
-            vdata_values.extend(uv)
+#     start = 0
 
-        for indices in get_prim_indices(start, len(face)):
-            prim_indices.extend(indices)
-        start += len(face)
+#     for face, coords, vecs in zip(faces, texcoords, normal_vecs):
+#         for pt, uv, vec in zip(face, coords, vecs):
+#             vdata_values.extend(pt)
+#             vdata_values.extend(LColor(1, 1, 1, 1))
+#             vdata_values.extend(vec)
+#             vdata_values.extend(uv)
 
-    vdata = GeomVertexData('cube', format_, Geom.UHStatic)
-    num_rows = sum(len(face) for face in faces)
-    vdata.unclean_set_num_rows(num_rows)
-    vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
-    vdata_mem[:] = vdata_values
+#         for indices in get_prim_indices(start, len(face)):
+#             prim_indices.extend(indices)
+#         start += len(face)
 
-    prim = GeomTriangles(Geom.UHStatic)
-    prim_array = prim.modify_vertices()
-    prim_array.unclean_set_num_rows(len(prim_indices))
-    prim_mem = memoryview(prim_array).cast('B').cast('H')
-    prim_mem[:] = prim_indices
+#     vdata = GeomVertexData('cube', format_, Geom.UHStatic)
+#     num_rows = sum(len(face) for face in faces)
+#     vdata.unclean_set_num_rows(num_rows)
+#     vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
+#     vdata_mem[:] = vdata_values
 
-    node = GeomNode('geomnode')
-    geom = Geom(vdata)
-    geom.add_primitive(prim)
-    node.add_geom(geom)
+#     prim = GeomTriangles(Geom.UHStatic)
+#     prim_array = prim.modify_vertices()
+#     prim_array.unclean_set_num_rows(len(prim_indices))
+#     prim_mem = memoryview(prim_array).cast('B').cast('H')
+#     prim_mem[:] = prim_indices
 
-    return node
+#     node = GeomNode('geomnode')
+#     geom = Geom(vdata)
+#     geom.add_primitive(prim)
+#     node.add_geom(geom)
+
+#     return node
 
 
 def make_tube(segs_a=5, segs_c=12, height=2.0, radius=0.5):
@@ -178,66 +179,149 @@ def make_torus(segs_rcnt=24, segs_r=24, segs_s=12, ring_radius=1.2, section_radi
     return node
 
 
-class Singleton(NodePath):
+def singleton(cls):
+    instances = {}
 
-    _instances = dict()
+    def get_instance(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+    return get_instance
+
+
+class GeomRoot(NodePath):
 
     def __init__(self, geomnode):
         super().__init__(geomnode)
         self.set_two_sided(True)
 
+    def make_format(self):
+        arr_format = GeomVertexArrayFormat()
+        arr_format.add_column('vertex', 3, Geom.NTFloat32, Geom.CPoint)
+        arr_format.add_column('normal', 3, Geom.NTFloat32, Geom.CColor)
+        arr_format.add_column('texcoord', 2, Geom.NTFloat32, Geom.CTexcoord)
+        fmt = GeomVertexFormat.register_format(arr_format)
+        return fmt
 
-class Cube(Singleton):
+    def make_polyhedron(self, faces, texcoords, normal_vecs):
+        fmt = self.make_format()
+        vdata_values = array.array('f', [])
+        prim_indices = array.array('H', [])
+        start = 0
 
-    @classmethod
-    def make(cls):
-        if 'cube' not in cls._instances:
-            face_vertices = [[CUBE['vertices'][i] for i in face] for face in CUBE['faces']]
-            geomnode = make_geomnode(face_vertices, CUBE['uv'], CUBE['normal'])
-            cls._instances['cube'] = cls(geomnode)
-        return cls._instances['cube']
-        # if cls not in cls._instances:
-        #     face_vertices = [[CUBE['vertices'][i] for i in face] for face in CUBE['faces']]
-        #     geomnode = make_geomnode(face_vertices, CUBE['uv'], CUBE['normal'])
-        #     cls._instances[cls] = cls(geomnode)
-        # return cls._instances[cls]
+        for face, coords, vecs in zip(faces, texcoords, normal_vecs):
+            for pt, uv, vec in zip(face, coords, vecs):
+                vdata_values.extend(pt)
+                vdata_values.extend(LColor(1, 1, 1, 1))
+                vdata_values.extend(vec)
+                vdata_values.extend(uv)
+
+            for indices in self.get_prim_indices(start, len(face)):
+                prim_indices.extend(indices)
+            start += len(face)
+
+        vdata = GeomVertexData('cube', fmt, Geom.UHStatic)
+        num_rows = sum(len(face) for face in faces)
+        vdata.unclean_set_num_rows(num_rows)
+        vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
+        vdata_mem[:] = vdata_values
+
+        prim = GeomTriangles(Geom.UHStatic)
+        prim_array = prim.modify_vertices()
+        prim_array.unclean_set_num_rows(len(prim_indices))
+        prim_mem = memoryview(prim_array).cast('B').cast('H')
+        prim_mem[:] = prim_indices
+
+        node = GeomNode('geomnode')
+        geom = Geom(vdata)
+        geom.add_primitive(prim)
+        node.add_geom(geom)
+        return node
+
+    def get_prim_indices(self, start, n):
+        match n:
+            case 3:
+                yield (start, start + 1, start + 2)
+            case 4:
+                for x, y, z in [(0, 1, 3), (1, 2, 3)]:
+                    yield (start + x, start + y, start + z)
+            case _:
+                for i in range(2, n):
+                    if i == 2:
+                        yield (start, start + i - 1, start + i)
+                    else:
+                        yield (start + i - 1, start, start + i)
 
 
-class DecagonalPrism(Singleton):
+@singleton
+class Cube(GeomRoot):
 
-    @classmethod
-    def make(cls):
-        if cls not in cls._instances:
-            face_vertices = [[DECAGONAL_PRISM['vertices'][i] for i in face] for face in DECAGONAL_PRISM['faces']]
-            normal = []
+    def __init__(self):
+        geomnode = self.make_geomnode()
+        super().__init__(geomnode)
 
-            for vertices, z in zip(face_vertices, DECAGONAL_PRISM['z']):
-                sub = []
-                for pt in vertices:
-                    norm = Vec3(pt[0], pt[1], 0).normalized() if z == 0 else Vec3(0, 0, z)
-                    sub.append(norm)
-                normal.append(sub)
-            geomnode = make_geomnode(face_vertices, DECAGONAL_PRISM['uv'], normal)
-            cls._instances[cls] = cls(geomnode)
-        return cls._instances[cls]
+    def make_geomnode(self):
+        face_vertices = [[CUBE['vertices'][i] for i in face] for face in CUBE['faces']]
+        return self.make_polyhedron(face_vertices, CUBE['uv'], CUBE['normal'])
 
 
-class RightTriangularPrism(Singleton):
 
-    @classmethod
-    def make(cls):
-        if cls not in cls._instances:
-            vertices = RIGHT_TRIANGULAR_PRISM['vertices']
-            faces = RIGHT_TRIANGULAR_PRISM['faces']
-            face_vertices = [[vertices[i] for i in face] for face in faces]
 
-            geomnode = make_geomnode(
-                face_vertices,
-                RIGHT_TRIANGULAR_PRISM['uv'],
-                RIGHT_TRIANGULAR_PRISM['normal']
-            )
-            cls._instances[cls] = cls(geomnode)
-        return cls._instances[cls]
+# class Singleton(NodePath):
+
+#     _instances = dict()
+
+#     def __init__(self, geomnode):
+#         super().__init__(geomnode)
+#         self.set_two_sided(True)
+
+
+# class Cube(Singleton):
+
+#     @classmethod
+#     def make(cls):
+#         # if cls not in cls._instances:
+#         #     face_vertices = [[CUBE['vertices'][i] for i in face] for face in CUBE['faces']]
+#         #     geomnode = make_geomnode(face_vertices, CUBE['uv'], CUBE['normal'])
+#         #     cls._instances[cls] = cls(geomnode)
+#         # return cls._instances[cls]
+
+
+# class DecagonalPrism(Singleton):
+
+#     @classmethod
+#     def make(cls):
+#         if cls not in cls._instances:
+#             face_vertices = [[DECAGONAL_PRISM['vertices'][i] for i in face] for face in DECAGONAL_PRISM['faces']]
+#             normal = []
+
+#             for vertices, z in zip(face_vertices, DECAGONAL_PRISM['z']):
+#                 sub = []
+#                 for pt in vertices:
+#                     norm = Vec3(pt[0], pt[1], 0).normalized() if z == 0 else Vec3(0, 0, z)
+#                     sub.append(norm)
+#                 normal.append(sub)
+#             geomnode = make_geomnode(face_vertices, DECAGONAL_PRISM['uv'], normal)
+#             cls._instances[cls] = cls(geomnode)
+#         return cls._instances[cls]
+
+
+# class RightTriangularPrism(Singleton):
+
+#     @classmethod
+#     def make(cls):
+#         if cls not in cls._instances:
+#             vertices = RIGHT_TRIANGULAR_PRISM['vertices']
+#             faces = RIGHT_TRIANGULAR_PRISM['faces']
+#             face_vertices = [[vertices[i] for i in face] for face in faces]
+
+#             geomnode = make_geomnode(
+#                 face_vertices,
+#                 RIGHT_TRIANGULAR_PRISM['uv'],
+#                 RIGHT_TRIANGULAR_PRISM['normal']
+#             )
+#             cls._instances[cls] = cls(geomnode)
+#         return cls._instances[cls]
 
 
 CUBE = {
