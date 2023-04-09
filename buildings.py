@@ -452,13 +452,10 @@ class BrickHouse(Materials):
         roofs.reparent_to(self.house)
         doors = NodePath('door')
         doors.reparent_to(self.house)
-        lifts = NodePath('lifts')
-        lifts.reparent_to(self.house)
+        invisible = NodePath('invisible')
+        invisible.reparent_to(self.house)
 
-        # floors
-        self.block('entrance_floor', floors, Point3(3, -10, -0.5), Vec3(7, 3, 2))   # front of a door
-        self.block('entrance_floor1', floors, Point3(3, -10, 1), Vec3(7, 3, 1))
-
+        # room floors
         materials = [
             [Point3(0, 0, 0), Vec3(13, 9, 3)],     # big room
             [Point3(3, -6.5, 0), Vec3(7, 4, 3)],   # small room
@@ -471,17 +468,13 @@ class BrickHouse(Materials):
 
         # steps
         for i in range(3):
-            pos = Point3(3, -12 - i, 0.5 - 0.5 * i)
-            block = self.block(f'step_{i}', floors, pos, Vec3(7, 1, 1))
-            self.lift(f'lift_{i}', floors, block)
+            pos = Point3(3, -9.5 - i * 2, 0 - i * 0.5)
+            scale = Vec3(7, 2, 3 - i)
+            self.block(f'step_{i}', floors, pos, scale)
 
-        # fences
-        materials = [
-            (Point3(x, -9 - i, 2) for i in range(2) for x in (-0.25, 6.25)),
-            (Point3(x, -11 - i, 2 - 0.5 * i) for i in range(2) for x in (-0.25, 6.25)),
-        ]
-        for i, pos in enumerate(chain(*materials)):
-            self.pole(f'fence_{i}', doors, pos, Vec3(0.05, 0.1, 3), Vec2(1, 3))
+            # invisible slope
+            slope_pos = pos + Vec3(0, -1.5, 1 - 0.5 * i)
+            self.triangular_prism('hidden_slope', invisible, slope_pos, Vec3(0, 180, 90), Vec3(1, 1, 7), hide=True)
 
         # rear and front walls
         wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5))
@@ -516,12 +509,10 @@ class BrickHouse(Materials):
 
         # roofs
         materials = [
-            [Point3(3, -6.5, 5.75), Vec3(7, 4, 0.5)],       # small room
-            [Point3(3, -6.5, 6.0), Vec3(6, 3, 0.5)],        # small room
-            [Point3(0, 0, 9.75), Vec3(13, 9, 0.5)],         # big room
-            [Point3(0, 0, 10.0), Vec3(12, 8, 0.5)],         # big room
+            ((Point3(3, -6.5, 5.75 + 0.25 * i), Vec3(7 - i, 4 - i, 0.5)) for i in range(2)),  # small room
+            ((Point3(0, 0, 9.75 + 0.25 * i), Vec3(13 - i, 9 - i, 0.5)) for i in range(2)),    # big room
         ]
-        for i, (pos, scale) in enumerate(materials):
+        for i, (pos, scale) in enumerate(chain(*materials)):
             self.block(f'roof_{i}', roofs, pos, scale)
 
         # doors
@@ -625,10 +616,13 @@ class Terrace(Materials):
                          segs_rcnt=14, slope=0.5, ring_radius=4.3, section_radius=0.15)
 
         # slope of the 1st step
-        self.triangular_prism('hidden_slope', lifts, Point3(7.75, -1, 0.5), Vec3(180, 90, 0), Vec3(0.5, 0.5, 4), hide=True)
-
+        self.triangular_prism(
+            'hidden_slope', lifts, Point3(7.75, -1, 0.5), Vec3(180, 90, 0), Vec3(0.5, 0.5, 4), hide=True
+        )
         # entrance slope
-        self.triangular_prism('entrance_slope', floors, Point3(-9.5, -2.5, 0), Vec3(180, 90, 0), Vec3(3, 0.5, 7), tex_scale=Vec2(3, 2))
+        self.triangular_prism(
+            'entrance_slope', floors, Point3(-9.5, -2.5, 0), Vec3(180, 90, 0), Vec3(3, 0.5, 7), tex_scale=Vec2(3, 2)
+        )
 
         walls.set_texture(self.wall_tex)
         floors.set_texture(self.floor_tex)
@@ -792,14 +786,23 @@ class Bridge(Materials):
 
     def build(self):
         self.make_textures()
-        girder = NodePath('girder')
-        girder.reparent_to(self.bridge)
+        girders = NodePath('girders')
+        girders.reparent_to(self.bridge)
         columns = NodePath('columns')
         columns.reparent_to(self.bridge)
         fences = NodePath('fences')
         fences.reparent_to(self.bridge)
         lifts = NodePath('lift')
         lifts.reparent_to(self.bridge)
+
+        # bridge girders
+        materials = [
+            [Point3(0, 0, 0), Vec3(8, 1, 8)],
+            [Point3(0, 12, 0), Vec3(4, 1, 16)],
+            [Point3(0, -12, 0), Vec3(4, 1, 16)],
+        ]
+        for i, (pos, scale) in enumerate(materials):
+            self.block(f'girder_{i}', girders, pos, scale, hpr=Vec3(0, 90, 0))
 
         # columns supporting bridge girder
         materials = [
@@ -809,32 +812,39 @@ class Bridge(Materials):
         for i, pos in enumerate(chain(*materials)):
             self.pole(f'column_{i}', columns, pos, Vec3(1, 1, 9), Vec2(1, 1))
 
-        # bridge girder
-        materials = [
-            [Point3(0, 0, 0), Vec3(8, 1, 8)],
-            [Point3(0, 12, 0), Vec3(4, 1, 16)],
-            [Point3(0, -12, 0), Vec3(4, 1, 16)],
-        ]
-        for i, (pos, scale) in enumerate(materials):
-            self.block(f'girder_{i}', girder, pos, scale, hpr=Vec3(0, 90, 0))
-
         # steps
-        materials = (Point3(0, -20.5 - i, 0 - i) for i in range(6))
-        for i, pos in enumerate(materials):
-            block = self.block(f'step_{i}', girder, pos, Vec3(4, 1, 1))
+        for i in range(5):
+            pos = Point3(0, -20.5 - i, -1 - i)
+            block = self.block(f'step_{i}', girders, pos, Vec3(4, 1, 1))
             self.lift(f'lift_{i}', lifts, block)
+
+            # falling preventions
+            for j, diff in enumerate([1.9, -1.9]):
+                f_pos = pos + Vec3(diff, 0, 1.5)
+                self.block(f'fence_{i}{j}', fences, f_pos, Vec3(0.15, 0.15, 2.1), bitmask=BitMask32.bit(3))
+
+            # handrails
+            if i == 2:
+                for diff_x in [1.9, -1.9]:
+                    rail_pos = pos + Vec3(diff_x, 0, 2.5)
+                    self.block(
+                        f'fence_{i}{j}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, -45, 0), bitmask=BitMask32.bit(3)
+                    )
+
+        self.block(f'girder', girders, Point3(-1.875, -11.875, 1.75), Vec3(16.25, 0.25, 0.5), horizontal=False)
 
         # fences
         materials = [
-            (Point3(x, y + i, 1) for i in range(16) for x, y in product((1.9, -1.9), (4.5, -19.5))),
-            (Point3(x + i, y, 1) for i in range(2) for x, y in product((-3.5, 2.5), (-3.9, 3.9))),
-            (Point3(x, -3.5 + i, 1) for i in range(8) for x in (-3.9, 3.9)),
-            (Point3(x, -20.5 - i, 1 - i) for i in range(5) for x in (1.9, -1.9))
+            (Point3(x, y + i, 1) for i in range(17) for x, y in product((1.875, -1.875), (3.875, -19.875))),
+            # (Point3(x + i, y, 1) for i in range(2) for x, y in product((-3.5, 2.5), (-3.9, 3.9))),
+            # (Point3(x, -3.5 + i, 1) for i in range(8) for x in (-3.9, 3.9)),
+            # (Point3(x, -20.5 - i, 1 - i) for i in range(5) for x in (1.9, -1.9))
         ]
         for i, pos in enumerate(chain(*materials)):
-            self.pole(f'fence_{i}', fences, pos, Vec3(0.05, 0.05, 3), Vec2(1, 2))
+            self.block(f'girder', girders, pos, Vec3(0.25, 0.25, 1))
+            # self.pole(f'fence_{i}', fences, pos, Vec3(0.05, 0.05, 3), Vec2(1, 2))
 
-        girder.set_texture(self.bridge_tex)
+        girders.set_texture(self.bridge_tex)
         columns.set_texture(self.column_tex)
         fences.set_texture(self.fence_tex)
         self.bridge.flatten_strong()
@@ -903,7 +913,7 @@ class Tunnel(Materials):
         for x, y in ((x, y) for y in [2.3, -82.3] for x in [1.9, -1.9]):
             hpr = (0, 45, 0) if y > 0 else (0, -45, 0)
             pos = Point3(x, y, -1.63)
-            self.block(f'fence_{i}{j}', metal, pos, Vec3(0.15, 0.15, 4.5), hpr=hpr, bitmask=BitMask32.bit(3))
+            self.block(f'handrail_{i}{j}', metal, pos, Vec3(0.15, 0.15, 4.5), hpr=hpr, bitmask=BitMask32.bit(3))
 
         # rings supporting tunnel
         for i in range(5):
