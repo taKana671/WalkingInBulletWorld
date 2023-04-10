@@ -11,7 +11,7 @@ from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConeTwistConstraint
 
-from utils import Cube, DecagonalPrism, RightTriangularPrism, make_tube, make_torus
+from create_geomnode import Cube, DecagonalPrism, RightTriangularPrism, Tube, RingShape
 
 
 class Images(Enum):
@@ -90,14 +90,12 @@ class Convex(NodePath):
 
 class Ring(NodePath):
 
-    def __init__(self, name, parent, geomnode, pos, hpr, scale, bitmask):
+    def __init__(self, name, parent, model, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
         self.reparent_to(parent)
-        self.model = self.attach_new_node(geomnode)
-        self.model.set_two_sided(True)
-
+        self.model = model.copy_to(self)
         mesh = BulletTriangleMesh()
-        mesh.add_geom(geomnode.get_geom(0))
+        mesh.add_geom(self.model.node().get_geom(0))
         shape = BulletTriangleMeshShape(mesh, dynamic=False)
 
         self.node().add_shape(shape)
@@ -113,12 +111,9 @@ class Materials:
 
     def __init__(self, world):
         self.world = world
-        self.cube = Cube.make()
-        # print('cube', id(self.cube))
-        self.cylinder = DecagonalPrism.make()
-        # print('cylinder', id(self.cylinder))
-        self.right_triangle_prism = RightTriangularPrism.make()
-        # print('right_triangle_prism', id(self.right_triangle_prism))
+        self.cube = Cube()
+        self.cylinder = DecagonalPrism()
+        self.right_triangle_prism = RightTriangularPrism()
 
     def texture(self, image):
         if image not in self._textures:
@@ -235,42 +230,26 @@ class Materials:
 
         plane = Plane(name, parent, model, pos)
         self.world.attach(plane.node())
-
         return plane
 
     def point_on_circumference(self, angle, radius):
         rad = math.radians(angle)
         x = math.cos(rad) * radius
         y = math.sin(rad) * radius
-
         return x, y
 
-    def tube(self, name, parent, pos, scale, hpr=None, horizontal=True, **kwargs):
+    def tube(self, name, parent, geomnode, pos, scale, hpr=None, horizontal=True):
         if not hpr:
             hpr = Vec3(0, 90, 0) if horizontal else Vec3(90, 0, 0)
 
-        geomnode = make_tube(**kwargs)
         tube = Ring(name, parent, geomnode, pos, hpr, scale, BitMask32.allOn())
         self.world.attach(tube.node())
-
         return tube
 
-    def ring_shaped(self, name, parent, pos, scale=Vec3(1), hpr=None, hor=True, tex_scale=None, bitmask=BitMask32.all_on(), **kwargs):
-        """Returns a NodePath to which a ring-shaped object is parented.
-           kwargs are passed to make_torus.
-
-            Keyword Args:
-                segs_rcnt (int): the number of segments
-                segs_r (int): the number of segments of the ring
-                segs_s (int): the number of segments of the cross-sections
-                ring_radius (float): the radius of the ring; cannot be negative;
-                section_radius (float): the radius of the cross-sections perpendicular to the ring; cannot be negative;
-                slope (float): the increase of the cross-sections hight
-        """
-        geomnode = make_torus(**kwargs)
-
+    def ring_shape(self, name, parent, geomnode, pos, scale=Vec3(1), hpr=None, hor=True, tex_scale=None, bitmask=BitMask32.all_on()):
         if not hpr:
             hpr = Vec3(0, 90, 0) if hor else Vec3(90, 0, 0)
+
         ring = Ring(name, parent, geomnode, pos, hpr, scale, bitmask)
         if tex_scale:
             ring.set_tex_scale(TextureStage.get_default(), tex_scale)
@@ -635,8 +614,8 @@ class Terrace(Materials):
         # handrail of spiral staircase
         pos = center - Vec3(0, 0, 0.5)
         hpr = Vec3(-101, 0, 0)
-        self.ring_shaped('handrail', steps, pos, hpr=hpr, bitmask=BitMask32.bit(3),
-                         segs_rcnt=14, slope=0.5, ring_radius=4.3, section_radius=0.15)
+        geomnode = RingShape(segs_rcnt=14, slope=0.5, ring_radius=4.3, section_radius=0.15)
+        self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=BitMask32.bit(3))
 
         # slope of the 1st step
         self.triangular_prism(
@@ -706,8 +685,8 @@ class Observatory(Materials):
         # handrail of spiral staircase
         pos = center - Vec3(0, 0, 6)
         hpr = Vec3(-101, 0, 0)
-        self.ring_shaped('handrail', steps, pos, hpr=hpr, bitmask=BitMask32.bit(3),
-                         segs_rcnt=38, slope=0.5, ring_radius=4.3, section_radius=0.15)
+        geomnode = RingShape(segs_rcnt=38, slope=0.5, ring_radius=4.3, section_radius=0.15)
+        self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=BitMask32.bit(3))
 
         # stair landings
         landing_positions = [
@@ -757,12 +736,6 @@ class Observatory(Materials):
                 block = self.block(f'step_{k}{i}', steps, step_pos, scale, horizontal=horizontal)
                 self.lift(f'step_lift_{k}{i}', invisible, block)
 
-                # falling preventions
-                for f in [1.9, -1.9]:
-                    diff = Vec3(f, 0, 1.5) if horizontal else Vec3(0, f, 1.5)
-                    fence_pos = step_pos + diff
-                    self.pole(f'invisible_fence_{i}', steps, fence_pos, Vec3(0.1, 0.1, 3.5), Vec2(1, 2), hide=True)
-
         # a slope for the lowest step
         self.triangular_prism('hidden_slope', invisible, Point3(-15.75, 2.5, 1.25), Vec3(180, 90, 0), Vec3(1, 1, 4), hide=True)
 
@@ -776,15 +749,14 @@ class Observatory(Materials):
             4: [(0, -diff), (diff, 0)],
             5: [(0, diff), (0, -diff)]
         }
-        spiral_args = dict(segs_rcnt=12, ring_radius=1.85, segs_s=8, section_radius=0.1)
+        geomnode = RingShape(segs_rcnt=12, ring_radius=1.85, segs_s=8, section_radius=0.1)
 
         for k, v in diffs.items():
             landing_pos = landing_positions[k]
             for i, (diff_x, diff_y) in enumerate(v):
                 fence_pos = landing_pos + Vec3(diff_x, diff_y, 0.5)
                 hpr = Vec3(0, 90, 0) if diff_x == 0 else Vec3(90, 90, 0)
-                self.ring_shaped(f'landing_fence_{k}{i}', steps, fence_pos,
-                                 hpr=hpr, bitmask=BitMask32.bit(3), **spiral_args)
+                self.ring_shape(f'landing_fence_{k}{i}', steps, geomnode, fence_pos, hpr=hpr, bitmask=BitMask32.bit(3))
 
         steps.set_texture(self.steps_tex)
         landings.set_texture(self.landing_tex)
@@ -910,13 +882,15 @@ class Tunnel(Materials):
         invisible.reparent_to(self.tunnel)
 
         # tunnel
-        self.tube('tunnel', walls, Point3(0, 0, 0), Vec3(4, 4, 4), height=20)
+        geomnode = Tube(height=20)
+        self.tube('tunnel', walls, geomnode, Point3(0, 0, 0), Vec3(4, 4, 4))
 
         # both ends of the tunnel
         positions = [Point3(0, 0, 0), Point3(0, -80, 0)]
+        geomnode = RingShape(ring_radius=0.5, section_radius=0.05)
+
         for i, pos in enumerate(positions):
-            self.ring_shaped(f'edge_{i}', walls, pos, scale=Vec3(4), tex_scale=Vec2(2),
-                             ring_radius=0.5, section_radius=0.05)
+            self.ring_shape(f'edge_{i}', walls, geomnode, pos, scale=Vec3(4), tex_scale=Vec2(2))
 
         # steps
         steps_num = 4
@@ -951,11 +925,12 @@ class Tunnel(Materials):
             self.block(f'handrail_{i}{j}', metal, pos, Vec3(0.15, 0.15, 4.5), hpr=hpr, bitmask=BitMask32.bit(3))
 
         # rings supporting tunnel
+        geomnode = RingShape(ring_radius=0.8, section_radius=0.1)
+
         for i in range(5):
             y = -0.7 - i * 19.65
             ring_pos = Point3(0, y, 0)
-            self.ring_shaped(f'ring_{i}', metal, ring_pos, scale=Vec3(5), tex_scale=Vec2(2, 4),
-                             ring_radius=0.8, section_radius=0.1)
+            self.ring_shape(f'ring_{i}', metal, geomnode, ring_pos, scale=Vec3(5), tex_scale=Vec2(2, 4))
 
             # culumn supporting ring
             col_pos = Point3(0, y, -7.3)

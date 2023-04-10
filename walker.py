@@ -6,7 +6,7 @@ from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import PandaNode, NodePath, TransformState
 from panda3d.core import Vec3, Point3, BitMask32
 
-from utils import Cube
+from create_geomnode import Cube
 
 
 class Status(Enum):
@@ -39,7 +39,7 @@ class Walker(NodePath):
         self.world = world
         self.set_collide_mask(BitMask32.allOn())
         self.set_pos(Point3(25, -10, 1))
-        # self.set_pos(Point3(-37.2795, -69.1985, -0.885956))
+        # self.set_pos(Point3(-94.305, 68.8304, 0.23398))
         self.set_scale(0.5)
         self.reparent_to(base.render)
         self.world.attach_character(self.node())
@@ -69,12 +69,12 @@ class Walker(NodePath):
 
         self.shape = shape
         self.state = Status.MOVING
-        self.is_jumping = False
+        self.frame_cnt = 0
         self.debug_front = None
 
     def toggle_debug(self):
         if not self.debug_front:
-            cube = Cube.make()
+            cube = Cube()
             self.debug_front = DebugCube('front', cube, (0, 0, 1, 1))    # Blue
 
         if self.debug_front.has_parent():
@@ -89,8 +89,7 @@ class Walker(NodePath):
         return self.get_relative_point(self.direction_node, Vec3(0, 10, 2))
 
     def current_location(self, mask=BitMask32.all_on()):
-        """Cast a ray vertically from the center of Ralph to find the object on which
-           he is standing. If found, BulletRayHit is returned.
+        """Cast a ray vertically from the center of Ralph to return BulletRayHit.
         """
         below = base.render.get_relative_point(self, Vec3(0, 0, -10))
         ray_result = self.world.ray_test_closest(self.get_pos(), below, mask)
@@ -117,14 +116,13 @@ class Walker(NodePath):
         orientation = self.direction_node.get_quat(base.render).get_forward()
         next_pos = self.get_pos() + orientation * distance
 
-        ts_from = TransformState.make_pos(self.get_pos())
-        ts_to = TransformState.make_pos(next_pos)
-        result = self.world.contactTest(self.node())
-        # print([con.get_node1().get_name() for con in result.get_contacts()])
-        result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, BitMask32.bit(3))
-        if result.hasHit():
-            if result.get_node() != self.node():
-                print(result.get_node().get_name())
+        # ts_from = TransformState.make_pos(self.get_pos())
+        # ts_to = TransformState.make_pos(next_pos)
+        # result = self.world.contactTest(self.node())
+        # result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, BitMask32.bit(3))
+        # if result.hasHit():
+        #     if result.get_node() != self.node():
+        #         print(result.get_node().get_name())
                 # return
 
         match self.state:
@@ -143,9 +141,14 @@ class Walker(NodePath):
 
             case Status.LANDING:
                 if self.land(orientation, dt):
+                    self.frame_cnt = 0
                     self.state = Status.MOVING
 
     def go_forward(self, next_pos):
+        """Make Ralph go forward.
+           Args:
+                next_pos: Vec3
+        """
         if (below := self.current_location(BitMask32.bit(1))) and \
                 (front := self.watch_steps(BitMask32.bit(1))):
 
@@ -170,6 +173,8 @@ class Walker(NodePath):
         self.direction_node.set_h(self.direction_node.get_h() + angle)
 
     def lift_up(self, dt):
+        """Raise an invisible lift embedded in the steps.
+        """
         if (next_z := self.lift.get_z() + dt * 5) > self.dest.get_z():
             self.lift.set_z(self.dest.get_z())
             return True
@@ -177,6 +182,18 @@ class Walker(NodePath):
             self.lift.set_z(next_z)
 
     def land(self, orientation, dt):
+        """Make Ralph move from the invisible lift to the destination.
+           Args:
+                orientation: LVector3f
+                dt: float
+        """
+        self.frame_cnt += 1
+
+        if self.frame_cnt >= 4:
+            print('time out')
+            self.lift.set_z(self.lift_original_z)
+            return True
+
         next_pos = self.get_pos() + orientation * -20 * dt
         self.set_pos(next_pos)
 
