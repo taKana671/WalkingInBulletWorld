@@ -209,9 +209,8 @@ class Materials:
         return prism
 
     def room_camera(self, name, parent, pos):
-        room_camera = NodePath(name)
-        room_camera.reparent_to(parent)
-        room_camera.set_pos(pos)
+        room_camera = self.block(name, parent, pos, Vec3(0.25, 0.25, 0.25))
+        room_camera.set_color((0, 0, 0, 1))
         return room_camera
 
     def plane(self, name, parent, pos, rows, cols, size=2):
@@ -288,6 +287,8 @@ class StoneHouse(Materials):
         fences.reparent_to(self.house)
         invisible = NodePath('invisible')
         invisible.reparent_to(self.house)
+        room_camera = NodePath('room_camera')
+        room_camera.reparent_to(self.house)
 
         # columns
         gen = (Point3(x, y, -3) for x, y in product((-15, 15), (-11, 11)))
@@ -306,7 +307,7 @@ class StoneHouse(Materials):
 
         # room and room camera on the 1st floor
         self.block('room1', floors, Point3(0, 0, 0), Vec3(12, 1, 16), hpr=Vec3(0, 90, 0))
-        self.room_camera('room1_camera', self.house, Point3(0, 0, 6.25))
+        self.room_camera('room1_camera', room_camera, Point3(0, 0, 6.25))
 
         # right and left walls on the 1st floor
         pos_scale = [
@@ -341,7 +342,7 @@ class StoneHouse(Materials):
 
         # room and room camera on the 2nd floor
         self.block('room2', floors, Point3(-4, 4.25, 6.75), Vec3(20, 0.5, 8.5), hpr=Vec3(0, 90, 0))
-        self.room_camera('room2_camera', self.house, Point3(-10, 4, 13))
+        self.room_camera('room2_camera', room_camera, Point3(-10, 4, 13))
 
         # balcony fence
         pos_scale_hpr = [
@@ -410,7 +411,7 @@ class StoneHouse(Materials):
                         f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, 45, 0), bitmask=BitMask32.bit(3)
                     )
 
-        # slope for the 1st step of the spiral staircase
+        # slope for the 1st step
         self.triangular_prism('hidden_slope', invisible, Point3(-9.75, -8.5, 1), Vec3(-90, 90, 0), Vec3(1, 1, 7.5), hide=True)
 
         # doors
@@ -427,6 +428,9 @@ class StoneHouse(Materials):
         floors.set_texture(self.floor_tex)
         columns.set_texture(self.column_tex)
         fences.set_texture(self.fence_tex)
+        # Child nodes of the self.house are combined together into one node
+        # (maybe into the node lastly parented to self.house?).
+        self.house.flatten_strong()
 
 
 class BrickHouse(Materials):
@@ -456,6 +460,8 @@ class BrickHouse(Materials):
         doors.reparent_to(self.house)
         invisible = NodePath('invisible')
         invisible.reparent_to(self.house)
+        room_camera = NodePath('room_camera')
+        room_camera.reparent_to(self.house)
 
         # room floors
         pos_scale = [
@@ -466,20 +472,27 @@ class BrickHouse(Materials):
             self.block(f'room_brick{i}', floors, pos, scale)
 
         # room_camera
-        self.room_camera('room_brick1_camera', self.house, Point3(3, 3, 5.5))
+        self.room_camera('room_brick1_camera', room_camera, Point3(3, 3, 5.5))
 
         # steps
-        for i in range(3):
-            pos = Point3(3, -9.5 - i * 2, 0 - i * 0.5)
-            scale = Vec3(7, 2, 3 - i)
-            self.block(f'step_{i}', floors, pos, scale)
+        steps_num = 3
+
+        for i in range(steps_num):
+            step_pos = Point3(3, -9.5 - i, 1 - i)
+            scale = Vec3(7, 2 + i * 2, 1)
+            block = self.block(f'step_{i}', floors, step_pos, scale)
+
+            if i > 0:
+                self.lift(f'step_lift_{i}', invisible, block)
 
             # invisible slope
-            slope_pos = pos + Vec3(0, -1.5, 1 - 0.5 * i)
-            self.triangular_prism('hidden_slope', invisible, slope_pos, Vec3(0, 180, 90), Vec3(1, 1, 7), hide=True)
+            if i == steps_num - 1:
+                slope_pos = step_pos + Vec3(0, -3.5, 0)
+                self.triangular_prism('hidden_slope', invisible, slope_pos, Vec3(0, 180, 90), Vec3(1, 1, 7), hide=True)
 
         # rear and front walls
         wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5))
+
         pos_scale = [
             [Point3(0, 4.25, 5.5), Vec3(12, 0.5, 8)],        # rear
             [Point3(5, -8.25, 3.25), Vec3(2, 0.5, 3.5)],     # front right
@@ -524,6 +537,7 @@ class BrickHouse(Materials):
         walls.set_texture(self.wall_tex)
         roofs.set_texture(self.roof_tex)
         doors.set_texture(self.door_tex)
+        self.house.flatten_strong()
 
 
 class Terrace(Materials):

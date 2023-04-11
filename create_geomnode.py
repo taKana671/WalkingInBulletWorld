@@ -6,15 +6,7 @@ from panda3d.core import NodePath
 from panda3d.core import Geom, GeomNode, GeomTriangles
 from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
 
-
-def singleton(cls):
-    instances = {}
-
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-    return get_instance
+from utils import singleton
 
 
 class GeomRoot(NodePath):
@@ -38,6 +30,11 @@ class Polyhedrons(GeomRoot):
     def __init__(self):
         geomnode = self.create_geomnode()
         super().__init__(geomnode)
+
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        if not hasattr(cls, 'create_geomnode'):
+            raise NotImplementedError()
 
     def create_polyhedron(self, faces, texcoords, normal_vecs):
         fmt = self.create_format()

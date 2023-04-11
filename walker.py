@@ -4,9 +4,9 @@ from direct.actor.Actor import Actor
 from panda3d.bullet import BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import PandaNode, NodePath, TransformState
-from panda3d.core import Vec3, Point3, BitMask32
+from panda3d.core import Vec3, Point3, LColor, BitMask32
 
-from create_geomnode import Cube
+from utils import create_line_node
 
 
 class Status(Enum):
@@ -14,17 +14,6 @@ class Status(Enum):
     MOVING = auto()
     LIFTING = auto()
     LANDING = auto()
-
-
-class DebugCube(NodePath):
-
-    def __init__(self, name, cube, color):
-        super().__init__(PandaNode(name))
-        self.cube = cube.copy_to(self)
-        self.cube.reparent_to(self)
-        self.set_scale(0.15, 0.15, 0.15)
-        self.set_hpr(45, 45, 45)
-        self.set_color(color)
 
 
 class Walker(NodePath):
@@ -70,17 +59,19 @@ class Walker(NodePath):
         self.shape = shape
         self.state = Status.MOVING
         self.frame_cnt = 0
-        self.debug_front = None
+
+        blue_line = create_line_node(self.front.get_pos(), self.under.get_pos(), LColor(0, 0, 1, 1))
+        self.debug_line_front = NodePath(blue_line)
+        red_line = create_line_node(Point3(0, 0, 0), Point3(0, 0, -10), LColor(1, 0, 0, 1))
+        self.debug_line_center = NodePath(red_line)
 
     def toggle_debug(self):
-        if not self.debug_front:
-            cube = Cube()
-            self.debug_front = DebugCube('front', cube, (0, 0, 1, 1))    # Blue
-
-        if self.debug_front.has_parent():
-            self.debug_front.detach_node()
+        if self.debug_line_front.has_parent():
+            self.debug_line_front.detach_node()
+            self.debug_line_center.detach_node()
         else:
-            self.debug_front.reparent_to(self.front)
+            self.debug_line_front.reparent_to(self.direction_node)
+            self.debug_line_center.reparent_to(self)
 
     def navigate(self):
         """Return a relative point to enable camera to follow a character
@@ -112,18 +103,23 @@ class Walker(NodePath):
                 return ray_result
         return None
 
+    # def find_obstacles(self, next_pos, mask=BitMask32.bit(2)):
+        # ts_from = TransformState.make_pos(self.get_pos())
+        # ts_to = TransformState.make_pos(next_pos)
+        # result = self.world.sweep_test_closest(self.node().get_shape(), ts_from, ts_to, mask, 0.0)
+
+        # if result.hasHit():
+        #     print(result.get_node().get_name(), 'pos', self.get_pos(), 'next', next_pos)
+        #     if result.get_node() != self.node():
+        #         return True
+
     def move(self, dt, distance, angle):
         orientation = self.direction_node.get_quat(base.render).get_forward()
         next_pos = self.get_pos() + orientation * distance
 
-        # ts_from = TransformState.make_pos(self.get_pos())
-        # ts_to = TransformState.make_pos(next_pos)
-        # result = self.world.contactTest(self.node())
-        # result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, BitMask32.bit(3))
-        # if result.hasHit():
-        #     if result.get_node() != self.node():
-        #         print(result.get_node().get_name())
-                # return
+        # if self.find_obstacles(next_pos):
+        #     pass
+        #     # return
 
         match self.state:
             case Status.MOVING:
@@ -188,7 +184,6 @@ class Walker(NodePath):
                 dt: float
         """
         self.frame_cnt += 1
-
         if self.frame_cnt >= 4:
             print('time out')
             self.lift.set_z(self.lift_original_z)
