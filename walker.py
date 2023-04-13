@@ -2,7 +2,7 @@ from enum import Enum, auto
 
 from direct.actor.Actor import Actor
 from panda3d.bullet import BulletCapsuleShape, ZUp
-from panda3d.bullet import BulletCharacterControllerNode
+from panda3d.bullet import BulletCharacterControllerNode, BulletRigidBodyNode
 from panda3d.core import PandaNode, NodePath, TransformState
 from panda3d.core import Vec3, Point3, LColor, BitMask32
 
@@ -98,9 +98,10 @@ class Walker(NodePath):
         ray_result = self.world.ray_test_closest(from_pos, to_pos, mask)
 
         if ray_result.has_hit():
-            contact_result = self.world.contact_test_pair(self.node(), ray_result.get_node())
-            if contact_result.get_num_contacts() > 0:
-                return ray_result
+            # contact_result = self.world.contact_test_pair(self.node(), ray_result.get_node())
+            # if contact_result.get_num_contacts() > 0:
+                # return ray_result
+            return ray_result
         return None
 
     # def find_obstacles(self, next_pos, mask=BitMask32.bit(2)):
@@ -139,6 +140,18 @@ class Walker(NodePath):
                 if self.land(orientation, dt):
                     self.frame_cnt = 0
                     self.state = Status.MOVING
+
+        # anim = None
+        # rate = 1
+
+        # if self.state == StatusinputState.is_set('forward'):
+        #     anim = self.walker.RUN
+        # elif inputState.is_set('backward'):
+        #     anim, rate = self.walker.WALK, -1
+        # elif inputState.is_set('left') or inputState.is_set('right'):
+        #     anim = self.walker.WALK
+
+        # self.walker.play_anim(anim, rate)
 
     def go_forward(self, next_pos):
         """Make Ralph go forward.
