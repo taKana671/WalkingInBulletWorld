@@ -6,12 +6,12 @@ from panda3d.core import Vec3, Vec2, Point3
 from panda3d.core import CardMaker, Texture, TextureStage
 from panda3d.core import BitMask32, TransformState
 from panda3d.core import NodePath, PandaNode
-from panda3d.bullet import BulletConvexHullShape, BulletBoxShape
+from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletSphereShape
 from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConeTwistConstraint
 
-from create_geomnode import Cube, DecagonalPrism, RightTriangularPrism, Tube, RingShape
+from create_geomnode import Cube, DecagonalPrism, RightTriangularPrism, Tube, RingShape, SphericalShape
 
 
 class Images(Enum):
@@ -105,6 +105,20 @@ class Ring(NodePath):
         self.set_scale(scale)
 
 
+class Sphere(NodePath):
+
+    def __init__(self, name, parent, model, pos, scale, bitmask):
+        super().__init__(BulletRigidBodyNode(name))
+        self.reparent_to(parent)
+        self.model = model.copy_to(self)
+        end, tip = self.model.get_tight_bounds()
+        size = tip - end
+        self.node().add_shape(BulletSphereShape(size.z / 2))
+        self.set_collide_mask(bitmask)
+        self.set_pos(pos)
+        self.set_scale(scale)
+
+
 class Materials:
 
     _textures = dict()
@@ -114,6 +128,7 @@ class Materials:
         self.cube = Cube()
         self.cylinder = DecagonalPrism()
         self.right_triangle_prism = RightTriangularPrism()
+        self.sphere = SphericalShape(segments=42)
 
     def texture(self, image):
         if image not in self._textures:
@@ -255,6 +270,11 @@ class Materials:
 
         self.world.attach(ring.node())
         return ring
+
+    def sphere_shape(self, name, parent, pos, scale, bitmask=BitMask32.bit(1)):
+        sphere = Sphere(name, parent, self.sphere, pos, scale, bitmask)
+        self.world.attach(sphere.node())
+        return sphere
 
 
 class StoneHouse(Materials):
@@ -604,6 +624,8 @@ class Terrace(Materials):
         # spiral center pole
         center = Point3(9, 1.5, 3.5)
         self.pole('center_pole', roofs, center, Vec3(1, 1, 16), Vec2(1, 3), bitmask=BitMask32.bit(1))
+        sphere_pos = center + Vec3(0, 0, 5.6)
+        self.sphere_shape('pole_sphere', roofs, sphere_pos, Vec3(0.6))
 
         # spiral staircase
         steps_num = 7
@@ -675,6 +697,8 @@ class Observatory(Materials):
         # spiral center pole
         center = Point3(10, 0, 9)
         self.pole('spiral_center', posts, center, Vec3(1, 1, 40), Vec2(1, 3), bitmask=BitMask32.bit(1))
+        sphere_pos = center + Vec3(0, 0, 12.7)
+        self.sphere_shape('pole_sphere', posts, sphere_pos, Vec3(0.6))
 
         # spiral staircase
         steps_num = 19                # the number of steps

@@ -24,7 +24,7 @@ class Walker(NodePath):
         # h, w = 6, 1.5
         h, w = 6, 1.2
         shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
-        super().__init__(BulletCharacterControllerNode(shape, 0.4, 'character'))
+        super().__init__(BulletCharacterControllerNode(shape, 1.0, 'character'))  # 0.4
         self.world = world
         self.set_collide_mask(BitMask32.allOn())
         self.set_pos(Point3(25, -10, 1))

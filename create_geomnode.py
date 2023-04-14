@@ -271,9 +271,13 @@ class RingShape(GeomRoot):
 
 
 @singleton
-class Sphere(GeomRoot):
+class SphericalShape(GeomRoot):
 
-    def make_geomnode(self, radius=1.5, segments=22):
+    def __init__(self, radius=1.5, segments=22):
+        geomnode = self.create_sphere(radius, segments)
+        super().__init__(geomnode)
+
+    def create_sphere(self, radius, segments):
         fmt = self.create_format()
         vdata_values = array.array('f', [])
         prim_indices = array.array('H', [])
