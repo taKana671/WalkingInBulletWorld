@@ -28,7 +28,6 @@ class Walker(NodePath):
         self.world = world
         self.set_collide_mask(BitMask32.allOn())
         self.set_pos(Point3(25, -10, 1))
-        # self.set_pos(Point3(-94.305, 68.8304, 0.23398))
         self.set_scale(0.5)
         self.reparent_to(base.render)
         self.world.attach_character(self.node())

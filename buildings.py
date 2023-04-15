@@ -11,7 +11,7 @@ from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConeTwistConstraint
 
-from create_geomnode import Cube, DecagonalPrism, RightTriangularPrism, Tube, RingShape, SphericalShape
+from create_geomnode import Cube, RightTriangularPrism, Tube, RingShape, SphericalShape, Cylinder
 
 
 class Images(Enum):
@@ -126,7 +126,7 @@ class Materials:
     def __init__(self, world):
         self.world = world
         self.cube = Cube()
-        self.cylinder = DecagonalPrism()
+        self.cylinder = Cylinder()
         self.right_triangle_prism = RightTriangularPrism()
         self.sphere = SphericalShape(segments=42)
 
@@ -201,7 +201,7 @@ class Materials:
 
     def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True, bitmask=BitMask32.bit(3), hide=False):
         if not hpr:
-            hpr = Vec3(0, 0, 0) if vertical else Vec3(0, 90, 0)
+            hpr = Vec3(0, 0, 180) if vertical else Vec3(0, 90, 0)
 
         pole = Convex(name, parent, self.cylinder, pos, hpr, scale, bitmask)
         pole.set_tex_scale(TextureStage.get_default(), tex_scale)
@@ -311,9 +311,10 @@ class StoneHouse(Materials):
         room_camera.reparent_to(self.house)
 
         # columns
-        gen = (Point3(x, y, -3) for x, y in product((-15, 15), (-11, 11)))
-        for i, pos in enumerate(gen):
-            self.pole(f'column_{i}', columns, pos, Vec3(1, 1, 9), Vec2(1, 1))
+        gen = ((x, y) for x, y in product((-15, 15), (-11, 11)))
+        for i, (x, y) in enumerate(gen):
+            pos = Point3(x, y, -0.5)
+            self.pole(f'column_{i}', columns, pos, Vec3(2, 2, 6), Vec2(2, 1)) #, hpr=(0, 0, 180))
 
         # the 1st floor outside
         pos_scale = [
@@ -596,9 +597,10 @@ class Terrace(Materials):
         self.block('wall1_s', walls, Point3(-7.75, 3.25, 3.25), Vec3(4.5, 0.5, 6), horizontal=False)  # side
 
         # columns
-        gen = (Point3(x, y, 2) for x, y in [(-7.5, -5.5), (7.5, -5.5), (7.5, 5.5)])
-        for i, pos in enumerate(gen):
-            self.pole(f'column_{i}', roofs, pos, Vec3(0.25, 0.25, 16), Vec2(1, 3))
+        gen = ((x, y) for x, y in [(-7.5, -5.5), (7.5, -5.5), (7.5, 5.5)])
+        for i, (x, y) in enumerate(gen):
+            pos = Point3(x, y, 6.25)
+            self.pole(f'column_{i}', roofs, pos, Vec3(0.5, 0.5, 8), Vec2(4, 1))
 
         # roof
         roof_pos = Point3(0, 0, 6.5)
@@ -622,10 +624,10 @@ class Terrace(Materials):
             self.block(f'prevention_{i}', roofs, pos, scale, horizontal=hor)
 
         # spiral center pole
-        center = Point3(9, 1.5, 3.5)
-        self.pole('center_pole', roofs, center, Vec3(1, 1, 16), Vec2(1, 3), bitmask=BitMask32.bit(1))
-        sphere_pos = center + Vec3(0, 0, 5.6)
-        self.sphere_shape('pole_sphere', roofs, sphere_pos, Vec3(0.6))
+        center = Point3(9, 1.5, 8)
+        self.pole('center_pole', roofs, center, Vec3(1.5, 1.5, 10), Vec2(5, 1), bitmask=BitMask32.bit(1))
+        sphere_pos = center + Vec3(0, 0, 0.7)
+        self.sphere_shape('pole_sphere', roofs, sphere_pos, Vec3(0.5))
 
         # spiral staircase
         steps_num = 7
@@ -648,10 +650,13 @@ class Terrace(Materials):
                 self.block(f'spiral_fence_{i}{j}', steps, f_pos, f_scale, bitmask=BitMask32.bit(3))
 
         # handrail of spiral staircase
-        pos = center - Vec3(0, 0, 0.5)
+        pos = center - Vec3(0, 0, 5)
         hpr = Vec3(-101, 0, 0)
         geomnode = RingShape(segs_rcnt=14, slope=0.5, ring_radius=4.3, section_radius=0.15)
         self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=BitMask32.bit(3))
+
+        for i, pos in enumerate([Point3(8.25, -2.73, 3.0), Point3(7.52, 5.54, 10.0)]):
+            self.sphere_shape(f'handrail_sphere_{i}', steps, pos, Vec3(0.15), bitmask=BitMask32.bit(3))
 
         # slope of the 1st step
         self.triangular_prism(
@@ -695,10 +700,10 @@ class Observatory(Materials):
         invisible.reparent_to(self.observatory)
 
         # spiral center pole
-        center = Point3(10, 0, 9)
-        self.pole('spiral_center', posts, center, Vec3(1, 1, 40), Vec2(1, 3), bitmask=BitMask32.bit(1))
-        sphere_pos = center + Vec3(0, 0, 12.7)
-        self.sphere_shape('pole_sphere', posts, sphere_pos, Vec3(0.6))
+        center = Point3(10, 0, 20)
+        self.pole('spiral_center', posts, center, Vec3(2.5, 2.5, 20), Vec2(4, 1), bitmask=BitMask32.bit(1))
+        sphere_pos = center + Vec3(0, 0, 1.1)
+        self.sphere_shape('pole_sphere', posts, sphere_pos, Vec3(0.8))
 
         # spiral staircase
         steps_num = 19                # the number of steps
@@ -720,11 +725,14 @@ class Observatory(Materials):
                 f_pos = Point3(center.x + fx, center.y + fy, s_pos.z + 0.25 + f_scale.z / 2)
                 self.block(f'spiral_fence_{i}{j}', steps, f_pos, f_scale, bitmask=BitMask32.bit(3))
 
-        # handrail of spiral staircase
-        pos = center - Vec3(0, 0, 6)
+        # handrail of the spiral staircase
+        pos = center - Vec3(0, 0, 17)
         hpr = Vec3(-101, 0, 0)
         geomnode = RingShape(segs_rcnt=38, slope=0.5, ring_radius=4.3, section_radius=0.15)
         self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=BitMask32.bit(3))
+
+        for i, pos in enumerate([Point3(9.2, -4.2, 3), Point3(8.5, 4.0, 22.05)]):
+            self.sphere_shape(f'handrail_sphere_{i}', steps, pos, Vec3(0.15), bitmask=BitMask32.bit(3))
 
         # stair landings
         landing_positions = [
@@ -740,20 +748,10 @@ class Observatory(Materials):
             if i > 0:
                 self.lift(f'landing_lift_{i}', invisible, block)
 
-        # posts supporting landings
-        tex_scale = Vec2(1, 3)
-        z_length = {
-            1: (6, 30),
-            2: (5, 24),
-            3: (4, 18),
-            4: (3, 12),
-            5: (1.5, 6),
-        }
-        for key, (z, length) in z_length.items():
-            landing_pos = landing_positions[key]
-            support_pos = Point3(landing_pos.x, landing_pos.y, z)
-            scale = Vec3(0.2, 0.2, length)
-            self.pole(f'support_{i}', posts, support_pos, scale, tex_scale)
+                # post supporting landing
+                support_pos = pos - Vec3(0, 0, 0.5)
+                scale = Vec3(0.5, 0.5, pos.z)
+                self.pole(f'support_{i}', posts, support_pos, scale, Vec2(4, 1))
 
         # steps between stair landings
         scale = Vec3(4, 1, 1)
@@ -842,8 +840,8 @@ class Bridge(Materials):
             ((0, y) for y in (12, -12))
         ]
         for i, (x, y) in enumerate(chain(*pos_xy)):
-            pos = Point3(x, y, -3)
-            self.pole(f'column_{i}', columns, pos, Vec3(1, 1, 9), Vec2(1, 1))
+            pos = Point3(x, y, -0.5)
+            self.pole(f'column_{i}', columns, pos, Vec3(2, 2, 6), Vec2(2, 1), hpr=(0, 0, 180))
 
         # steps
         diffs = [1.9, -1.9]
@@ -867,22 +865,22 @@ class Bridge(Materials):
                     )
 
         # bridge rails
-        pos_scale = [
+        hand_rails = [
             [((x, y) for x in (-1.875, 1.875) for y in (-11.875, 11.875)), Vec3(16.25, 0.25, 0.5)],
             [((x, 0) for x in (3.875, -3.875)), Vec3(8.0, 0.25, 0.5)],
             [((x, y) for x in (-2.875, 2.875) for y in (3.875, -3.875)), Vec3(0.25, 1.75, 0.5)]
         ]
-        for i, (gen, scale) in enumerate(pos_scale):
+        for i, (gen, scale) in enumerate(hand_rails):
             for j, (x, y) in enumerate(gen):
                 pos = Point3(x, y, 1.75)
                 self.block(
                     f'bridge_rail_{i}{j}', girders, pos, scale, horizontal=False, bitmask=BitMask32.bit(3)
                 )
-        pos_xy = [
+        rail_blocks = [
             ((x, y + i) for i in range(17) for x in (1.875, -1.875) for y in (3.875, -19.875)),
             ((x, y) for x in (3.875, -3.875) for y in (3.875, -3.875))
         ]
-        for i, (x, y) in enumerate(chain(*pos_xy)):
+        for i, (x, y) in enumerate(chain(*rail_blocks)):
             pos = Point3(x, y, 1)
             self.block(
                 f'rail_block_{i}', girders, pos, Vec3(0.25, 0.25, 1), horizontal=False, bitmask=BitMask32.bit(3)
@@ -975,10 +973,10 @@ class Tunnel(Materials):
             self.block(f'column_{i}', pedestals, col_pos, Vec3(2, 2, 6))
 
             # poles supporting ring
-            for j, (x, z) in enumerate([(0, 3), (0, -3), (3, 0), (-3, 0)]):
+            for j, (x, z) in enumerate([(0, 4), (0, -2), (2, 0), (-4, 0)]):
                 pole_pos = Point3(x, y, z)
-                hpr = Vec3(0, 0, 0) if x == 0 else Vec3(90, 90, 0)
-                self.pole(f'pole_{i}{j}', metal, pole_pos, Vec3(0.5, 0.5, 3), Vec2(1, 1), hpr=hpr)
+                hpr = Vec3(0, 0, 180) if x == 0 else Vec3(90, 90, 0)
+                self.pole(f'pole_{i}{j}', metal, pole_pos, Vec3(0.8, 0.8, 2), Vec2(1, 1), hpr=hpr)
 
         walls.set_texture(self.wall_tex)
         metal.set_texture(self.metal_tex)
