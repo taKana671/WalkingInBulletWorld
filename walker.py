@@ -146,8 +146,6 @@ class Walker(NodePath):
                 (front := self.watch_steps(BitMask32.bit(1))):
 
             diff = (front.get_hit_pos() - below.get_hit_pos()).z
-            # if -1.2 <= diff <= -0.5:
-            #     print('going down')
 
             if 0.3 < diff < 1.2:
                 if lift := self.current_location(BitMask32.bit(4)):

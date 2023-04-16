@@ -317,7 +317,7 @@ class StoneHouse(Materials):
         gen = ((x, y) for x, y in product((-15, 15), (-11, 11)))
         for i, (x, y) in enumerate(gen):
             pos = Point3(x, y, -0.5)
-            self.pole(f'column_{i}', columns, pos, Vec3(2, 2, 6), Vec2(2, 1)) #, hpr=(0, 0, 180))
+            self.pole(f'column_{i}', columns, pos, Vec3(2, 2, 6), Vec2(2, 1))
 
         # the 1st floor outside
         pos_scale = [
@@ -436,9 +436,6 @@ class StoneHouse(Materials):
                         f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, 45, 0), bitmask=BitMask32.bit(3)
                     )
 
-        # # slope for the 1st step
-        # self.triangular_prism('hidden_slope', invisible, Point3(-9.75, -8.5, 1), Vec3(-90, 90, 0), Vec3(1, 1, 7.5), hide=True)
-
         # doors
         doors_data = [
             [Point3(-1, -8.25, 2.5), Vec3(2, 0.5, 4), wall1_l, True],    # left door of the room on the 1st floor
@@ -516,7 +513,7 @@ class BrickHouse(Materials):
                 self.triangular_prism('hidden_slope', invisible, slope_pos, Vec3(0, 180, 90), Vec3(1, 1, 7), hide=True)
 
         # rear and front walls
-        wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5), bitmask=BitMask32.bit(2))
+        wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5))
 
         pos_scale = [
             [Point3(0, 4.25, 5.5), Vec3(12, 0.5, 8)],        # rear
@@ -529,7 +526,7 @@ class BrickHouse(Materials):
             [Point3(3, -4.25, 7.5), Vec3(7, 0.5, 4)],        # back room front
         ]
         for i, (pos, scale) in enumerate(pos_scale):
-            self.block(f'wall1_fr{i}', walls, pos, scale, bitmask=BitMask32.bit(2))
+            self.block(f'wall1_fr{i}', walls, pos, scale)
 
         # side walls
         pos_scale = [
@@ -545,7 +542,7 @@ class BrickHouse(Materials):
             [Point3(6.25, 0, 8.0), Vec3(3, 0.5, 3)]
         ]
         for i, (pos, scale) in enumerate(pos_scale):
-            self.block(f'wall1_side{i}', walls, pos, scale, horizontal=False, bitmask=BitMask32.bit(2))
+            self.block(f'wall1_side{i}', walls, pos, scale, horizontal=False)
 
         # roofs
         pos_scale = [

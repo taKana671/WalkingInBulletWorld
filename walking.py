@@ -122,7 +122,7 @@ class Walking(ShowBase):
         return None
 
     def control_camera_outdoors(self):
-        """Repositions the camera if the camera's view is blocked by objects like walls, and
+        """Reposition the camera if the camera's view is blocked by objects like walls, and
            reparents the camera to the room_camera if the character goes into a room.
         """
         # reposition
