@@ -1,7 +1,7 @@
 from enum import Enum, auto
 
 from direct.actor.Actor import Actor
-from panda3d.bullet import BulletCapsuleShape, ZUp
+from panda3d.bullet import BulletCapsuleShape, ZUp, BulletSphereShape
 from panda3d.bullet import BulletCharacterControllerNode, BulletRigidBodyNode
 from panda3d.core import PandaNode, NodePath, TransformState
 from panda3d.core import Vec3, Point3, LColor, BitMask32
@@ -55,14 +55,11 @@ class Walker(NodePath):
         # self.under.set_pos(0, -1.5, -10)
         self.under.set_pos(0, -1.2, -10)
 
-        self.shape = shape
         self.state = Status.MOVING
         self.frame_cnt = 0
 
-        blue_line = create_line_node(self.front.get_pos(), self.under.get_pos(), LColor(0, 0, 1, 1))
-        self.debug_line_front = NodePath(blue_line)
-        red_line = create_line_node(Point3(0, 0, 0), Point3(0, 0, -10), LColor(1, 0, 0, 1))
-        self.debug_line_center = NodePath(red_line)
+        self.debug_line_front = create_line_node(self.front.get_pos(), self.under.get_pos(), LColor(0, 0, 1, 1))
+        self.debug_line_center = create_line_node(Point3(0, 0, 0), Point3(0, 0, -10), LColor(1, 0, 0, 1))
 
     def toggle_debug(self):
         if self.debug_line_front.has_parent():
@@ -104,14 +101,14 @@ class Walker(NodePath):
         return None
 
     # def find_obstacles(self, next_pos, mask=BitMask32.bit(2)):
-        # ts_from = TransformState.make_pos(self.get_pos())
-        # ts_to = TransformState.make_pos(next_pos)
-        # result = self.world.sweep_test_closest(self.node().get_shape(), ts_from, ts_to, mask, 0.0)
+    #     ts_from = TransformState.make_pos(self.get_pos())
+    #     ts_to = TransformState.make_pos(next_pos)
+    #     result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, mask, 0.0)
 
-        # if result.hasHit():
-        #     print(result.get_node().get_name(), 'pos', self.get_pos(), 'next', next_pos)
-        #     if result.get_node() != self.node():
-        #         return True
+    #     if result.hasHit():
+    #         print(result.get_node().get_name(), 'pos', self.get_pos(), 'next', next_pos)
+    #         if result.get_node() != self.node():
+    #             return True
 
     def move(self, dt, distance, angle):
         orientation = self.direction_node.get_quat(base.render).get_forward()
@@ -140,18 +137,6 @@ class Walker(NodePath):
                     self.frame_cnt = 0
                     self.state = Status.MOVING
 
-        # anim = None
-        # rate = 1
-
-        # if self.state == StatusinputState.is_set('forward'):
-        #     anim = self.walker.RUN
-        # elif inputState.is_set('backward'):
-        #     anim, rate = self.walker.WALK, -1
-        # elif inputState.is_set('left') or inputState.is_set('right'):
-        #     anim = self.walker.WALK
-
-        # self.walker.play_anim(anim, rate)
-
     def go_forward(self, next_pos):
         """Make Ralph go forward.
            Args:
@@ -161,6 +146,8 @@ class Walker(NodePath):
                 (front := self.watch_steps(BitMask32.bit(1))):
 
             diff = (front.get_hit_pos() - below.get_hit_pos()).z
+            # if -1.2 <= diff <= -0.5:
+            #     print('going down')
 
             if 0.3 < diff < 1.2:
                 if lift := self.current_location(BitMask32.bit(4)):
@@ -208,10 +195,9 @@ class Walker(NodePath):
             if below.get_node() == self.dest.node():
                 self.lift.set_z(self.lift_original_z)
 
-                # # print('lift_hpr', self.lift.get_hpr(), 'dest_hpr', self.dest.get_hpr())
-                # diff = self.dest.get_h() - self.lift.get_h()
-                # if diff:
-                #     self.direction_node.set_h(self.direction_node.get_h() + diff)
+                # change direction when going up spiral stair.
+                if (diff := self.dest.get_h() - self.lift.get_h()) <= 30:
+                    self.direction_node.set_h(self.direction_node.get_h() + diff)
 
                 return True
 

@@ -139,7 +139,7 @@ class Materials:
 
         return self._textures[image]
 
-    def block(self, name, parent, pos, scale, hpr=None, horizontal=True, active_always=False, bitmask=BitMask32.bit(1)):
+    def block(self, name, parent, pos, scale, hpr=None, horizontal=True, active_always=False, bitmask=BitMask32.bit(1), hide=False):
         if not hpr:
             hpr = Vec3(0, 0, 0) if horizontal else Vec3(90, 0, 0)
 
@@ -151,6 +151,9 @@ class Materials:
         if active_always:
             block.node().set_mass(1)
             block.node().set_deactivation_enabled(False)
+
+        if hide:
+            block.hide()
 
         self.world.attach(block.node())
         return block
@@ -405,9 +408,10 @@ class StoneHouse(Materials):
         self.block('roof', floors, Point3(-4, 4.25, 13.25), Vec3(20, 8.5, 0.5))
 
         # steps that leads to the 2nd floor
-        for i in range(6):
-            pos = Point3(-9.75, -7.5 + i, 1 + i)
-            block = self.block(f'step_2{i}', floors, pos, Vec3(7.5, 1, 1), hpr=Vec3(0, 90, 0))
+        for i in range(7):
+            pos = Point3(-9.75, -8.5 + i, 0 + i)
+            hide = True if i == 0 else False
+            block = self.block(f'step_2{i}', floors, pos, Vec3(7.5, 1, 1), hpr=Vec3(0, 90, 0), hide=hide)
             self.lift(f'lift_2{i}', invisible, block)
 
         # steps that leade to the 1st floor
@@ -432,8 +436,8 @@ class StoneHouse(Materials):
                         f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, 45, 0), bitmask=BitMask32.bit(3)
                     )
 
-        # slope for the 1st step
-        self.triangular_prism('hidden_slope', invisible, Point3(-9.75, -8.5, 1), Vec3(-90, 90, 0), Vec3(1, 1, 7.5), hide=True)
+        # # slope for the 1st step
+        # self.triangular_prism('hidden_slope', invisible, Point3(-9.75, -8.5, 1), Vec3(-90, 90, 0), Vec3(1, 1, 7.5), hide=True)
 
         # doors
         doors_data = [
@@ -512,7 +516,7 @@ class BrickHouse(Materials):
                 self.triangular_prism('hidden_slope', invisible, slope_pos, Vec3(0, 180, 90), Vec3(1, 1, 7), hide=True)
 
         # rear and front walls
-        wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5))
+        wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5), bitmask=BitMask32.bit(2))
 
         pos_scale = [
             [Point3(0, 4.25, 5.5), Vec3(12, 0.5, 8)],        # rear
@@ -525,7 +529,7 @@ class BrickHouse(Materials):
             [Point3(3, -4.25, 7.5), Vec3(7, 0.5, 4)],        # back room front
         ]
         for i, (pos, scale) in enumerate(pos_scale):
-            self.block(f'wall1_fr{i}', walls, pos, scale)
+            self.block(f'wall1_fr{i}', walls, pos, scale, bitmask=BitMask32.bit(2))
 
         # side walls
         pos_scale = [
@@ -541,7 +545,7 @@ class BrickHouse(Materials):
             [Point3(6.25, 0, 8.0), Vec3(3, 0.5, 3)]
         ]
         for i, (pos, scale) in enumerate(pos_scale):
-            self.block(f'wall1_side{i}', walls, pos, scale, horizontal=False)
+            self.block(f'wall1_side{i}', walls, pos, scale, horizontal=False, bitmask=BitMask32.bit(2))
 
         # roofs
         pos_scale = [

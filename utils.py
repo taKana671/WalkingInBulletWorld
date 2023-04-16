@@ -1,8 +1,8 @@
-from panda3d.core import LineSegs
+from panda3d.core import LineSegs, NodePath
 
 
 def create_line_node(from_pos, to_pos, color, thickness=2.0):
-    """Return line node.
+    """Return a NodePath for line node.
        Args:
             from_pos (Vec3): the point where a line starts;
             to_pos (Vec3): the point where a line ends;
@@ -15,7 +15,7 @@ def create_line_node(from_pos, to_pos, color, thickness=2.0):
     lines.draw_to(to_pos)
     lines.set_thickness(thickness)
     node = lines.create()
-    return node
+    return NodePath(node)
 
 
 def singleton(cls):
