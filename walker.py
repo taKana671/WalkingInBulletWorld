@@ -1,8 +1,8 @@
 from enum import Enum, auto
 
 from direct.actor.Actor import Actor
-from panda3d.bullet import BulletCapsuleShape, ZUp, BulletSphereShape
-from panda3d.bullet import BulletCharacterControllerNode, BulletRigidBodyNode
+from panda3d.bullet import BulletCapsuleShape, ZUp
+from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import PandaNode, NodePath, TransformState
 from panda3d.core import Vec3, Point3, LColor, BitMask32
 
@@ -12,8 +12,9 @@ from utils import create_line_node
 class Status(Enum):
 
     MOVING = auto()
-    LIFTING = auto()
-    LANDING = auto()
+    GOING_UP = auto()
+    GETTING_OFF = auto()
+    GOING_DOWN = auto()
 
 
 class Walker(NodePath):
@@ -55,18 +56,26 @@ class Walker(NodePath):
         # self.under.set_pos(0, -1.5, -10)
         self.under.set_pos(0, -1.2, -10)
 
+        self.behind = NodePath('behind')
+        self.behind.reparent_to(self.direction_node)
+        self.behind.set_pos(0, 1.2, 1)
+
         self.state = Status.MOVING
         self.frame_cnt = 0
 
         self.debug_line_front = create_line_node(self.front.get_pos(), self.under.get_pos(), LColor(0, 0, 1, 1))
         self.debug_line_center = create_line_node(Point3(0, 0, 0), Point3(0, 0, -10), LColor(1, 0, 0, 1))
 
+        self.debug_line_behind = create_line_node(self.behind.get_pos(), Point3(0, 1.2, -10), LColor(0, 0, 1, 1))
+
     def toggle_debug(self):
         if self.debug_line_front.has_parent():
             self.debug_line_front.detach_node()
             self.debug_line_center.detach_node()
+            self.debug_line_behind.detach_node()
         else:
             self.debug_line_front.reparent_to(self.direction_node)
+            self.debug_line_behind.reparent_to(self.direction_node)
             self.debug_line_center.reparent_to(self)
 
     def navigate(self):
@@ -94,9 +103,15 @@ class Walker(NodePath):
         ray_result = self.world.ray_test_closest(from_pos, to_pos, mask)
 
         if ray_result.has_hit():
-            # contact_result = self.world.contact_test_pair(self.node(), ray_result.get_node())
-            # if contact_result.get_num_contacts() > 0:
-                # return ray_result
+            return ray_result
+        return None
+
+    def watch_behind(self, mask):
+        from_pos = self.behind.get_pos(self) + self.get_pos()
+        to_pos = base.render.get_relative_point(self, Vec3(0, 1.2, -10))
+        ray_result = self.world.ray_test_closest(from_pos, to_pos, mask)
+
+        if ray_result.has_hit():
             return ray_result
         return None
 
@@ -110,63 +125,60 @@ class Walker(NodePath):
     #         if result.get_node() != self.node():
     #             return True
 
-    def move(self, dt, distance, angle):
+    def update(self, dt, distance, angle):
         orientation = self.direction_node.get_quat(base.render).get_forward()
-        next_pos = self.get_pos() + orientation * distance
 
-        # if self.find_obstacles(next_pos):
-        #     pass
-        #     # return
+        if self.state == Status.MOVING:
+            if angle:
+                self.turn(angle)
+            if distance < 0:
+                if not self.find_steps():
+                    self.move(orientation, distance)
+            if distance > 0:
+                self.move(orientation, distance)
 
-        match self.state:
-            case Status.MOVING:
-                if angle:
-                    self.turn(angle)
-                if distance < 0:
-                    if not self.go_forward(next_pos):
-                        self.state = Status.LIFTING
-                if distance > 0:
-                    self.go_back(next_pos)
+        if self.state == Status.GOING_UP:
+            if self.go_up_on_lift(dt):
+                self.state = Status.GETTING_OFF
 
-            case Status.LIFTING:
-                if self.lift_up(dt):
-                    self.state = Status.LANDING
+        if self.state == Status.GETTING_OFF:
+            if self.get_off_lift(orientation, dt):
+                self.frame_cnt = 0
+                self.state = Status.MOVING
 
-            case Status.LANDING:
-                if self.land(orientation, dt):
-                    self.frame_cnt = 0
-                    self.state = Status.MOVING
+        if self.state == Status.GOING_DOWN:
+            if self.go_down(orientation, dt):
+                self.frame_cnt = 0
+                self.state = Status.MOVING
 
-    def go_forward(self, next_pos):
-        """Make Ralph go forward.
-           Args:
-                next_pos: Vec3
-        """
-        if (below := self.current_location(BitMask32.bit(1))) and \
-                (front := self.watch_steps(BitMask32.bit(1))):
+    def find_steps(self):
+        if below := self.current_location(BitMask32.bit(1)):
+            # Ralph is likely to go down stairs.
+            if 2.0 <= (self.get_pos() - below.get_hit_pos()).z <= 2.5:
+                self.dest = NodePath(below.get_node())
+                self.state = Status.GOING_DOWN
+                return True
 
-            diff = (front.get_hit_pos() - below.get_hit_pos()).z
+            # Ralph is likely to go up stairs.
+            if front := self.watch_steps(BitMask32.bit(1)):
+                if 0.3 < (front.get_hit_pos() - below.get_hit_pos()).z < 1.2:
+                    if lift := self.current_location(BitMask32.bit(4)):
+                        self.lift = NodePath(lift.get_node())
+                        self.lift_original_z = self.lift.get_z()
+                        self.dest = NodePath(front.get_node())
+                        self.state = Status.GOING_UP
+                        return True
 
-            if 0.3 < diff < 1.2:
-                if lift := self.current_location(BitMask32.bit(4)):
-                    self.lift = NodePath(lift.get_node())
-                    self.lift_original_z = self.lift.get_z()
-                    self.dest = NodePath(front.get_node())
-                    return False
-
+    def move(self, orientation, distance):
         if self.node().is_on_ground():
-            self.setPos(next_pos)
-        return True
-
-    def go_back(self, next_pos):
-        if self.node().is_on_ground():
+            next_pos = self.get_pos() + orientation * distance
             self.set_pos(next_pos)
 
     def turn(self, angle):
         self.direction_node.set_h(self.direction_node.get_h() + angle)
 
-    def lift_up(self, dt):
-        """Raise an invisible lift embedded in the steps.
+    def go_up_on_lift(self, dt):
+        """Raise an invisible lift embedded in the steps to the height of the next step.
         """
         if (next_z := self.lift.get_z() + dt * 5) > self.dest.get_z():
             self.lift.set_z(self.dest.get_z())
@@ -174,15 +186,15 @@ class Walker(NodePath):
         else:
             self.lift.set_z(next_z)
 
-    def land(self, orientation, dt):
+    def get_off_lift(self, orientation, dt):
         """Make Ralph move from the invisible lift to the destination.
            Args:
-                orientation: LVector3f
-                dt: float
+                orientation: (LVector3f)
+                dt: (float)
         """
         self.frame_cnt += 1
-        if self.frame_cnt >= 4:
-            print('time out')
+        if self.frame_cnt >= 5:
+            print('get_off_lift: time out')
             self.lift.set_z(self.lift_original_z)
             return True
 
@@ -193,11 +205,22 @@ class Walker(NodePath):
             if below.get_node() == self.dest.node():
                 self.lift.set_z(self.lift_original_z)
 
-                # change direction when going up spiral stair.
-                if (diff := self.dest.get_h() - self.lift.get_h()) <= 30:
+                # change direction when going up spiral stair as much as possible.
+                if 0 < (diff := self.dest.get_h() - self.lift.get_h()) <= 30:
                     self.direction_node.set_h(self.direction_node.get_h() + diff)
 
                 return True
+
+    def go_down(self, orientation, dt):
+        self.frame_cnt += 1
+        if self.frame_cnt >= 20:
+            print('go_down: time out')
+            return True
+
+        if self.world.contact_test_pair(self.node(), self.dest.node()).get_num_contacts() > 0:
+            return True
+        else:
+            self.set_z(self.get_z() - 5 * dt)
 
     def play_anim(self, command, rate=1):
         if not command:
