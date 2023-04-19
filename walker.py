@@ -15,6 +15,7 @@ class Status(Enum):
     GOING_UP = auto()
     GETTING_OFF = auto()
     GOING_DOWN = auto()
+    COMMING_TO_EDGE = auto()
 
 
 class Walker(NodePath):
@@ -62,6 +63,7 @@ class Walker(NodePath):
 
         self.state = Status.MOVING
         self.frame_cnt = 0
+        self.shape = shape
 
         self.debug_line_front = create_line_node(self.front.get_pos(), self.under.get_pos(), LColor(0, 0, 1, 1))
         self.debug_line_center = create_line_node(Point3(0, 0, 0), Point3(0, 0, -10), LColor(1, 0, 0, 1))
@@ -115,14 +117,15 @@ class Walker(NodePath):
             return ray_result
         return None
 
-    # def find_obstacles(self, next_pos, mask=BitMask32.bit(2)):
+    # def predict_collision(self, next_pos, mask=BitMask32.bit(3)):
+    # def predict_collision(self, next_pos, mask=BitMask32.bit(2)):
     #     ts_from = TransformState.make_pos(self.get_pos())
     #     ts_to = TransformState.make_pos(next_pos)
     #     result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, mask, 0.0)
 
     #     if result.hasHit():
-    #         print(result.get_node().get_name(), 'pos', self.get_pos(), 'next', next_pos)
     #         if result.get_node() != self.node():
+    #             print(result.get_node().get_name())
     #             return True
 
     def update(self, dt, distance, angle):
@@ -131,6 +134,7 @@ class Walker(NodePath):
         if self.state == Status.MOVING:
             if angle:
                 self.turn(angle)
+
             if distance < 0:
                 if not self.find_steps():
                     self.move(orientation, distance)
@@ -146,28 +150,37 @@ class Walker(NodePath):
                 self.frame_cnt = 0
                 self.state = Status.MOVING
 
+        if self.state == Status.COMMING_TO_EDGE:
+            if self.come_to_edge(orientation, dt):
+                self.frame_cnt = 0
+                self.state = Status.GOING_DOWN
+
         if self.state == Status.GOING_DOWN:
             if self.go_down(orientation, dt):
                 self.frame_cnt = 0
                 self.state = Status.MOVING
 
     def find_steps(self):
-        if below := self.current_location(BitMask32.bit(1)):
+        if (below := self.current_location(BitMask32.bit(1))) and \
+                (front := self.watch_steps(BitMask32.bit(1))):
+
+            z_diff = (front.get_hit_pos() - below.get_hit_pos()).z
+
             # Ralph is likely to go down stairs.
-            if 2.0 <= (self.get_pos() - below.get_hit_pos()).z <= 2.5:
-                self.dest = NodePath(below.get_node())
-                self.state = Status.GOING_DOWN
+            if -1.2 <= z_diff <= -0.5:
+                self.start = NodePath(below.get_node())
+                self.dest = NodePath(front.get_node())
+                self.state = Status.COMMING_TO_EDGE
                 return True
 
             # Ralph is likely to go up stairs.
-            if front := self.watch_steps(BitMask32.bit(1)):
-                if 0.3 < (front.get_hit_pos() - below.get_hit_pos()).z < 1.2:
-                    if lift := self.current_location(BitMask32.bit(4)):
-                        self.lift = NodePath(lift.get_node())
-                        self.lift_original_z = self.lift.get_z()
-                        self.dest = NodePath(front.get_node())
-                        self.state = Status.GOING_UP
-                        return True
+            if 0.3 < z_diff < 1.2:
+                if lift := self.current_location(BitMask32.bit(4)):
+                    self.lift = NodePath(lift.get_node())
+                    self.lift_original_z = self.lift.get_z()
+                    self.dest = NodePath(front.get_node())
+                    self.state = Status.GOING_UP
+                    return True
 
     def move(self, orientation, distance):
         if self.node().is_on_ground():
@@ -207,6 +220,22 @@ class Walker(NodePath):
 
                 # change direction when going up spiral stair as much as possible.
                 if 0 < (diff := self.dest.get_h() - self.lift.get_h()) <= 30:
+                    self.direction_node.set_h(self.direction_node.get_h() + diff)
+
+                return True
+
+    def come_to_edge(self, orientation, dt):
+        self.frame_cnt += 1
+        if self.frame_cnt >= 5:
+            print('start_go_down: time out')
+            return True
+
+        next_pos = self.get_pos() + orientation * -20 * dt
+        self.set_pos(next_pos)
+
+        if below := self.current_location(BitMask32.bit(1)):
+            if below.get_node() == self.dest.node():
+                if -30 <= (diff := self.dest.get_h() - self.start.get_h()) < 0:
                     self.direction_node.set_h(self.direction_node.get_h() + diff)
 
                 return True

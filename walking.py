@@ -73,7 +73,6 @@ class Walking(ShowBase):
             angle += 100 * dt
         if inputState.is_set('right'):
             angle += -100 * dt
-
         self.walker.update(dt, distance, angle)
 
         # play animation
