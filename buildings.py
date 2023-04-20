@@ -255,11 +255,11 @@ class Materials:
         y = math.sin(rad) * radius
         return x, y
 
-    def tube(self, name, parent, geomnode, pos, scale, hpr=None, horizontal=True):
+    def tube(self, name, parent, geomnode, pos, scale, hpr=None, horizontal=True, bitmask=BitMask32.allOn()):
         if not hpr:
             hpr = Vec3(0, 90, 0) if horizontal else Vec3(90, 0, 0)
 
-        tube = Ring(name, parent, geomnode, pos, hpr, scale, BitMask32.allOn())
+        tube = Ring(name, parent, geomnode, pos, hpr, scale, bitmask)
         self.world.attach(tube.node())
         return tube
 
@@ -920,14 +920,14 @@ class Tunnel(Materials):
 
         # tunnel
         geomnode = Tube(height=20)
-        self.tube('tunnel', walls, geomnode, Point3(0, 0, 0), Vec3(4, 4, 4))
+        self.tube('tunnel', walls, geomnode, Point3(0, 0, 0), Vec3(4, 4, 4), bitmask=BitMask32.bit(1))
 
         # both ends of the tunnel
         positions = [Point3(0, 0, 0), Point3(0, -80, 0)]
         geomnode = RingShape(ring_radius=0.5, section_radius=0.05)
 
         for i, pos in enumerate(positions):
-            self.ring_shape(f'edge_{i}', walls, geomnode, pos, scale=Vec3(4), tex_scale=Vec2(2))
+            self.ring_shape(f'edge_{i}', walls, geomnode, pos, scale=Vec3(4), tex_scale=Vec2(2), bitmask=BitMask32.bit(1))
 
         # steps
         steps_num = 4
@@ -967,7 +967,7 @@ class Tunnel(Materials):
         for i in range(5):
             y = -0.7 - i * 19.65
             ring_pos = Point3(0, y, 0)
-            self.ring_shape(f'ring_{i}', metal, geomnode, ring_pos, scale=Vec3(5), tex_scale=Vec2(2, 4))
+            self.ring_shape(f'ring_{i}', metal, geomnode, ring_pos, scale=Vec3(5), tex_scale=Vec2(2, 4), bitmask=BitMask32.bit(1))
 
             # culumn supporting ring
             col_pos = Point3(0, y, -7.3)
@@ -977,7 +977,7 @@ class Tunnel(Materials):
             for j, (x, z) in enumerate([(0, 4), (0, -2), (2, 0), (-4, 0)]):
                 pole_pos = Point3(x, y, z)
                 hpr = Vec3(0, 0, 180) if x == 0 else Vec3(90, 90, 0)
-                self.pole(f'pole_{i}{j}', metal, pole_pos, Vec3(0.8, 0.8, 2), Vec2(1, 1), hpr=hpr)
+                self.pole(f'pole_{i}{j}', metal, pole_pos, Vec3(0.8, 0.8, 2), Vec2(1, 1), hpr=hpr, bitmask=BitMask32.bit(1))
 
         walls.set_texture(self.wall_tex)
         metal.set_texture(self.metal_tex)

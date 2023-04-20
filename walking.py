@@ -62,18 +62,19 @@ class Walking(ShowBase):
 
     def control_walker(self, dt):
         # contol walker movement
-        distance = 0
+        direction = 0
         angle = 0
 
         if inputState.is_set('forward'):
-            distance += -10 * dt
+            direction += -1
         if inputState.is_set('backward'):
-            distance += 10 * dt
+            direction += 1
         if inputState.is_set('left'):
             angle += 100 * dt
         if inputState.is_set('right'):
             angle += -100 * dt
-        self.walker.update(dt, distance, angle)
+
+        self.walker.update(dt, direction, angle)
 
         # play animation
         anim = None

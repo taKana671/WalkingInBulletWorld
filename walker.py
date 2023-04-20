@@ -96,7 +96,7 @@ class Walker(NodePath):
             return ray_result
         return None
 
-    def watch_steps(self, mask):
+    def watch_front(self, mask):
         """Cast a ray vertically from the front of Ralph's face to find steps.
            If found, BulletRayHit is returned.
         """
@@ -117,52 +117,44 @@ class Walker(NodePath):
             return ray_result
         return None
 
-    # def predict_collision(self, next_pos, mask=BitMask32.bit(3)):
-    # def predict_collision(self, next_pos, mask=BitMask32.bit(2)):
-    #     ts_from = TransformState.make_pos(self.get_pos())
-    #     ts_to = TransformState.make_pos(next_pos)
-    #     result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, mask, 0.0)
+    def predict_collision(self, next_pos, mask):
+        ts_from = TransformState.make_pos(self.get_pos())
+        ts_to = TransformState.make_pos(next_pos)
+        result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, mask, 0.0)
 
-    #     if result.hasHit():
-    #         if result.get_node() != self.node():
-    #             print(result.get_node().get_name())
-    #             return True
+        if result.hasHit():
+            if result.get_node() != self.node():
+                print(result.get_node().get_name())
+                return True
 
-    def update(self, dt, distance, angle):
+    def update(self, dt, direction, angle):
         orientation = self.direction_node.get_quat(base.render).get_forward()
 
         if self.state == Status.MOVING:
             if angle:
                 self.turn(angle)
 
-            if distance < 0:
+            if direction < 0:
                 if not self.find_steps():
-                    self.move(orientation, distance)
-            if distance > 0:
-                self.move(orientation, distance)
+                    self.move(orientation, direction * 10 * dt)
+            if direction > 0:
+                self.move(orientation, direction * 5 * dt)
 
         if self.state == Status.GOING_UP:
-            if self.go_up_on_lift(dt):
-                self.state = Status.GETTING_OFF
+            self.go_up_on_lift(5 * dt)
 
         if self.state == Status.GETTING_OFF:
-            if self.get_off_lift(orientation, dt):
-                self.frame_cnt = 0
-                self.state = Status.MOVING
+            self.get_off_lift(orientation, -20 * dt)
 
         if self.state == Status.COMMING_TO_EDGE:
-            if self.come_to_edge(orientation, dt):
-                self.frame_cnt = 0
-                self.state = Status.GOING_DOWN
+            self.come_to_edge(orientation, -20 * dt)
 
         if self.state == Status.GOING_DOWN:
-            if self.go_down(orientation, dt):
-                self.frame_cnt = 0
-                self.state = Status.MOVING
+            self.go_down(orientation, 5 * dt)
 
     def find_steps(self):
         if (below := self.current_location(BitMask32.bit(1))) and \
-                (front := self.watch_steps(BitMask32.bit(1))):
+                (front := self.watch_front(BitMask32.bit(1))):
 
             z_diff = (front.get_hit_pos() - below.get_hit_pos()).z
 
@@ -190,66 +182,72 @@ class Walker(NodePath):
     def turn(self, angle):
         self.direction_node.set_h(self.direction_node.get_h() + angle)
 
-    def go_up_on_lift(self, dt):
-        """Raise an invisible lift embedded in the steps to the height of the next step.
+    def go_up_on_lift(self, distance):
+        """Raise a lift embedded in the step on which Ralph is to the height of the next step.
         """
-        if (next_z := self.lift.get_z() + dt * 5) > self.dest.get_z():
+        if (next_z := self.lift.get_z() + distance) > self.dest.get_z():
             self.lift.set_z(self.dest.get_z())
-            return True
+            self.state = Status.GETTING_OFF
         else:
             self.lift.set_z(next_z)
 
-    def get_off_lift(self, orientation, dt):
-        """Make Ralph move from the invisible lift to the destination.
+    def get_off_lift(self, orientation, distance):
+        """Make Ralph on the invisible lift move to the destination.
            Args:
                 orientation: (LVector3f)
-                dt: (float)
+                distance: (float)
         """
-        self.frame_cnt += 1
-        if self.frame_cnt >= 5:
-            print('get_off_lift: time out')
-            self.lift.set_z(self.lift_original_z)
-            return True
-
-        next_pos = self.get_pos() + orientation * -20 * dt
+        get_off = False
+        next_pos = self.get_pos() + orientation * distance
         self.set_pos(next_pos)
+        self.frame_cnt += 1
 
         if below := self.current_location(BitMask32.bit(1)):
             if below.get_node() == self.dest.node():
-                self.lift.set_z(self.lift_original_z)
+                get_off = True
 
-                # change direction when going up spiral stair as much as possible.
+                # change direction right after get off the lift, for when going up spiral stairs.
                 if 0 < (diff := self.dest.get_h() - self.lift.get_h()) <= 30:
                     self.direction_node.set_h(self.direction_node.get_h() + diff)
 
-                return True
+        if get_off or self.frame_cnt >= 5:
+            self.lift.set_z(self.lift_original_z)
+            self.frame_cnt = 0
+            self.state = Status.MOVING
 
-    def come_to_edge(self, orientation, dt):
-        self.frame_cnt += 1
-        if self.frame_cnt >= 5:
-            print('start_go_down: time out')
-            return True
-
-        next_pos = self.get_pos() + orientation * -20 * dt
+    def come_to_edge(self, orientation, distance):
+        """Make Ralph move to the edge of steps.
+           Args:
+                orientation: (LVector3f)
+                distance: (float)
+        """
+        next_pos = self.get_pos() + orientation * distance
         self.set_pos(next_pos)
+        self.frame_cnt += 1
+        on_edge = False
 
         if below := self.current_location(BitMask32.bit(1)):
             if below.get_node() == self.dest.node():
+                on_edge = True
+
+                # change direction right  before the start of falling, for when going down spiral stairs.
                 if -30 <= (diff := self.dest.get_h() - self.start.get_h()) < 0:
                     self.direction_node.set_h(self.direction_node.get_h() + diff)
 
-                return True
+        if on_edge or self.frame_cnt >= 5:
+            self.frame_cnt = 0
+            self.state = Status.GOING_DOWN
 
-    def go_down(self, orientation, dt):
+    def go_down(self, orientation, distance):
+        """Wait that Ralph gravitates downwards to collide the destination.
+        """
+        self.set_z(self.get_z() - distance)
         self.frame_cnt += 1
-        if self.frame_cnt >= 20:
-            print('go_down: time out')
-            return True
 
-        if self.world.contact_test_pair(self.node(), self.dest.node()).get_num_contacts() > 0:
-            return True
-        else:
-            self.set_z(self.get_z() - 5 * dt)
+        if self.frame_cnt >= 20 or \
+                self.world.contact_test_pair(self.node(), self.dest.node()).get_num_contacts() > 0:
+            self.frame_cnt = 0
+            self.state = Status.MOVING
 
     def play_anim(self, command, rate=1):
         if not command:
