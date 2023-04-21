@@ -43,6 +43,7 @@ class Walker(NodePath):
              self.WALK: 'models/ralph/ralph-walk.egg'}
         )
         self.actor.set_transform(TransformState.make_pos(Vec3(0, 0, -2.5)))  # -3
+
         self.actor.set_name('ralph')
         self.actor.reparent_to(self.direction_node)
         self.direction_node.set_h(180)
@@ -57,28 +58,19 @@ class Walker(NodePath):
         # self.under.set_pos(0, -1.5, -10)
         self.under.set_pos(0, -1.2, -10)
 
-        self.behind = NodePath('behind')
-        self.behind.reparent_to(self.direction_node)
-        self.behind.set_pos(0, 1.2, 1)
-
         self.state = Status.MOVING
         self.frame_cnt = 0
-        self.shape = shape
 
         self.debug_line_front = create_line_node(self.front.get_pos(), self.under.get_pos(), LColor(0, 0, 1, 1))
         self.debug_line_center = create_line_node(Point3(0, 0, 0), Point3(0, 0, -10), LColor(1, 0, 0, 1))
-
-        self.debug_line_behind = create_line_node(self.behind.get_pos(), Point3(0, 1.2, -10), LColor(0, 0, 1, 1))
 
     def toggle_debug(self):
         if self.debug_line_front.has_parent():
             self.debug_line_front.detach_node()
             self.debug_line_center.detach_node()
-            self.debug_line_behind.detach_node()
         else:
             self.debug_line_front.reparent_to(self.direction_node)
             self.debug_line_behind.reparent_to(self.direction_node)
-            self.debug_line_center.reparent_to(self)
 
     def navigate(self):
         """Return a relative point to enable camera to follow a character
@@ -116,16 +108,6 @@ class Walker(NodePath):
         if ray_result.has_hit():
             return ray_result
         return None
-
-    def predict_collision(self, next_pos, mask):
-        ts_from = TransformState.make_pos(self.get_pos())
-        ts_to = TransformState.make_pos(next_pos)
-        result = self.world.sweep_test_closest(self.shape, ts_from, ts_to, mask, 0.0)
-
-        if result.hasHit():
-            if result.get_node() != self.node():
-                print(result.get_node().get_name())
-                return True
 
     def update(self, dt, direction, angle):
         orientation = self.direction_node.get_quat(base.render).get_forward()

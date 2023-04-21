@@ -40,7 +40,6 @@ class Walking(ShowBase):
         self.ambient_light = BasicAmbientLight()
         self.directional_light = BasicDayLight(self.walker)
 
-        # self.mask = BitMask32.bit(2) | BitMask32.bit(1)
         self.mask = BitMask32.bit(1)
 
         inputState.watch_with_modifiers('forward', 'arrow_up')
@@ -90,10 +89,7 @@ class Walking(ShowBase):
         self.walker.play_anim(anim, rate)
 
     def print_info(self):
-        print('camera', self.camera.get_pos(), self.camera.get_pos(self.walker))
-        print('walker', self.walker.get_pos(), 'camera', self.camera.get_pos(self.walker) + self.walker.get_pos())
-        print('navigator', self.walker.get_relative_point(self.walker.direction_node, Vec3(0, 10, 2)))
-        print('navigator + walker_pos', self.walker.get_pos() + self.walker.get_relative_point(self.walker.direction_node, Vec3(0, 10, 2)))
+        print('walker', self.walker.get_pos())
 
     def ray_cast(self, from_pos, to_pos):
         result = self.world.ray_test_closest(from_pos, to_pos, self.mask)

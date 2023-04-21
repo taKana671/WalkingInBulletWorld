@@ -33,9 +33,8 @@ class Images(Enum):
 
 class Block(NodePath):
 
-    def __init__(self, name, parent, model, pos, hpr, scale, bitmask):
+    def __init__(self, name, model, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
-        self.reparent_to(parent)
         self.model = model.copy_to(self)
         self.set_pos(pos)
         self.set_hpr(hpr)
@@ -43,13 +42,13 @@ class Block(NodePath):
         end, tip = self.model.get_tight_bounds()
         self.node().add_shape(BulletBoxShape((tip - end) / 2))
         self.set_collide_mask(bitmask)
+        self.node().set_mass(0)
 
 
 class InvisibleLift(NodePath):
 
     def __init__(self, name, shape, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
-        # self.reparent_to(parent)
         self.set_pos(pos)
         self.set_hpr(hpr)
         self.set_scale(scale)
@@ -67,7 +66,6 @@ class Plane(NodePath):
         self.model = model
         self.model.reparent_to(self)
         self.set_pos(pos)
-
         end, tip = self.model.get_tight_bounds()
         self.node().add_shape(BulletBoxShape((tip - end) / 2))
         self.set_collide_mask(BitMask32.bit(1))
@@ -75,9 +73,8 @@ class Plane(NodePath):
 
 class Convex(NodePath):
 
-    def __init__(self, name, parent, model, pos, hpr, scale, bitmask):
+    def __init__(self, name, model, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
-        self.reparent_to(parent)
         self.model = model.copy_to(self)
         self.set_pos(pos)
         self.set_hpr(hpr)
@@ -90,14 +87,12 @@ class Convex(NodePath):
 
 class Ring(NodePath):
 
-    def __init__(self, name, parent, model, pos, hpr, scale, bitmask):
+    def __init__(self, name, model, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
-        self.reparent_to(parent)
         self.model = model.copy_to(self)
         mesh = BulletTriangleMesh()
         mesh.add_geom(self.model.node().get_geom(0))
         shape = BulletTriangleMeshShape(mesh, dynamic=False)
-
         self.node().add_shape(shape)
         self.set_collide_mask(bitmask)
         self.set_pos(pos)
@@ -107,9 +102,8 @@ class Ring(NodePath):
 
 class Sphere(NodePath):
 
-    def __init__(self, name, parent, model, pos, scale, bitmask):
+    def __init__(self, name, model, pos, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
-        self.reparent_to(parent)
         self.model = model.copy_to(self)
         end, tip = self.model.get_tight_bounds()
         size = tip - end
@@ -139,11 +133,12 @@ class Materials:
 
         return self._textures[image]
 
-    def block(self, name, parent, pos, scale, hpr=None, horizontal=True, active_always=False, bitmask=BitMask32.bit(1), hide=False):
+    def block(self, name, parent, pos, scale, hpr=None, horizontal=True,
+              active_always=False, bitmask=BitMask32.bit(1), hide=False):
         if not hpr:
             hpr = Vec3(0, 0, 0) if horizontal else Vec3(90, 0, 0)
 
-        block = Block(name, parent, self.cube, pos, hpr, scale, bitmask)
+        block = Block(name, self.cube, pos, hpr, scale, bitmask)
         su = (scale.x * 2 + scale.y * 2) / 4
         sv = scale.z / 4
         block.set_tex_scale(TextureStage.get_default(), su, sv)
@@ -155,6 +150,7 @@ class Materials:
         if hide:
             block.hide()
 
+        block.reparent_to(parent)
         self.world.attach(block.node())
         return block
 
@@ -177,8 +173,9 @@ class Materials:
         pos = Point3(x, 0, 0)
         hpr = Vec3(90, 0, 0)
         scale = Vec3(1.5, 0.05, 0.05)
-        knob = Block('knob', parent, self.cube, pos, hpr, scale, BitMask32.bit(1))
+        knob = Block('knob', self.cube, pos, hpr, scale, BitMask32.bit(1))
         knob.set_color(0, 0, 0, 1)
+        knob.reparent_to(parent)
 
     def door(self, name, parent, pos, scale, static_body, hpr=None, horizontal=True, left_hinge=True):
         door = self.block(name, parent, pos, scale, hpr, horizontal, active_always=True, bitmask=BitMask32.allOn())
@@ -200,29 +197,32 @@ class Materials:
         )
 
         twist.setLimit(60, 60, 0, softness=0.1, bias=0.1, relaxation=8.0)
+        # twist.setLimit(60, 60, 0, softness=0.9, bias=0.3, relaxation=1.0)
         self.world.attach_constraint(twist)
 
     def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True, bitmask=BitMask32.bit(3), hide=False):
         if not hpr:
             hpr = Vec3(0, 0, 180) if vertical else Vec3(0, 90, 0)
 
-        pole = Convex(name, parent, self.cylinder, pos, hpr, scale, bitmask)
+        pole = Convex(name, self.cylinder, pos, hpr, scale, bitmask)
         pole.set_tex_scale(TextureStage.get_default(), tex_scale)
 
         if hide:
             pole.hide()
 
+        pole.reparent_to(parent)
         self.world.attach(pole.node())
         return pole
 
     def triangular_prism(self, name, parent, pos, hpr, scale, tex_scale=None, bitmask=BitMask32.bit(1), hide=False):
-        prism = Convex(name, parent, self.right_triangle_prism, pos, hpr, scale, bitmask)
+        prism = Convex(name, self.right_triangle_prism, pos, hpr, scale, bitmask)
 
         if tex_scale:
             prism.set_tex_scale(TextureStage.get_default(), tex_scale)
         if hide:
             prism.hide()
 
+        prism.reparent_to(parent)
         self.world.attach(prism.node())
         return prism
 
@@ -259,23 +259,29 @@ class Materials:
         if not hpr:
             hpr = Vec3(0, 90, 0) if horizontal else Vec3(90, 0, 0)
 
-        tube = Ring(name, parent, geomnode, pos, hpr, scale, bitmask)
+        tube = Ring(name, geomnode, pos, hpr, scale, bitmask)
+
+        tube.reparent_to(parent)
         self.world.attach(tube.node())
         return tube
 
-    def ring_shape(self, name, parent, geomnode, pos, scale=Vec3(1), hpr=None, hor=True, tex_scale=None, bitmask=BitMask32.all_on()):
+    def ring_shape(self, name, parent, geomnode, pos, scale=Vec3(1), hpr=None, hor=True,
+                   tex_scale=None, bitmask=BitMask32.all_on()):
         if not hpr:
             hpr = Vec3(0, 90, 0) if hor else Vec3(90, 0, 0)
 
-        ring = Ring(name, parent, geomnode, pos, hpr, scale, bitmask)
+        ring = Ring(name, geomnode, pos, hpr, scale, bitmask)
         if tex_scale:
             ring.set_tex_scale(TextureStage.get_default(), tex_scale)
 
+        ring.reparent_to(parent)
         self.world.attach(ring.node())
         return ring
 
     def sphere_shape(self, name, parent, pos, scale, bitmask=BitMask32.bit(1)):
-        sphere = Sphere(name, parent, self.sphere, pos, scale, bitmask)
+        sphere = Sphere(name, self.sphere, pos, scale, bitmask)
+
+        sphere.reparent_to(parent)
         self.world.attach(sphere.node())
         return sphere
 
@@ -329,30 +335,25 @@ class StoneHouse(Materials):
         for i, (pos, scale) in enumerate(pos_scale):
             self.block(f'floor1_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0))
 
-        # room and room camera on the 1st floor
+        # room floor and room camera on the 1st floor
         self.block('room1', floors, Point3(0, 0, 0), Vec3(12, 1, 16), hpr=Vec3(0, 90, 0))
         self.room_camera('room1_camera', room_camera, Point3(0, 0, 6.25))
 
-        # right and left walls on the 1st floor
-        pos_scale = [
-            [Point3(-5.75, 0, 3.5), Vec3(16, 0.5, 6)],          # left
-            [Point3(5.75, 0, 1.5), Vec3(16, 0.5, 2)],           # right under
-            [Point3(5.75, 3, 3.5), Vec3(10, 0.5, 2)],           # right middle back
-            [Point3(5.75, -7, 3.5), Vec3(2, 0.5, 2)],           # right front
-            [Point3(5.75, 0, 5.5), Vec3(16, 0.5, 2)],           # right top
-            [Point3(-13.75, -4.25, 7), Vec3(8.5, 0.5, 13)]      # left side of the steps
+        # walls on the 1st floor
+        walls_1st_floor = [
+            [Point3(-5.75, 0, 3.5), Vec3(16, 0.5, 6), False],          # left
+            [Point3(5.75, 0, 1.5), Vec3(16, 0.5, 2), False],           # right under
+            [Point3(5.75, 3, 3.5), Vec3(10, 0.5, 2), False],           # right middle back
+            [Point3(5.75, -7, 3.5), Vec3(2, 0.5, 2), False],           # right front
+            [Point3(5.75, 0, 5.5), Vec3(16, 0.5, 2), False],           # right top
+            [Point3(-13.75, -4.25, 7), Vec3(8.5, 0.5, 13), False],     # left side of the steps
+            [Point3(0, 8.25, 3.5), Vec3(12, 0.5, 6), True],            # rear
+            [Point3(0, -8.25, 5.5), Vec3(12, 0.5, 2), True],           # front top
         ]
-        for i, (pos, scale) in enumerate(pos_scale):
-            self.block(f'wall1_side{i}', walls, pos, scale, horizontal=False)
+        for i, (pos, scale, hor) in enumerate(walls_1st_floor):
+            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor)
 
-        # front and rear walls on the 1st floor
-        pos_scale = [
-            [Point3(0, 8.25, 3.5), Vec3(12, 0.5, 6)],           # rear
-            [Point3(0, -8.25, 5.5), Vec3(12, 0.5, 2)],          # front top
-        ]
-        for i, (pos, scale) in enumerate(pos_scale):
-            self.block(f'wall1_fr{i}', walls, pos, scale)
-
+        # walls connected to the doors on the 1st floor
         wall1_l = self.block('wall1_fl', walls, Point3(-4, -8.25, 2.5), Vec3(4, 0.5, 4))    # front left
         wall1_r = self.block('wall1_fr', walls, Point3(4, -8.25, 2.5), Vec3(4, 0.5, 4))     # front right
 
@@ -364,7 +365,7 @@ class StoneHouse(Materials):
         for i, (pos, scale) in enumerate(pos_scale):
             self.block(f'floor2_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0))
 
-        # room and room camera on the 2nd floor
+        # room floor and room camera on the 2nd floor
         self.block('room2', floors, Point3(-4, 4.25, 6.75), Vec3(20, 0.5, 8.5), hpr=Vec3(0, 90, 0))
         self.room_camera('room2_camera', room_camera, Point3(-10, 4, 13))
 
@@ -378,31 +379,26 @@ class StoneHouse(Materials):
         for i, (pos, scale, hpr) in enumerate(pos_scale_hpr):
             self.block(f'balcony_{i}', floors, pos, scale, hpr=hpr)
 
-        # left and right walls on the 2nd floor
-        pos_scale = [
-            [Point3(-13.75, 4, 8), Vec3(8, 0.5, 2)],         # left
-            [Point3(-13.75, 1.5, 10), Vec3(3, 0.5, 2)],      # left
-            [Point3(-13.75, 6.5, 10), Vec3(3, 0.5, 2)],      # left
-            [Point3(-13.75, 4, 12), Vec3(8, 0.5, 2)],        # left
-            [Point3(5.75, 4.25, 10), Vec3(7.5, 0.5, 6)]      # right
+        # walls on the 2nd floor
+        walls_2nd_floor = [
+            [Point3(-13.75, 4, 8), Vec3(8, 0.5, 2), False],         # left
+            [Point3(-13.75, 1.5, 10), Vec3(3, 0.5, 2), False],      # left
+            [Point3(-13.75, 6.5, 10), Vec3(3, 0.5, 2), False],      # left
+            [Point3(-13.75, 4, 12), Vec3(8, 0.5, 2), False],        # left
+            [Point3(5.75, 4.25, 10), Vec3(7.5, 0.5, 6), False],      # right
+            [Point3(-4, 8.25, 10), Vec3(20, 0.5, 6), True],        # rear
+            [Point3(-7.25, 0.25, 9), Vec3(2.5, 0.5, 4), True],     # front
+            [Point3(-9.75, 0.25, 12), Vec3(7.5, 0.5, 2), True],    # front
+            [Point3(0, 0.25, 8), Vec3(12, 0.5, 2), True],          # front
+            [Point3(-4, 0.25, 10), Vec3(4, 0.5, 2), True],         # front
+            [Point3(4, 0.25, 10), Vec3(4, 0.5, 2), True],          # front
+            [Point3(0, 0.25, 12), Vec3(12, 0.5, 2), True]          # front
         ]
-        for i, (pos, scale) in enumerate(pos_scale):
-            self.block(f'wall2_side{i}', walls, pos, scale, horizontal=False)
+        for i, (pos, scale, hor) in enumerate(walls_2nd_floor):
+            self.block(f'wall2_{i}', walls, pos, scale, horizontal=hor)
 
-        # front and rear walls on the 2nd floor
+        # walls connected to the door on the 2nd floor
         wall2_l = self.block('wall2_l', walls, Point3(-12.5, 0.25, 9), Vec3(2, 0.5, 4))
-
-        pos_scale = [
-            [Point3(-4, 8.25, 10), Vec3(20, 0.5, 6)],        # rear
-            [Point3(-7.25, 0.25, 9), Vec3(2.5, 0.5, 4)],     # front
-            [Point3(-9.75, 0.25, 12), Vec3(7.5, 0.5, 2)],    # front
-            [Point3(0, 0.25, 8), Vec3(12, 0.5, 2)],          # front
-            [Point3(-4, 0.25, 10), Vec3(4, 0.5, 2)],         # front
-            [Point3(4, 0.25, 10), Vec3(4, 0.5, 2)],          # front
-            [Point3(0, 0.25, 12), Vec3(12, 0.5, 2)]          # front
-        ]
-        for i, (pos, scale) in enumerate(pos_scale):
-            self.block(f'wall2_fr{i}', walls, pos, scale)
 
         # roof
         self.block('roof', floors, Point3(-4, 4.25, 13.25), Vec3(20, 8.5, 0.5))
@@ -512,37 +508,32 @@ class BrickHouse(Materials):
                 slope_pos = step_pos + Vec3(0, -3.5, 0)
                 self.triangular_prism('hidden_slope', invisible, slope_pos, Vec3(0, 180, 90), Vec3(1, 1, 7), hide=True)
 
-        # rear and front walls
+        # rear walls
+        walls_1st_floor = [
+            [Point3(0, 4.25, 5.5), Vec3(12, 0.5, 8), True],          # rear
+            [Point3(5, -8.25, 3.25), Vec3(2, 0.5, 3.5), True],       # front right
+            [Point3(3, -8.25, 5.25), Vec3(6, 0.5, 0.5), True],       # front_top
+            [Point3(-1.5, -4.25, 5.5), Vec3(2, 0.5, 8), True],       # back room front right
+            [Point3(-5.25, -4.25, 5.5), Vec3(1.5, 0.5, 8), True],    # back room front left
+            [Point3(-3.5, -4.25, 3.0), Vec3(2, 0.5, 3), True],       # back room front under
+            [Point3(-3.5, -4.25, 8.0), Vec3(2, 0.5, 3), True],       # back room front under
+            [Point3(3, -4.25, 7.5), Vec3(7, 0.5, 4), True],          # back room front
+            [Point3(-0.25, -6.25, 3.5), Vec3(4.5, 0.5, 4), False],   # left side
+            [Point3(-6.25, -3, 5.5), Vec3(3, 0.5, 8), False],
+            [Point3(-6.25, 3, 5.5), Vec3(3, 0.5, 8), False],
+            [Point3(-6.25, 0, 3.0), Vec3(3, 0.5, 3), False],
+            [Point3(-6.25, 0, 8.0), Vec3(3, 0.5, 3), False],
+            [Point3(6.25, -6.25, 3.5), Vec3(4.5, 0.5, 4), False],    # right side
+            [Point3(6.25, -2.75, 5.5), Vec3(2.5, 0.5, 8), False],
+            [Point3(6.25, 3, 5.5), Vec3(3, 0.5, 8), False],
+            [Point3(6.25, 0, 3.0), Vec3(3, 0.5, 3), False],
+            [Point3(6.25, 0, 8.0), Vec3(3, 0.5, 3), False]
+        ]
+        for i, (pos, scale, hor) in enumerate(walls_1st_floor):
+            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor)
+
+        # wall connected to the door
         wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5))
-
-        pos_scale = [
-            [Point3(0, 4.25, 5.5), Vec3(12, 0.5, 8)],        # rear
-            [Point3(5, -8.25, 3.25), Vec3(2, 0.5, 3.5)],     # front right
-            [Point3(3, -8.25, 5.25), Vec3(6, 0.5, 0.5)],     # front_top
-            [Point3(-1.5, -4.25, 5.5), Vec3(2, 0.5, 8)],     # back room front right
-            [Point3(-5.25, -4.25, 5.5), Vec3(1.5, 0.5, 8)],  # back room front left
-            [Point3(-3.5, -4.25, 3.0), Vec3(2, 0.5, 3)],     # back room front under
-            [Point3(-3.5, -4.25, 8.0), Vec3(2, 0.5, 3)],     # back room front under
-            [Point3(3, -4.25, 7.5), Vec3(7, 0.5, 4)],        # back room front
-        ]
-        for i, (pos, scale) in enumerate(pos_scale):
-            self.block(f'wall1_fr{i}', walls, pos, scale)
-
-        # side walls
-        pos_scale = [
-            [Point3(-0.25, -6.25, 3.5), Vec3(4.5, 0.5, 4)],    # left
-            [Point3(-6.25, -3, 5.5), Vec3(3, 0.5, 8)],
-            [Point3(-6.25, 3, 5.5), Vec3(3, 0.5, 8)],
-            [Point3(-6.25, 0, 3.0), Vec3(3, 0.5, 3)],
-            [Point3(-6.25, 0, 8.0), Vec3(3, 0.5, 3)],
-            [Point3(6.25, -6.25, 3.5), Vec3(4.5, 0.5, 4)],     # right
-            [Point3(6.25, -2.75, 5.5), Vec3(2.5, 0.5, 8)],
-            [Point3(6.25, 3, 5.5), Vec3(3, 0.5, 8)],
-            [Point3(6.25, 0, 3.0), Vec3(3, 0.5, 3)],
-            [Point3(6.25, 0, 8.0), Vec3(3, 0.5, 3)]
-        ]
-        for i, (pos, scale) in enumerate(pos_scale):
-            self.block(f'wall1_side{i}', walls, pos, scale, horizontal=False)
 
         # roofs
         pos_scale = [
