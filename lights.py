@@ -31,3 +31,4 @@ class BasicDayLight(NodePath):
         base.render.set_light(self)
         base.render.set_shader_auto()
         self.reparent_to(parent)
+        # self.node().showFrustum()

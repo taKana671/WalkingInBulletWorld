@@ -93,7 +93,7 @@ class Scene(NodePath):
             [Terrace, Point3(1, 1, -2), -180],
             [Observatory, Point3(-80, 80, -2.5), 45],
             [Bridge, Point3(38, 43, 1), 0],
-            [Tunnel, Point3(-45, -68, 3), 222]
+            [Tunnel, Point3(-45, -68, 3), 222],
         ]
         for bldg, pos, h in buildings:
             building = bldg(self.world, self.buildings, pos, h)

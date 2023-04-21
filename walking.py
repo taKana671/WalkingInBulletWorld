@@ -40,7 +40,7 @@ class Walking(ShowBase):
         self.ambient_light = BasicAmbientLight()
         self.directional_light = BasicDayLight(self.walker)
 
-        self.mask = BitMask32.bit(2) | BitMask32.bit(1)
+        self.mask = BitMask32.bit(1)
 
         inputState.watch_with_modifiers('forward', 'arrow_up')
         inputState.watch_with_modifiers('backward', 'arrow_down')
@@ -61,30 +61,35 @@ class Walking(ShowBase):
 
     def control_walker(self, dt):
         # contol walker movement
+        direction = 0
+        angle = 0
+
         if inputState.is_set('forward'):
-            self.walker.go_forward(-10 * dt)
+            direction += -1
         if inputState.is_set('backward'):
-            self.walker.go_back(10 * dt)
+            direction += 1
         if inputState.is_set('left'):
-            self.walker.turn(100 * dt)
+            angle += 100 * dt
         if inputState.is_set('right'):
-            self.walker.turn(-100 * dt)
+            angle += -100 * dt
+
+        self.walker.update(dt, direction, angle)
 
         # play animation
+        anim = None
+        rate = 1
+
         if inputState.is_set('forward'):
-            self.walker.play_anim(self.walker.RUN)
+            anim = self.walker.RUN
         elif inputState.is_set('backward'):
-            self.walker.play_anim(self.walker.WALK, -1)
+            anim, rate = self.walker.WALK, -1
         elif inputState.is_set('left') or inputState.is_set('right'):
-            self.walker.play_anim(self.walker.WALK)
-        else:
-            self.walker.stop_anim()
+            anim = self.walker.WALK
+
+        self.walker.play_anim(anim, rate)
 
     def print_info(self):
-        print('camera', self.camera.get_pos(), self.camera.get_pos(self.walker))
-        print('walker', self.walker.get_pos(), 'camera', self.camera.get_pos(self.walker) + self.walker.get_pos())
-        print('navigator', self.walker.get_relative_point(self.walker.direction_node, Vec3(0, 10, 2)))
-        print('navigator + walker_pos', self.walker.get_pos() + self.walker.get_relative_point(self.walker.direction_node, Vec3(0, 10, 2)))
+        print('walker', self.walker.get_pos())
 
     def ray_cast(self, from_pos, to_pos):
         result = self.world.ray_test_closest(from_pos, to_pos, self.mask)
@@ -113,7 +118,7 @@ class Walking(ShowBase):
         return None
 
     def control_camera_outdoors(self):
-        """Repositions the camera if the camera's view is blocked by objects like walls, and
+        """Reposition the camera if the camera's view is blocked by objects like walls, and
            reparents the camera to the room_camera if the character goes into a room.
         """
         # reposition
