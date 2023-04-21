@@ -100,15 +100,6 @@ class Walker(NodePath):
             return ray_result
         return None
 
-    def watch_behind(self, mask):
-        from_pos = self.behind.get_pos(self) + self.get_pos()
-        to_pos = base.render.get_relative_point(self, Vec3(0, 1.2, -10))
-        ray_result = self.world.ray_test_closest(from_pos, to_pos, mask)
-
-        if ray_result.has_hit():
-            return ray_result
-        return None
-
     def update(self, dt, direction, angle):
         orientation = self.direction_node.get_quat(base.render).get_forward()
 
