@@ -3,14 +3,43 @@ import sys
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
+from direct.gui.DirectGui import OnscreenText
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletDebugNode
-from panda3d.core import NodePath
+from panda3d.core import NodePath, PandaNode, TextNode
 from panda3d.core import Vec3, Point3, BitMask32, Quat
 
 from lights import BasicAmbientLight, BasicDayLight
 from scene import Scene
 from walker import Walker
+
+
+class Instructions(NodePath):
+
+    def __init__(self):
+        super().__init__(PandaNode('instructions'))
+        self.create_instructions([
+            '[ESC]: Quit',
+            '[Left Arrow]: Rotate Ralph Left',
+            '[Right Arrow]: Rotate Ralph Right',
+            '[Up Arrow]: Run Ralph Forward',
+            '[Down Arrow]: Walk Ralph Backward',
+            '[ I ]: ON/OFF Instructions'
+        ])
+        self.reparent_to(base.a2dTopLeft)
+
+    def create_instructions(self, texts):
+        start_y = -0.1
+
+        for i, text in enumerate(texts):
+            OnscreenText(
+                text=text,
+                parent=self,
+                align=TextNode.ALeft,
+                pos=(0.05, start_y - (i * 0.05)),
+                fg=(1, 1, 1, 1),
+                scale=0.05,
+            )
 
 
 class Walking(ShowBase):
@@ -36,6 +65,9 @@ class Walking(ShowBase):
         self.camera.look_at(self.floater)
         self.camLens.set_fov(90)
 
+        # show instructions
+        self.instructions = Instructions()
+
         # setup light
         self.ambient_light = BasicAmbientLight()
         self.directional_light = BasicDayLight(self.walker)
@@ -51,6 +83,8 @@ class Walking(ShowBase):
         self.accept('p', self.print_info)
         self.accept('d', self.toggle_debug)
         self.accept('f', self.walker.toggle_debug)
+        self.accept('i', self.toggle_instructions)
+
         self.taskMgr.add(self.update, 'update')
 
     def toggle_debug(self):
@@ -58,6 +92,12 @@ class Walking(ShowBase):
             self.debug_np.show()
         else:
             self.debug_np.hide()
+
+    def toggle_instructions(self):
+        if self.instructions.is_hidden():
+            self.instructions.show()
+        else:
+            self.instructions.hide()
 
     def control_walker(self, dt):
         # contol walker movement
