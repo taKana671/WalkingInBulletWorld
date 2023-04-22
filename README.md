@@ -27,6 +27,6 @@ I thought out the way of rotating camera while avoiding walls and other obstacle
 * Press [left arrow] key to turn left.
 * Press [right arrow] key to turn right.
 * Press [down arrow] key to go back.
-* Press [I] key to toggle instructions ON and OFF.
-* Press [D] key to toggle debug ON and OFF.
-* Press [F] key to toggle ray cast lines ON and OFF.
+* Press [ I ] key to toggle instructions ON and OFF.
+* Press [ D ] key to toggle debug ON and OFF.
+* Press [ F ] key to toggle ray cast lines ON and OFF.
