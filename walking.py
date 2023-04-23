@@ -205,28 +205,3 @@ class Walking(ShowBase):
 if __name__ == '__main__':
     app = Walking()
     app.run()
-
-
-
-# Assertion failed: other._error_type == ET_ok at line 399 of panda/src/pgraph/nodePath.cxx
-# Traceback (most recent call last):
-#   File "C:\Users\Kanae\Desktop\py311env\RalphWalking\walking.py", line 197, in update
-#     self.control_camera_outdoors()
-#   File "C:\Users\Kanae\Desktop\py311env\RalphWalking\walking.py", line 178, in control_camera_outdoors
-#     self.camera.reparent_to(room_camera)
-# AssertionError: other._error_type == ET_ok at line 399 of panda/src/pgraph/nodePath.cxx
-# :task(error): Exception occurred in PythonTask update.
-# Traceback (most recent call last):
-#   File "C:\Users\Kanae\Desktop\py311env\RalphWalking\walking.py", line 207, in <module>
-#     app.run()
-#   File "C:\Users\Kanae\Desktop\py311env\py311env\Lib\site-packages\direct\showbase\ShowBase.py", line 3330, in run
-#     self.taskMgr.run()
-#   File "C:\Users\Kanae\Desktop\py311env\py311env\Lib\site-packages\direct\task\Task.py", line 553, in run
-#     self.step()
-#   File "C:\Users\Kanae\Desktop\py311env\py311env\Lib\site-packages\direct\task\Task.py", line 504, in step
-#     self.mgr.poll()
-#   File "C:\Users\Kanae\Desktop\py311env\RalphWalking\walking.py", line 197, in update
-#     self.control_camera_outdoors()
-#   File "C:\Users\Kanae\Desktop\py311env\RalphWalking\walking.py", line 178, in control_camera_outdoors
-#     self.camera.reparent_to(room_camera)
-# AssertionError: other._error_type == ET_ok at line 399 of panda/src/pgraph/nodePath.cxx

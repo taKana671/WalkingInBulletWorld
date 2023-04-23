@@ -1,7 +1,3 @@
-# Author: Kanae Ohta
-#
-
-
 from enum import Enum, auto
 
 from direct.actor.Actor import Actor
@@ -22,6 +18,19 @@ class Status(Enum):
     COMMING_TO_EDGE = auto()
 
 
+class CollisionDetection(NodePath):
+
+    def __init__(self, name, pos):
+        super().__init__(BulletRigidBodyNode(name))
+        shape = BulletCylinderShape(0.5, 5, ZUp)
+        self.node().add_shape(shape)
+        self.set_collide_mask(BitMask32.bit(2))
+        self.node().set_kinematic(True)
+        self.node().setCcdMotionThreshold(1e-7)
+        self.node().setCcdSweptSphereRadius(0.5)
+        self.set_pos(pos)
+
+
 class Walker(NodePath):
     RUN = 'run'
     WALK = 'walk'
@@ -32,8 +41,7 @@ class Walker(NodePath):
         shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
         super().__init__(BulletCharacterControllerNode(shape, 1.0, 'character'))  # 0.4
         self.world = world
-        # self.set_collide_mask(BitMask32.allOn())
-        # 1: wall, floor, steps and so on, 3: fence, 4: lift
+        # bit(1): wall, floor, steps and so on, bit(3): fence, bit(4): lift
         self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(3) | BitMask32.bit(4))
         self.set_pos(Point3(25, -10, 1))
         self.set_scale(0.5)
@@ -41,6 +49,7 @@ class Walker(NodePath):
         self.world.attach_character(self.node())
 
         self.direction_nd = NodePath(PandaNode('direction'))
+        self.direction_nd.set_h(180)
         self.direction_nd.reparent_to(self)
 
         self.actor = Actor(
@@ -49,35 +58,28 @@ class Walker(NodePath):
              self.WALK: 'models/ralph/ralph-walk.egg'}
         )
         self.actor.set_transform(TransformState.make_pos(Vec3(0, 0, -2.5)))  # -3
-
         self.actor.set_name('ralph')
         self.actor.reparent_to(self.direction_nd)
-        self.direction_nd.set_h(180)
 
         self.front = NodePath('front')
         self.front.reparent_to(self.direction_nd)
-        # self.front.set_pos(0, -1.5, 1)
         self.front.set_pos(0, -1.2, 1)
 
         self.under = NodePath('under')
         self.under.reparent_to(self.direction_nd)
-        # self.under.set_pos(0, -1.5, -10)
         self.under.set_pos(0, -1.2, -10)
 
         self.state = Status.MOVING
         self.frame_cnt = 0
 
-        # make node having collision shape for preventing penetration
-        shape = BulletCylinderShape(0.5, 5, ZUp)
-        self.detect_nd = NodePath(BulletRigidBodyNode('detect'))
-        self.detect_nd.node().add_shape(shape)
-        self.detect_nd.set_collide_mask(BitMask32.bit(2))
-        self.detect_nd.node().set_kinematic(True)
-        self.detect_nd.node().setCcdMotionThreshold(1e-7)
-        self.detect_nd.node().setCcdSweptSphereRadius(0.5)
-        self.detect_nd.set_pos(0, -1.2, 0)
-        self.detect_nd.reparent_to(self.direction_nd)
-        self.world.attach(self.detect_nd.node())
+        # make node having collision shape for preventing penetration.
+        self.detection_nd_f = CollisionDetection('detect_front', Point3((0, -1.2, 0)))
+        self.detection_nd_f.reparent_to(self.direction_nd)
+        self.world.attach(self.detection_nd_f.node())
+
+        self.detection_nd_b = CollisionDetection('detect_back', Point3((0, 1.2, 0)))
+        self.detection_nd_b.reparent_to(self.direction_nd)
+        self.world.attach(self.detection_nd_b.node())
 
         # draw ray cast lines for dubug
         self.debug_line_front = create_line_node(self.front.get_pos(), self.under.get_pos(), LColor(0, 0, 1, 1))
@@ -89,7 +91,7 @@ class Walker(NodePath):
             self.debug_line_center.detach_node()
         else:
             self.debug_line_front.reparent_to(self.direction_nd)
-            self.debug_line_behind.reparent_to(self.direction_nd)
+            self.debug_line_center.reparent_to(self.direction_nd)
 
     def navigate(self):
         """Return a relative point to enable camera to follow a character
@@ -119,10 +121,14 @@ class Walker(NodePath):
             return ray_result
         return None
 
-    def detect_penetration(self):
-        for con in self.world.contact_test(self.detect_nd.node(), use_filter=True).getContacts():
+    def detect_penetration(self, detection_nd):
+        """Return True if penetration is detected.
+           Arges:
+                detection_nd (CollisionDetection): specify self.detection_nd_f or self.detection_nd_b
+        """
+        for con in self.world.contact_test(detection_nd.node(), use_filter=True).get_contacts():
             if not con.get_node1().get_name().startswith('door'):
-                print(con.get_node0().get_name(), con.get_node1().get_name())
+                # print(con.get_node0().get_name(), con.get_node1().get_name())
                 return True
 
     def update(self, dt, direction, angle):
@@ -133,11 +139,12 @@ class Walker(NodePath):
                 self.turn(angle)
 
             if direction < 0:
-                if not self.detect_penetration():
+                if not self.detect_penetration(self.detection_nd_f):
                     if not self.find_steps():
                         self.move(orientation, direction * 10 * dt)
             if direction > 0:
-                self.move(orientation, direction * 5 * dt)
+                if not self.detect_penetration(self.detection_nd_b):
+                    self.move(orientation, direction * 5 * dt)
 
         if self.state == Status.GOING_UP:
             self.go_up_on_lift(5 * dt)
