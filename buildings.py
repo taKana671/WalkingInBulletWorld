@@ -1,3 +1,10 @@
+"""
+Author: Kanae Ohta
+Textures: Eric Matyas (https://soundimage.org/attribution-info/)
+
+This module contains classes to build houses, bridges, tunnels and so on.
+"""
+
 import math
 from enum import Enum
 from itertools import product, chain
@@ -319,6 +326,9 @@ class StoneHouse(Materials):
         room_camera = NodePath('room_camera')
         room_camera.reparent_to(self.house)
 
+        prevention_mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
+        prevention_mask_fence = BitMask32.bit(3) | BitMask32.bit(2)
+
         # columns
         gen = ((x, y) for x, y in product((-15, 15), (-11, 11)))
         for i, (x, y) in enumerate(gen):
@@ -351,11 +361,11 @@ class StoneHouse(Materials):
             [Point3(0, -8.25, 5.5), Vec3(12, 0.5, 2), True],           # front top
         ]
         for i, (pos, scale, hor) in enumerate(walls_1st_floor):
-            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor)
+            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=prevention_mask_wall)
 
         # walls connected to the doors on the 1st floor
-        wall1_l = self.block('wall1_fl', walls, Point3(-4, -8.25, 2.5), Vec3(4, 0.5, 4))    # front left
-        wall1_r = self.block('wall1_fr', walls, Point3(4, -8.25, 2.5), Vec3(4, 0.5, 4))     # front right
+        wall1_l = self.block('wall1_fl', walls, Point3(-4, -8.25, 2.5), Vec3(4, 0.5, 4), bitmask=prevention_mask_wall)    # front left
+        wall1_r = self.block('wall1_fr', walls, Point3(4, -8.25, 2.5), Vec3(4, 0.5, 4), bitmask=prevention_mask_wall)     # front right
 
         # 2nd floor
         pos_scale = [
@@ -385,20 +395,20 @@ class StoneHouse(Materials):
             [Point3(-13.75, 1.5, 10), Vec3(3, 0.5, 2), False],      # left
             [Point3(-13.75, 6.5, 10), Vec3(3, 0.5, 2), False],      # left
             [Point3(-13.75, 4, 12), Vec3(8, 0.5, 2), False],        # left
-            [Point3(5.75, 4.25, 10), Vec3(7.5, 0.5, 6), False],      # right
-            [Point3(-4, 8.25, 10), Vec3(20, 0.5, 6), True],        # rear
-            [Point3(-7.25, 0.25, 9), Vec3(2.5, 0.5, 4), True],     # front
-            [Point3(-9.75, 0.25, 12), Vec3(7.5, 0.5, 2), True],    # front
-            [Point3(0, 0.25, 8), Vec3(12, 0.5, 2), True],          # front
-            [Point3(-4, 0.25, 10), Vec3(4, 0.5, 2), True],         # front
-            [Point3(4, 0.25, 10), Vec3(4, 0.5, 2), True],          # front
-            [Point3(0, 0.25, 12), Vec3(12, 0.5, 2), True]          # front
+            [Point3(5.75, 4.25, 10), Vec3(7.5, 0.5, 6), False],     # right
+            [Point3(-4, 8.25, 10), Vec3(20, 0.5, 6), True],         # rear
+            [Point3(-7.25, 0.25, 9), Vec3(2.5, 0.5, 4), True],      # front
+            [Point3(-9.75, 0.25, 12), Vec3(7.5, 0.5, 2), True],     # front
+            [Point3(0, 0.25, 8), Vec3(12, 0.5, 2), True],           # front
+            [Point3(-4, 0.25, 10), Vec3(4, 0.5, 2), True],          # front
+            [Point3(4, 0.25, 10), Vec3(4, 0.5, 2), True],           # front
+            [Point3(0, 0.25, 12), Vec3(12, 0.5, 2), True]           # front
         ]
         for i, (pos, scale, hor) in enumerate(walls_2nd_floor):
-            self.block(f'wall2_{i}', walls, pos, scale, horizontal=hor)
+            self.block(f'wall2_{i}', walls, pos, scale, horizontal=hor, bitmask=prevention_mask_wall)
 
         # walls connected to the door on the 2nd floor
-        wall2_l = self.block('wall2_l', walls, Point3(-12.5, 0.25, 9), Vec3(2, 0.5, 4))
+        wall2_l = self.block('wall2_l', walls, Point3(-12.5, 0.25, 9), Vec3(2, 0.5, 4), bitmask=prevention_mask_wall)
 
         # roof
         self.block('roof', floors, Point3(-4, 4.25, 13.25), Vec3(20, 8.5, 0.5))
@@ -429,7 +439,7 @@ class StoneHouse(Materials):
                 for k, x_diff in enumerate(x_diffs):
                     rail_pos = pos + Vec3(x_diff, 0, 2.5)
                     self.block(
-                        f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, 45, 0), bitmask=BitMask32.bit(3)
+                        f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, 45, 0), bitmask=prevention_mask_fence
                     )
 
         # doors
@@ -508,7 +518,9 @@ class BrickHouse(Materials):
                 slope_pos = step_pos + Vec3(0, -3.5, 0)
                 self.triangular_prism('hidden_slope', invisible, slope_pos, Vec3(0, 180, 90), Vec3(1, 1, 7), hide=True)
 
-        # rear walls
+        # walls
+        prevention_mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
+
         walls_1st_floor = [
             [Point3(0, 4.25, 5.5), Vec3(12, 0.5, 8), True],          # rear
             [Point3(5, -8.25, 3.25), Vec3(2, 0.5, 3.5), True],       # front right
@@ -530,10 +542,10 @@ class BrickHouse(Materials):
             [Point3(6.25, 0, 8.0), Vec3(3, 0.5, 3), False]
         ]
         for i, (pos, scale, hor) in enumerate(walls_1st_floor):
-            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor)
+            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=prevention_mask_wall)
 
         # wall connected to the door
-        wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5))
+        wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5), bitmask=prevention_mask_wall)
 
         # roofs
         pos_scale = [
@@ -581,12 +593,19 @@ class Terrace(Materials):
         lifts = NodePath('lifts')
         lifts.reparent_to(self.terrace)
 
+        prevention_mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
+        prevention_mask_fence = BitMask32.bit(3) | BitMask32.bit(2)
+
         # the 1st floor
         self.block('floor1', floors, Point3(0, 0, 0), Vec3(16, 0.5, 12), hpr=Vec3(0, 90, 0))
 
         # walls
-        self.block('wall1_r', walls, Point3(-5.5, 5.75, 3.25), Vec3(5, 0.5, 6))                       # rear
-        self.block('wall1_s', walls, Point3(-7.75, 3.25, 3.25), Vec3(4.5, 0.5, 6), horizontal=False)  # side
+        pos_scale_hpr = [
+            [Point3(-5.5, 5.75, 3.25), Vec3(5, 0.5, 6), True],      # rear
+            [Point3(-7.75, 3.25, 3.25), Vec3(4.5, 0.5, 6), False]   # side
+        ]
+        for i, (pos, scale, hor) in enumerate(pos_scale_hpr):
+            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=prevention_mask_wall)
 
         # columns
         gen = ((x, y) for x, y in [(-7.5, -5.5), (7.5, -5.5), (7.5, 5.5)])
@@ -639,16 +658,16 @@ class Terrace(Materials):
                 fx, fy = self.point_on_circumference(f_angle, 4.3)
                 f_scale = Vec3(0.15, 0.15, 2.2 + j * 0.4)
                 f_pos = Point3(center.x + fx, center.y + fy, s_pos.z + 0.25 + f_scale.z / 2)
-                self.block(f'spiral_fence_{i}{j}', steps, f_pos, f_scale, bitmask=BitMask32.bit(3))
+                self.block(f'spiral_fence_{i}{j}', steps, f_pos, f_scale, bitmask=prevention_mask_fence)
 
         # handrail of spiral staircase
         pos = center - Vec3(0, 0, 5)
         hpr = Vec3(-101, 0, 0)
         geomnode = RingShape(segs_rcnt=14, slope=0.5, ring_radius=4.3, section_radius=0.15)
-        self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=BitMask32.bit(3))
+        self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=prevention_mask_fence)
 
         for i, pos in enumerate([Point3(8.25, -2.73, 3.0), Point3(7.52, 5.54, 10.0)]):
-            self.sphere_shape(f'handrail_sphere_{i}', steps, pos, Vec3(0.15), bitmask=BitMask32.bit(3))
+            self.sphere_shape(f'handrail_sphere_{i}', steps, pos, Vec3(0.15), bitmask=prevention_mask_fence)
 
         # slope of the 1st step
         self.triangular_prism(
@@ -698,8 +717,9 @@ class Observatory(Materials):
         self.sphere_shape('pole_sphere', posts, sphere_pos, Vec3(0.8))
 
         # spiral staircase
-        steps_num = 19                # the number of steps
-        s_scale = Vec3(4, 2.5, 0.5)   # scale of a triangular prism
+        steps_num = 19                                           # the number of steps
+        s_scale = Vec3(4, 2.5, 0.5)                              # scale of a triangular prism
+        prevention_mask = BitMask32.bit(3) | BitMask32.bit(2)    # bitmask to detect penetration
 
         for i in range(steps_num):
             s_angle = -90 + 30 * i
@@ -715,16 +735,16 @@ class Observatory(Materials):
                 fx, fy = self.point_on_circumference(f_angle, 4.3)
                 f_scale = Vec3(0.15, 0.15, 2.2 + j * 0.4)
                 f_pos = Point3(center.x + fx, center.y + fy, s_pos.z + 0.25 + f_scale.z / 2)
-                self.block(f'spiral_fence_{i}{j}', steps, f_pos, f_scale, bitmask=BitMask32.bit(3))
+                self.block(f'spiral_fence_{i}{j}', steps, f_pos, f_scale, bitmask=prevention_mask)
 
         # handrail of the spiral staircase
         pos = center - Vec3(0, 0, 17)
         hpr = Vec3(-101, 0, 0)
         geomnode = RingShape(segs_rcnt=38, slope=0.5, ring_radius=4.3, section_radius=0.15)
-        self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=BitMask32.bit(3))
+        self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=prevention_mask)
 
         for i, pos in enumerate([Point3(9.2, -4.2, 3), Point3(8.5, 4.0, 22.05)]):
-            self.sphere_shape(f'handrail_sphere_{i}', steps, pos, Vec3(0.15), bitmask=BitMask32.bit(3))
+            self.sphere_shape(f'handrail_sphere_{i}', steps, pos, Vec3(0.15), bitmask=prevention_mask)
 
         # stair landings
         landing_positions = [
@@ -740,7 +760,7 @@ class Observatory(Materials):
             if i > 0:
                 self.lift(f'landing_lift_{i}', invisible, block)
 
-                # post supporting landing
+                # pole supporting landing
                 support_pos = pos - Vec3(0, 0, 0.5)
                 scale = Vec3(0.5, 0.5, pos.z)
                 self.pole(f'support_{i}', posts, support_pos, scale, Vec2(4, 1))
@@ -784,7 +804,7 @@ class Observatory(Materials):
             for i, (diff_x, diff_y) in enumerate(v):
                 fence_pos = landing_pos + Vec3(diff_x, diff_y, 0.5)
                 hpr = Vec3(0, 90, 0) if diff_x == 0 else Vec3(90, 90, 0)
-                self.ring_shape(f'landing_fence_{k}{i}', steps, geomnode, fence_pos, hpr=hpr, bitmask=BitMask32.bit(3))
+                self.ring_shape(f'landing_fence_{k}{i}', steps, geomnode, fence_pos, hpr=hpr, bitmask=prevention_mask)
 
         steps.set_texture(self.steps_tex)
         landings.set_texture(self.landing_tex)
@@ -836,6 +856,7 @@ class Bridge(Materials):
             self.pole(f'column_{i}', columns, pos, Vec3(2, 2, 6), Vec2(2, 1), hpr=(0, 0, 180))
 
         # steps
+        prevention_mask = BitMask32.bit(3) | BitMask32.bit(2)
         diffs = [1.9, -1.9]
 
         for i in range(5):
@@ -853,7 +874,7 @@ class Bridge(Materials):
                 for k, diff_x in enumerate(diffs):
                     rail_pos = pos + Vec3(diff_x, 0, 2.5)
                     self.block(
-                        f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, -45, 0), bitmask=BitMask32.bit(3)
+                        f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, -45, 0), bitmask=prevention_mask
                     )
 
         # bridge rails
@@ -866,7 +887,7 @@ class Bridge(Materials):
             for j, (x, y) in enumerate(gen):
                 pos = Point3(x, y, 1.75)
                 self.block(
-                    f'bridge_rail_{i}{j}', girders, pos, scale, horizontal=False, bitmask=BitMask32.bit(3)
+                    f'bridge_rail_{i}{j}', girders, pos, scale, horizontal=False, bitmask=prevention_mask
                 )
         rail_blocks = [
             ((x, y + i) for i in range(17) for x in (1.875, -1.875) for y in (3.875, -19.875)),
@@ -925,6 +946,7 @@ class Tunnel(Materials):
         start_steps_y = [0.7, -80.7]
         start_z = -2.5
         diffs = [1.9, -1.9]
+        prevention_mask = BitMask32.bit(3) | BitMask32.bit(2)
 
         for i in range(steps_num):
             for start_y in start_steps_y:
@@ -950,7 +972,7 @@ class Tunnel(Materials):
         for x, y in ((x, y) for y in [2.3, -82.3] for x in diffs):
             hpr = (0, 45, 0) if y > 0 else (0, -45, 0)
             pos = Point3(x, y, -1.63)
-            self.block(f'handrail_{i}{j}', metal, pos, Vec3(0.15, 0.15, 4.5), hpr=hpr, bitmask=BitMask32.bit(3))
+            self.block(f'handrail_{i}{j}', metal, pos, Vec3(0.15, 0.15, 4.5), hpr=hpr, bitmask=prevention_mask)
 
         # rings supporting tunnel
         geomnode = RingShape(ring_radius=0.8, section_radius=0.1)
