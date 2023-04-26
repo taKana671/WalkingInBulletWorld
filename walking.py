@@ -1,4 +1,5 @@
 import sys
+import math
 
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
@@ -7,8 +8,7 @@ from direct.gui.DirectGui import OnscreenText
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletDebugNode
 from panda3d.core import NodePath, PandaNode, TextNode
-from panda3d.core import Vec3, Point3, BitMask32, Quat
-
+from panda3d.core import Vec3, Point3, BitMask32, Quat, LQuaternionf
 from lights import BasicAmbientLight, BasicDayLight
 from scene import Scene
 from walker import Walker
@@ -87,6 +87,10 @@ class Walking(ShowBase):
 
         self.taskMgr.add(self.update, 'update')
 
+        self.ok = False
+        self.i = 1
+        self.door_angle = 0
+
     def toggle_debug(self):
         if self.debug_np.is_hidden():
             self.debug_np.show()
@@ -129,6 +133,43 @@ class Walking(ShowBase):
         self.walker.play_anim(anim, rate)
 
     def print_info(self):
+        if self.ok:
+            self.scene.brick_house.brick_twist1.enable_motor(False)
+            self.scene.brick_house.brick_twist2.enable_motor(False)
+            self.door_angle = 90
+            self.ok = False
+        else:
+            self.scene.brick_house.brick_twist1.enable_motor(True)
+            self.scene.brick_house.brick_twist2.enable_motor(True)
+            self.door_angle = -90
+            self.ok = True
+
+        # print(self.scene.brick_house.brick_twist.getRigidBodyA())
+        # print(self.scene.brick_house.brick_twist.getRigidBodyB())
+        # print(self.scene.brick_house.brick_twist.getFrameA().get_pos())
+        # print(self.scene.brick_house.brick_twist.getFrameB().get_pos())
+
+        # rot = LQuaternionf(0, 0, 0, 0)
+        # rot.setFromAxisAngle(60, Vec3(1, 0, 0))
+        # node = NodePath(self.scene.brick_house.brick_twist.getRigidBodyB())
+        # node.set_quat(rot)
+        
+        
+        # self.scene.brick_house.brick_twist.set_target_velocity(10)
+
+        # self.scene.brick_house.brick_twist1.enable_motor(True)
+        # self.scene.brick_house.brick_twist2.enable_motor(True)
+        # rot = LQuaternionf(0, 0, 0, 0)
+        # rot.setFromAxisAngle(90, Vec3(0, 0, 1))
+        # # self.scene.brick_house.brick_twist.setMotorTarget(LQuaternionf(rot[0], rot[1], rot[2], rot[3]), 1)
+        # # q = node.get_quat()
+        # # print(q[0], q[1], q[2], q[3])
+        # self.scene.brick_house.brick_twist1.setMotorTarget(LQuaternionf(rot[0], rot[1], rot[2], rot[3]))
+        # self.scene.brick_house.brick_twist2.setMotorTarget(LQuaternionf(rot[0], rot[1], rot[2], rot[3]))
+        # # self.scene.brick_house.brick_twist.setMotorTarget((0.8660253882408142, 0.0, 0.0, 0.5))
+        # self.scene.brick_house.brick_twist1.enable_motor(False)
+        # self.scene.brick_house.brick_twist2.enable_motor(False)
+
         print('walker', self.walker.get_pos())
 
     def ray_cast(self, from_pos, to_pos):
@@ -192,6 +233,19 @@ class Walking(ShowBase):
     def update(self, task):
         dt = globalClock.get_dt()
         self.control_walker(dt)
+
+        if self.ok:
+            rot = LQuaternionf(0, 0, 0, 0)
+            rot.setFromAxisAngle(self.door_angle, Vec3(0, 0, 1))
+            # self.scene.brick_house.brick_twist.setMotorTarget(LQuaternionf(rot[0], rot[1], rot[2], rot[3]), 1)
+            # q = node.get_quat()
+            # print(q[0], q[1], q[2], q[3])
+            # self.scene.brick_house.brick_twist1.setMotorTarget(LQuaternionf(rot[0], rot[1], rot[2], rot[3]))
+            # self.scene.brick_house.brick_twist2.setMotorTarget(LQuaternionf(rot[0], rot[1], rot[2], rot[3]))
+            self.scene.brick_house.brick_twist1.setMotorTarget(rot)
+            self.scene.brick_house.brick_twist2.setMotorTarget(rot)
+
+
 
         if self.walker.is_ancestor_of(self.camera):
             self.control_camera_outdoors()

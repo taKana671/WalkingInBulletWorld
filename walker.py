@@ -43,7 +43,10 @@ class Walker(NodePath):
         self.world = world
         # bit(1): wall, floor, steps and so on, bit(3): fence, bit(4): lift
         self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(3) | BitMask32.bit(4))
-        self.set_pos(Point3(25, -10, 1))
+        # self.set_pos(Point3(25, -10, 1))
+
+        self.set_pos(Point3(44.3407, -38.7004, 2.15644))
+        
         self.set_scale(0.5)
         self.reparent_to(base.render)
         self.world.attach_character(self.node())
@@ -128,8 +131,9 @@ class Walker(NodePath):
         """
         for con in self.world.contact_test(detection_nd.node(), use_filter=True).get_contacts():
             if not con.get_node1().get_name().startswith('door'):
-                # print(con.get_node0().get_name(), con.get_node1().get_name())
+                print(con.get_node0().get_name(), con.get_node1().get_name())
                 return True
+            # return True
 
     def update(self, dt, direction, angle):
         orientation = self.direction_nd.get_quat(base.render).get_forward()

@@ -13,10 +13,10 @@ from panda3d.core import Vec3, Vec2, Point3
 from panda3d.core import CardMaker, Texture, TextureStage
 from panda3d.core import BitMask32, TransformState
 from panda3d.core import NodePath, PandaNode
-from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletSphereShape
+from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletSphereShape, BulletCapsuleShape
 from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.bullet import BulletRigidBodyNode
-from panda3d.bullet import BulletConeTwistConstraint
+from panda3d.bullet import BulletConeTwistConstraint, BulletGenericConstraint, BulletHingeConstraint
 
 from create_geomnode import Cube, RightTriangularPrism, Tube, RingShape, SphericalShape, Cylinder
 
@@ -186,6 +186,7 @@ class Materials:
 
     def door(self, name, parent, pos, scale, static_body, hpr=None, horizontal=True, left_hinge=True):
         door = self.block(name, parent, pos, scale, hpr, horizontal, active_always=True, bitmask=BitMask32.allOn())
+        # door = self.block(name, parent, pos, scale, hpr, horizontal, active_always=False, bitmask=BitMask32.allOn())
         self.knob(door, left_hinge)
 
         end, tip = door.get_tight_bounds()
@@ -196,16 +197,93 @@ class Materials:
         door_x = -(door_size.x / 2) if left_hinge else door_size.x / 2
         wall_x = static_size.x / 2 if left_hinge else -static_size.x / 2
 
-        twist = BulletConeTwistConstraint(
+        # twist = BulletConeTwistConstraint(
+        #     static_body.node(),
+        #     door.node(),
+        #     TransformState.make_pos(Point3(wall_x, static_size.y / 2, 0)),
+        #     TransformState.make_pos(Point3(door_x, door_size.y / 2, 0)),
+        # )
+        twist1 = BulletConeTwistConstraint(
             static_body.node(),
             door.node(),
-            TransformState.make_pos(Point3(wall_x, static_size.y / 2, 0)),
-            TransformState.make_pos(Point3(door_x, door_size.y / 2, 0)),
+            TransformState.make_pos(Point3(wall_x, 0, static_size.z / 2)),
+            TransformState.make_pos(Point3(door_x, 0, door_size.z / 2)),
         )
 
-        twist.setLimit(60, 60, 0, softness=0.1, bias=0.1, relaxation=8.0)
-        # twist.setLimit(60, 60, 0, softness=0.9, bias=0.3, relaxation=1.0)
-        self.world.attach_constraint(twist)
+        # wall_x = static_size.x / 2 if left_hinge else -static_size.x / 2
+
+        # twist1.enable_motor(True)
+        # twist1.setLimit(60, 60, 0, softness=0.1, bias=0.1, relaxation=8.0)
+        twist1.setLimit(60, 60, 0, softness=0.9, bias=0.3, relaxation=1.0)
+        self.world.attach_constraint(twist1, True)
+
+        twist2 = BulletConeTwistConstraint(
+            static_body.node(),
+            door.node(),
+            TransformState.make_pos(Point3(wall_x, 0, -static_size.z / 2)),
+            TransformState.make_pos(Point3(door_x, 0, -door_size.z / 2)),
+        )
+
+
+        # twist2 = BulletConeTwistConstraint(
+        #     self.small_room.node(),
+        #     door.node(),
+        #     TransformState.make_pos(Point3(door_x, -1.5, 1.5)),
+        #     TransformState.make_pos(Point3(door_x, 0, -door_size.z / 2)),
+        # )
+
+
+
+        # twist2.enable_motor(True)
+        # twist2.setLimit(60, 60, 0, softness=0.1, bias=0.1, relaxation=8.0)
+        twist2.setLimit(60, 60, 0, softness=0.9, bias=0.3, relaxation=1.0)
+        self.world.attach_constraint(twist2, True)
+        self.h_door = door
+        return twist1, twist2
+
+        # twist = BulletGenericConstraint(
+        #     static_body.node(),
+        #     door.node(),
+        #     TransformState.make_pos_hpr(Point3(wall_x, static_size.y / 2, 0), Vec3(0, 90, 0)),
+        #     TransformState.make_pos_hpr(Point3(door_x, door_size.y / 2, 0), Vec3(0, 90, 0)),
+        #     True
+        # )
+
+        # # twist.setLimit(60, 60, 0, softness=0.1, bias=0.1, relaxation=8.0)
+        # # twist.setLimit(60, 60, 0, softness=0.9, bias=0.3, relaxation=1.0)
+        
+        # twist.set_debug_draw_size(1)
+        # twist.setAngularLimit(0, 0, 0)
+        # twist.set_angular_limit(1, -60, 0)
+        # twist.set_angular_limit(2, 0, 0)
+        # # twist.set_linear_limit(1, 0, 0.2)
+        # self.world.attach_constraint(twist)
+        # motor = twist.get_rotational_limit_motor(1) 
+        # motor.set_motor_enabled(True)
+        # motor.setTargetVelocity(-10)
+        # return motor
+
+
+        # hinge = BulletHingeConstraint(
+        #     static_body.node(),
+        #     door.node(),
+        #     Vec3(wall_x, static_size.y / 2, 0),
+        #     Vec3(door_x, door_size.y / 2, 0),
+        #     Vec3(0, 1, 0),
+        #     Vec3(0, 1, 0),
+        #     True,
+        # )
+        # # hinge.enable_motor(True)
+        # hinge.enableAngularMotor(True, 1, 1)
+        # hinge.setDebugDrawSize(2.0)
+        # hinge.setLimit(-90, 120, softness=0.9, bias=0.3, relaxation=1.0)  # 1.0
+        # self.world.attachConstraint(hinge, True)
+        # return hinge
+
+
+
+
+
 
     def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True, bitmask=BitMask32.bit(3), hide=False):
         if not hpr:
@@ -442,14 +520,14 @@ class StoneHouse(Materials):
                         f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, 45, 0), bitmask=prevention_mask_fence
                     )
 
-        # doors
-        doors_data = [
-            [Point3(-1, -8.25, 2.5), Vec3(2, 0.5, 4), wall1_l, True],    # left door of the room on the 1st floor
-            [Point3(1, -8.25, 2.5), Vec3(2, 0.5, 4), wall1_r, False],    # left door of the room on the 1st floor
-            [Point3(-10, 0.25, 9), Vec3(3, 0.5, 4), wall2_l, True]       # foor ofr the room on the 2nd floor
-        ]
-        for i, (pos, scale, body, hinge) in enumerate(doors_data):
-            self.door(f'door_{i}', doors, pos, scale, body, horizontal=True, left_hinge=hinge)
+        # # doors
+        # doors_data = [
+        #     [Point3(-1, -8.25, 2.5), Vec3(2, 0.5, 4), wall1_l, True],    # left door of the room on the 1st floor
+        #     [Point3(1, -8.25, 2.5), Vec3(2, 0.5, 4), wall1_r, False],    # left door of the room on the 1st floor
+        #     [Point3(-10, 0.25, 9), Vec3(3, 0.5, 4), wall2_l, True]       # foor ofr the room on the 2nd floor
+        # ]
+        # for i, (pos, scale, body, hinge) in enumerate(doors_data):
+        #     self.door(f'door_{i}', doors, pos, scale, body, horizontal=True, left_hinge=hinge)
 
         doors.set_texture(self.door_tex)
         walls.set_texture(self.wall_tex)
@@ -498,7 +576,9 @@ class BrickHouse(Materials):
         ]
         for i, (pos, scale) in enumerate(pos_scale):
             self.block(f'room_brick{i}', floors, pos, scale)
-
+            if i == 1:
+                self.small_room = self.block(f'room_brick{i}', floors, pos, scale)
+        
         # room_camera
         self.room_camera('room_brick1_camera', room_camera, Point3(3, 3, 5.5))
 
@@ -545,7 +625,8 @@ class BrickHouse(Materials):
             self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=prevention_mask_wall)
 
         # wall connected to the door
-        wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5), bitmask=prevention_mask_wall)
+        wall1_l1 = self.block('wall1_l1', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5), bitmask=prevention_mask_wall)
+        # wall1_l2 = self.block('wall1_l2', walls, Point3(3, -8.25, 5.25), Vec3(6, 0.5, 0.5), bitmask=prevention_mask_wall)
 
         # roofs
         pos_scale = [
@@ -556,7 +637,8 @@ class BrickHouse(Materials):
             self.block(f'roof_{i}', roofs, pos, scale)
 
         # doors
-        self.door('door_1', doors, Point3(3, -8.25, 3.25), Vec3(2, 0.5, 3.5), wall1_l)
+        # self.brick_twist = self.door('door_1', doors, Point3(3, -8.25, 3.25), Vec3(2, 0.5, 3.5), wall1_l)
+        self.brick_twist1, self.brick_twist2 = self.door('door_1', doors, Point3(3, -8.25, 3.25), Vec3(1.8, 0.5, 3.5), wall1_l1)
 
         floors.set_texture(self.floor_tex)
         walls.set_texture(self.wall_tex)
