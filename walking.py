@@ -235,6 +235,7 @@ class Walking(ShowBase):
         self.control_walker(dt)
 
         if self.ok:
+            # import pdb; pdb.set_trace()
             rot = LQuaternionf(0, 0, 0, 0)
             rot.setFromAxisAngle(self.door_angle, Vec3(0, 0, 1))
             # self.scene.brick_house.brick_twist.setMotorTarget(LQuaternionf(rot[0], rot[1], rot[2], rot[3]), 1)
