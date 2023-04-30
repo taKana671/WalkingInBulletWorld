@@ -88,7 +88,7 @@ class Scene(NodePath):
     def make_buildings(self):
 
         buildings = [
-            [StoneHouse, Point3(38, 75, 1), 0],
+            # [StoneHouse, Point3(38, 75, 1), 0],
             # [BrickHouse, Point3(50, -27, 0), -45],
             [Terrace, Point3(1, 1, -2), -180],
             [Observatory, Point3(-80, 80, -2.5), 45],
@@ -100,7 +100,12 @@ class Scene(NodePath):
             building.build()
 
         self.brick_house = BrickHouse(self.world, self.buildings, Point3(50, -27, 0), -45)
-        self.brick_house.build()
+        # self.brick_house.build()
+        self.brick_house.building.reparent_to(self.buildings)
+
+        self.stone_house = StoneHouse(self.world, self.buildings, Point3(38, 75, 1), 0)
+        self.stone_house.build()
+
 
     def make_terrain(self, img_file):
         img = PNMImage(Filename(img_file))

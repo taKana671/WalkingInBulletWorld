@@ -88,8 +88,9 @@ class Walking(ShowBase):
         self.taskMgr.add(self.update, 'update')
 
         self.ok = False
+        self.close = False
         self.i = 1
-        self.door_angle = 0
+        self.door_angle = 90
 
     def toggle_debug(self):
         if self.debug_np.is_hidden():
@@ -133,17 +134,17 @@ class Walking(ShowBase):
         self.walker.play_anim(anim, rate)
 
     def print_info(self):
-        if self.ok:
-            self.scene.brick_house.brick_twist1.enable_motor(False)
-            self.scene.brick_house.brick_twist2.enable_motor(False)
-            self.door_angle = 90
-            self.ok = False
-        else:
-            self.scene.brick_house.brick_twist1.enable_motor(True)
-            self.scene.brick_house.brick_twist2.enable_motor(True)
-            self.door_angle = -90
-            self.ok = True
-
+        # if self.ok:
+        #     self.scene.stone_house.l_twist_upper.enable_motor(False)
+        #     self.scene.stone_house.l_twist_lower.enable_motor(False)
+        #     self.door_angle = 90
+        #     self.ok = False
+        # else:
+        self.ok = True
+        self.scene.stone_house.l_twist_upper.enable_motor(True)
+        self.scene.stone_house.l_twist_lower.enable_motor(True)
+        self.door_angle = -90 if self.door_angle == 90 else 90
+    
         # print(self.scene.brick_house.brick_twist.getRigidBodyA())
         # print(self.scene.brick_house.brick_twist.getRigidBodyB())
         # print(self.scene.brick_house.brick_twist.getFrameA().get_pos())
@@ -235,18 +236,24 @@ class Walking(ShowBase):
         self.control_walker(dt)
 
         if self.ok:
-            # import pdb; pdb.set_trace()
+        #     # import pdb; pdb.set_trace()
+            angle = -20 * (self.i)
             rot = LQuaternionf(0, 0, 0, 0)
-            rot.setFromAxisAngle(self.door_angle, Vec3(0, 0, 1))
+            print(self.door_angle)
+
+            rot.setFromAxisAngle(angle, Vec3(0, 0, 1))
             # self.scene.brick_house.brick_twist.setMotorTarget(LQuaternionf(rot[0], rot[1], rot[2], rot[3]), 1)
             # q = node.get_quat()
             # print(q[0], q[1], q[2], q[3])
             # self.scene.brick_house.brick_twist1.setMotorTarget(LQuaternionf(rot[0], rot[1], rot[2], rot[3]))
             # self.scene.brick_house.brick_twist2.setMotorTarget(LQuaternionf(rot[0], rot[1], rot[2], rot[3]))
-            self.scene.brick_house.brick_twist1.setMotorTarget(rot)
-            self.scene.brick_house.brick_twist2.setMotorTarget(rot)
+            self.scene.stone_house.l_twist_upper.set_limit(0, angle)
+            self.scene.stone_house.l_twist_lower.set_limit(1, angle)
 
-
+            self.scene.stone_house.l_twist_upper.setMotorTarget(rot)
+            self.scene.stone_house.l_twist_lower.setMotorTarget(rot)
+            print(self.scene.stone_house.door_left.get_h())
+            self.i += 1
 
         if self.walker.is_ancestor_of(self.camera):
             self.control_camera_outdoors()
