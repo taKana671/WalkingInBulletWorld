@@ -13,7 +13,7 @@ from panda3d.core import Vec3, Vec2, Point3, LColor, Quat
 from panda3d.core import CardMaker, Texture, TextureStage
 from panda3d.core import BitMask32, TransformState
 from panda3d.core import NodePath, PandaNode
-from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletSphereShape, BulletCapsuleShape
+from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletSphereShape
 from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.bullet import BulletRigidBodyNode, BulletGhostNode
 from panda3d.bullet import BulletConeTwistConstraint, BulletSliderConstraint
@@ -77,6 +77,7 @@ class SlidingDoorSensor(DoorSensor):
             case DoorStatus.SENSING:
                 for node in self.node().get_overlapping_nodes():
                     if node != self.door.node():
+                        print(node.get_name())
                         self.state = DoorStatus.OPEN
 
             case DoorStatus.OPEN:
@@ -109,80 +110,34 @@ class SlidingDoorSensor(DoorSensor):
         return task.cont
 
 
-class ConeTwistDoorSensor(DoorSensor):
 
-    def __init__(self, name, model, pos, scale, door, twists, bitmask):
-        super().__init__(name, model, pos, scale, bitmask)
-        self.twist = twist
-        self.door = door
-        self.state = DoorStatus.SENSING
-        self.counter = 0
+class MaterialRoot(NodePath):
 
-    def detect(self, task):
-        match self.state:
-            case DoorStatus.SENSING:
-                for node in self.node().get_overlapping_nodes():
-                    if node != self.door.node():
-                        self.twist.enable_motor(True)
-                        rot = Quat()
-                        rot.setFromAxisAngle(-90, Vec3(0, 0, 1))
-                        self.twist.set_motor_target(rot)
-                        self.state = DoorStatus.WAITING
-                        self.state = DoorStatus.OPEN
-
-            case DoorStatus.OPEN:
-                self.counter += 1
-                if self.door.get_h() >= 85:
-                    
-                
-                if self.counter >= 20:
-                    self.counter = 0
-                    rot = Quat()
-                    rot.setFromAxisAngle(90, Vec3(0, 0, 1))
-                    self.twist.set_motor_target(rot)
-                    self.state = DoorStatus.CLOSE
-
-                # self.twist.enable_motor(True)
-                # rot = Quat()
-                # rot.setFromAxisAngle(-90, Vec3(0, 0, 1))
-                # self.twist.set_motor_target(rot)
-                # self.state = DoorStatus.WAITING
-
-            case DoorStatus.WAITING:
-                if self.door.get_h() >= 80:
-                    self.counter += 1
-
-                if self.counter >= 20:
-                    self.counter = 0
-                    rot = Quat()
-                    rot.setFromAxisAngle(90, Vec3(0, 0, 1))
-                    self.twist.set_motor_target(rot)
-                    self.state = DoorStatus.CLOSE
-
-            case DoorStatus.CLOSE:
-                print(self.door.get_h())
-                # pos = 2 - self.dist * self.rate
-                # self.slider.set_lower_linear_limit(pos)
-                # self.slider.set_upper_linear_limit(pos + 2)
-                # self.dist += 1
-
-                # if self.slider.getLinearPos() <= 0:
-                #     self.dist = 0
-                #     self.state = DoorStatus.SENSING
-
-        return task.cont
-
-
-
-
-class Block(NodePath):
-
-    def __init__(self, name, model, pos, hpr, scale, bitmask):
+    def __init__(self, name, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
-        self.model = model.copy_to(self)
         self.set_pos(pos)
         self.set_hpr(hpr)
         self.set_scale(scale)
+        self.set_collide_mask(bitmask)
+
+
+class Door(MaterialRoot):
+
+    def __init__(self, name, model, pos, hpr, scale, bitmask):
+        super().__init__(name, pos, hpr, scale, bitmask)
+        self.model = model.copy_to(self)
+        end, tip = self.model.get_tight_bounds()
+        shape = BulletBoxShape((tip - end) / 2)
+        self.node().add_shape(shape)
+        self.node().set_mass(1)
+        self.node().set_deactivation_enabled(False)
+
+
+class Block(MaterialRoot):
+
+    def __init__(self, name, model, pos, hpr, scale, bitmask):
+        super().__init__(name, pos, hpr, scale, bitmask)
+        self.model = model.copy_to(self)
         end, tip = self.model.get_tight_bounds()
         self.node().add_shape(BulletBoxShape((tip - end) / 2))
         self.set_collide_mask(bitmask)
@@ -200,19 +155,6 @@ class InvisibleLift(NodePath):
         self.set_collide_mask(bitmask)
         self.node().set_kinematic(True)
         self.hide()
-
-
-class Plane(NodePath):
-
-    def __init__(self, name, parent, model, pos):
-        super().__init__(BulletRigidBodyNode(name))
-        self.reparent_to(parent)
-        self.model = model
-        self.model.reparent_to(self)
-        self.set_pos(pos)
-        end, tip = self.model.get_tight_bounds()
-        self.node().add_shape(BulletBoxShape((tip - end) / 2))
-        self.set_collide_mask(BitMask32.bit(1))
 
 
 class Convex(NodePath):
@@ -257,7 +199,7 @@ class Sphere(NodePath):
         self.set_scale(scale)
 
 
-class Materials:
+class Buildings:
 
     _textures = dict()
 
@@ -277,8 +219,7 @@ class Materials:
 
         return self._textures[image]
 
-    def block(self, name, parent, pos, scale, hpr=None, horizontal=True,
-              active_always=False, bitmask=BitMask32.bit(1), hide=False):
+    def block(self, name, parent, pos, scale, hpr=None, horizontal=True, bitmask=BitMask32.bit(1), hide=False):
         if not hpr:
             hpr = Vec3(0, 0, 0) if horizontal else Vec3(90, 0, 0)
 
@@ -286,10 +227,6 @@ class Materials:
         su = (scale.x * 2 + scale.y * 2) / 4
         sv = scale.z / 4
         block.set_tex_scale(TextureStage.get_default(), su, sv)
-
-        if active_always:
-            block.node().set_mass(1)
-            block.node().set_deactivation_enabled(False)
 
         if hide:
             block.hide()
@@ -312,20 +249,26 @@ class Materials:
         self.world.attach(lift.node())
         return lift
 
-    def knob(self, door, name, pos, scale, color):
+    def knob(self, door, name, pos, color=LColor(0, 0, 0, 1)):
+        end, tip = door.get_tight_bounds()
+        scale = Vec3((tip - end).y + 1, 0.05, 0.05)
         hpr = Vec3(90, 0, 0)
-        # scale = Vec3(1.5, 0.05, 0.05)
         knob = Block(name, self.cube, pos, hpr, scale, BitMask32.bit(1))
         knob.set_hpr(hpr)
         knob.set_color(color)
         knob.reparent_to(door)
 
-    def door(self, name, parent, pos, scale, knob_pos, knob_color=LColor(0, 0, 0, 1)):
-        door = self.block(name, parent, pos, scale, active_always=True, bitmask=BitMask32.allOn())
-        end, tip = door.get_tight_bounds()
-        knob_scale = Vec3((tip - end).y + 1, 0.05, 0.05)
-        self.knob(door, f'{name}_knob', knob_pos, knob_scale, knob_color)
+    def door(self, name, parent, pos, scale, hpr=None, horizontal=True):
+        if not hpr:
+            hpr = Vec3(0, 0, 0) if horizontal else Vec3(90, 0, 0)
 
+        door = Door(name, self.cube, pos, hpr, scale, BitMask32.allOn())
+        su = (scale.x * 2 + scale.y * 2) / 4
+        sv = scale.z / 4
+        door.set_tex_scale(TextureStage.get_default(), su, sv)
+
+        door.reparent_to(parent)
+        self.world.attach(door.node())
         return door
 
     def twist(self, door, wall, door_frame, wall_frame):
@@ -335,9 +278,8 @@ class Materials:
             TransformState.make_pos(wall_frame),
             TransformState.make_pos(door_frame)
         )
-        # twist.enable_motor(True)
         twist.setDebugDrawSize(2.0)
-        twist.setLimit(90, 90, 0, softness=0.9, bias=0.3, relaxation=4.0)
+        twist.setLimit(0, 120, 0, softness=0.9, bias=0.3, relaxation=4.0)
         self.world.attach_constraint(twist, True)
 
         return twist
@@ -359,15 +301,6 @@ class Materials:
 
     def door_sensor(self, name, sensor_cls, parent, pos, scale, door, hinge):
         sensor = sensor_cls(name, self.cube, pos, scale, door, hinge, BitMask32.bit(5))
-        sensor.hide()
-        sensor.reparent_to(parent)
-        self.world.attach_ghost(sensor.node())
-        # base.taskMgr.add(sensor.detect, name)
-
-        return sensor
-
-    def cone_twist_door_sensor(self, name, parent, pos, scale, door, hinge):
-        sensor = ConeTwistDoorSensor('brick_sensor', self.cube, pos, scale, door, hinge, BitMask32.bit(5))
         sensor.hide()
         sensor.reparent_to(parent)
         self.world.attach_ghost(sensor.node())
@@ -406,24 +339,6 @@ class Materials:
         room_camera.set_color((0, 0, 0, 1))
         return room_camera
 
-    def plane(self, name, parent, pos, rows, cols, size=2):
-        model = NodePath(PandaNode(f'{name}Model'))
-        card = CardMaker('card')
-        half = size / 2
-        card.set_frame(-half, half, -half, half)
-
-        for r in range(rows):
-            for c in range(cols):
-                g = model.attach_new_node(card.generate())
-                g.setP(-90)
-                x = (c - cols / 2) * size
-                y = (r - rows / 2) * size
-                g.set_pos(x, y, 0)
-
-        plane = Plane(name, parent, model, pos)
-        self.world.attach(plane.node())
-        return plane
-
     def point_on_circumference(self, angle, radius):
         rad = math.radians(angle)
         x = math.cos(rad) * radius
@@ -461,7 +376,7 @@ class Materials:
         return sphere
 
 
-class StoneHouse(Materials):
+class StoneHouse(Buildings):
 
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)
@@ -531,19 +446,21 @@ class StoneHouse(Materials):
         for i, (pos, scale, hor) in enumerate(walls_1st_floor):
             self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=prevention_mask_wall)
 
-        # walls connected to the doors on the 1st floor
-        wall1_l = self.block('wall1_fl', walls, Point3(-4, -8.25, 2.5), Vec3(4, 0.5, 4), bitmask=prevention_mask_wall)    # front left
-        wall1_r = self.block('wall1_fr', walls, Point3(4, -8.25, 2.5), Vec3(4, 0.5, 4), bitmask=prevention_mask_wall)     # front right
+        # left door on the 1st floor
+        wall1_l = self.block('wall1_l', walls, Point3(-4, -8.25, 2.5), Vec3(4, 0.5, 4), bitmask=prevention_mask_wall)
+        door1_l = self.door('door1_l', doors, Point3(-1, -8.25, 2.5), Vec3(2, 0.5, 4))
+        self.knob(door1_l, 'knob1_l', Point3(0.4, 0, 0))
 
-        # doors_data = [
-        #     [Point3(-1, -8.25, 2.5), Vec3(2, 0.5, 4), wall1_l, True],    # left door of the room on the 1st floor
-        #     [Point3(1, -8.25, 2.5), Vec3(2, 0.5, 4), wall1_r, False],    # left door of the room on the 1st floor
+        for h in [1.8, -1.8]:
+            self.twist(door1_l, wall1_l, Point3(-1, 0, h), Point3(2, 0, h))
 
-        self.door_left = self.door('door_left', doors, Point3(-1, -8.25, 2.5), Vec3(2, 0.5, 4), Point3(0.4, 0, 0))
-        self.l_twist_upper = self.twist(self.door_left, wall1_l, Point3(-1, 0, 1.8), Point3(2, 0, 1.8))
-        self.l_twist_lower = self.twist(self.door_left, wall1_l, Point3(-1, 0, -1.8), Point3(2, 0, -1.8))
-        sensor = self.cone_twist_door_sensor('sensor_1', invisible, Point3(0, -8.5, -0), Vec3(4, 3, 1), self.door_left, self.l_twist_upper)
-        base.taskMgr.add(sensor.detect, 'sensor_1')
+        # right door on the 1st floor
+        wall1_r = self.block('wall1_r', walls, Point3(4, -8.25, 2.5), Vec3(4, 0.5, 4), bitmask=prevention_mask_wall)
+        door1_r = self.door('door1_r', doors, Point3(1, -8.25, 2.5), Vec3(2, 0.5, 4))
+        self.knob(door1_r, 'knob1_r', Point3(-0.4, 0, 0))
+
+        for h in [1.8, -1.8]:
+            self.twist(door1_r, wall1_r, Point3(1, 0, h), Point3(-2, 0, h))
 
         # 2nd floor
         pos_scale = [
@@ -575,7 +492,14 @@ class StoneHouse(Materials):
             [Point3(-13.75, 4, 12), Vec3(8, 0.5, 2), False],        # left
             [Point3(5.75, 4.25, 10), Vec3(7.5, 0.5, 6), False],     # right
             [Point3(-4, 8.25, 10), Vec3(20, 0.5, 6), True],         # rear
-            [Point3(-7.25, 0.25, 9), Vec3(2.5, 0.5, 4), True],      # front
+            
+            [Point3(-6.5, 0.25, 9), Vec3(1, 0.5, 4), True],         
+            [Point3(-7.75, 0.125, 9), Vec3(1.5, 0.25, 4), True],
+            # [Point3(-7.25, 0.25, 9), Vec3(2.5, 0.5, 4), True],      # front
+            [Point3(-13.25, 0.25, 9), Vec3(0.5, 0.5, 4), True],
+            [Point3(-12.25, 0.125, 9), Vec3(1.5, 0.25, 4), True],
+            
+            
             [Point3(-9.75, 0.25, 12), Vec3(7.5, 0.5, 2), True],     # front
             [Point3(0, 0.25, 8), Vec3(12, 0.5, 2), True],           # front
             [Point3(-4, 0.25, 10), Vec3(4, 0.5, 2), True],          # front
@@ -586,7 +510,18 @@ class StoneHouse(Materials):
             self.block(f'wall2_{i}', walls, pos, scale, horizontal=hor, bitmask=prevention_mask_wall)
 
         # walls connected to the door on the 2nd floor
-        wall2_l = self.block('wall2_l', walls, Point3(-12.5, 0.25, 9), Vec3(2, 0.5, 4), bitmask=prevention_mask_wall)
+        
+        wall2_l = self.block('wall2_l', invisible, Point3(-12.25, 0.375, 9), Vec3(1.5, 0.25, 4), bitmask=prevention_mask_wall, hide=True)
+        door2_l = self.door('door2_l', doors, Point3(-10.75, 0.375, 9), Vec3(1.5, 0.25, 4))
+        self.knob(door2_l, 'knob2_l', Point3(0.3, 0, 0))
+        slider = self.slider(door2_l, wall2_l, Point3(-0.75, 0, 0), Point3(0.75, 0, 0))
+        
+        # wall2_r = self.block('wall2_r', invisible, Point3(-7.75, 0.375, 9), Vec3(1.5, 0.25, 4), bitmask=prevention_mask_wall, hide=True)
+        # door2_r = self.door('door2_r', doors, Point3(-9.25, 0.375, 9), Vec3(1.5, 0.25, 4))
+        # self.knob(door2_r, 'knob2_r', Point3(-0.3, 0, 0))
+        
+        self.sensor = self.door_sensor('stone_sensor', SlidingDoorSensor, invisible, Point3(-10, -0, 6.75), Vec3(3, 4, 0.5), door2_l, slider)
+        base.taskMgr.add(self.sensor.detect, 'stone_detect')
 
         # roof
         self.block('roof', floors, Point3(-4, 4.25, 13.25), Vec3(20, 8.5, 0.5))
@@ -677,7 +612,7 @@ class StoneHouse(Materials):
 
 
 
-class BrickHouse(Materials):
+class BrickHouse(Buildings):
 
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)
@@ -767,8 +702,10 @@ class BrickHouse(Materials):
 
         # door
         wall_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5), bitmask=prevention_mask_wall)
-        door = self.door('door_1', doors, Point3(3, -8.125, 3.25), Vec3(2, 0.25, 3.5), Point3(0.4, 0, 0))
-        slider = self.slider(door, wall_l, Point3(-0.95, 0, 0), Point3(1, 0, 0))
+        door = self.door('door_1', doors, Point3(3, -8.125, 3.25), Vec3(2, 0.25, 3.5))
+        self.knob(door, 'knob_1', Point3(0.4, 0, 0))
+        # slider = self.slider(door, wall_l, Point3(-0.95, 0, 0), Point3(1, 0, 0))
+        slider = self.slider(door, wall_l, Point3(-1, 0, 0), Point3(1, 0, 0))
         self.sensor = self.door_sensor('brick_sensor', SlidingDoorSensor, invisible, Point3(3, -8.25, 1), Vec3(2, 3, 1), door, slider)
 
         # roofs
@@ -786,7 +723,7 @@ class BrickHouse(Materials):
         # self.building.flatten_strong()
 
 
-class Terrace(Materials):
+class Terrace(Buildings):
 
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)
@@ -906,7 +843,7 @@ class Terrace(Materials):
         self.terrace.flatten_strong()
 
 
-class Observatory(Materials):
+class Observatory(Buildings):
 
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)
@@ -1033,7 +970,7 @@ class Observatory(Materials):
         self.observatory.flatten_strong()
 
 
-class Bridge(Materials):
+class Bridge(Buildings):
 
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)
@@ -1126,7 +1063,7 @@ class Bridge(Materials):
         self.bridge.flatten_strong()
 
 
-class Tunnel(Materials):
+class Tunnel(Buildings):
 
     def __init__(self, world, parent, center, h=0):
         super().__init__(world)

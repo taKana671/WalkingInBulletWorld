@@ -129,10 +129,10 @@ class Walker(NodePath):
                 detection_nd (CollisionDetection): specify self.detection_nd_f or self.detection_nd_b
         """
         for con in self.world.contact_test(detection_nd.node(), use_filter=True).get_contacts():
-            if not con.get_node1().get_name().startswith('door'):
+            # if not con.get_node1().get_name().startswith('door'):
                 # print(con.get_node0().get_name(), con.get_node1().get_name())
-                return True
-            # return True
+                # return True
+            return True
 
     def update(self, dt, direction, angle):
         orientation = self.direction_nd.get_quat(base.render).get_forward()
