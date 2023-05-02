@@ -88,24 +88,16 @@ class Scene(NodePath):
     def make_buildings(self):
 
         buildings = [
-            # [StoneHouse, Point3(38, 75, 1), 0],
-            # [BrickHouse, Point3(50, -27, 0), -45],
+            [StoneHouse, Point3(38, 75, 1), 0],
+            [BrickHouse, Point3(50, -27, 0), -45],
             [Terrace, Point3(1, 1, -2), -180],
             [Observatory, Point3(-80, 80, -2.5), 45],
             [Bridge, Point3(38, 43, 1), 0],
             [Tunnel, Point3(-45, -68, 3), 222],
         ]
-        for bldg, pos, h in buildings:
-            building = bldg(self.world, self.buildings, pos, h)
-            building.build()
-
-        self.brick_house = BrickHouse(self.world, self.buildings, Point3(50, -27, 0), -45)
-        # self.brick_house.build()
-        self.brick_house.building.reparent_to(self.buildings)
-
-        self.stone_house = StoneHouse(self.world, self.buildings, Point3(38, 75, 1), 0)
-        self.stone_house.build()
-
+        for bldg_cls, pos, h in buildings:
+            bldg = bldg_cls(self.world, pos, h)
+            bldg.building.reparent_to(self.buildings)
 
     def make_terrain(self, img_file):
         img = PNMImage(Filename(img_file))
