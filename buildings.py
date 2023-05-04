@@ -10,7 +10,7 @@ from enum import Enum, auto
 from itertools import product, chain
 
 from panda3d.core import Vec3, Vec2, Point3, LColor, Quat
-from panda3d.core import CardMaker, Texture, TextureStage
+from panda3d.core import Texture, TextureStage
 from panda3d.core import BitMask32, TransformState
 from panda3d.core import NodePath, PandaNode
 from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletSphereShape
@@ -61,31 +61,39 @@ class SlidingDoor(BulletSliderConstraint):
         # self.set_powered_linear_motor(True)
         # self.set_target_linear_motor_velocity(0.1)
         self.door_nd = door_nd
-        self.slider_start_pos = 0
-        # The end pos of a slider sliding leftward is positive, and that of a slider sliding rightward is negative.
-        self.slider_end_pos = -ts_door_frame.get_pos().x * 2
-        # The direction of a slider sliding leftward is 1, and that of a slider sliding rightward is -1.
-        self.direction = 1 if self.slider_end_pos > 0 else -1
+        # positive if the slider moves leftward, negative if the slider moves rightward.
+        self.total_distance = -ts_door_frame.get_pos().x * 2
+        # 1 if the slider moves leftward is 1, and that of a slider sliding rightward is -1.
+        self.direction = 1 if self.total_distance > 0 else -1
 
-    def slide_in(self, distance):
-        val = distance * self.direction
-        self.set_lower_linear_limit(val)
-        self.set_upper_linear_limit(val)
+        self.opened_pos = self.total_distance * self.direction
+        self.closed_pos = 0
+        self.amount = 0
+        self.rate = 0.02
 
-    def slide_out(self, distance):
-        val = self.slider_end_pos - distance * self.direction
-        self.set_lower_linear_limit(val)
-        self.set_upper_linear_limit(val)
+    def slide(self, distance):
+        self.set_lower_linear_limit(distance)
+        self.set_upper_linear_limit(distance)
 
-    def is_open(self):
-        if self.get_linear_pos() * self.direction >= self.slider_end_pos * self.direction:
+    def open(self):
+        if self.get_linear_pos() * self.direction >= self.opened_pos:
+            self.amount = 0
             return True
 
-    def is_close(self):
-        if self.get_linear_pos() * self.direction <= self.slider_start_pos:
+        self.amount += 1
+        distance = self.amount * self.rate * self.direction
+        self.slide(distance)
+
+    def close(self):
+        if self.get_linear_pos() * self.direction <= self.closed_pos:
             # prevents doors from colliding with each other to break.
-            self.slide_in(0)
+            self.amount = 0
+            self.slide(0)
             return True
+
+        self.amount += 1
+        distance = self.total_distance - self.amount * self.rate * self.direction
+        self.slide(distance)
 
 
 class ConeTwistDoor(BulletConeTwistConstraint):
@@ -93,7 +101,8 @@ class ConeTwistDoor(BulletConeTwistConstraint):
     def __init__(self, door_nd, wall_nd, ts_door_frame, ts_wall_frame, inward=True):
         super().__init__(door_nd, wall_nd, ts_door_frame, ts_wall_frame)
         self.setDebugDrawSize(2.0)
-        self.setLimit(0, 120, 0)  #, softness=0.9, bias=0.3, relaxation=4.0)
+        # self.setLimit(0, 120, 0, softness=0.9, bias=0.3, relaxation=4.0)
+        self.setLimit(0, 120, 0)
         self.door_nd = door_nd
 
         self.direction = 1 if ts_door_frame.get_pos().x < 0 else -1  # Door opends inwards
@@ -104,36 +113,42 @@ class ConeTwistDoor(BulletConeTwistConstraint):
         self.min_angle = 0
         self.rot_axis = Vec3.up()  # Vec3(0, 0, 1)
         self.current_angle = 0
+        self.rot = Quat()
 
     def rotate(self, angle):
-        rot = Quat()
-        rot.set_from_axis_angle(angle * self.direction, self.rot_axis)
+        self.rot.set_from_axis_angle(angle * self.direction, self.rot_axis)
         self.set_limit(self.min_angle, angle)
-        self.set_motor_target(rot)
+        self.set_motor_target(self.rot)
 
     def open(self):
-        self.current_angle += 1
-        self.rotate(self.current_angle)
-
-    def close(self):
-        self.current_angle -= 1
-        self.rotate(self.current_angle)
-
-    def has_opened(self):
         if self.current_angle >= self.max_angle:
             return True
 
-    def has_closed(self):
+        self.current_angle += 1
+        self.rotate(self.current_angle)
+        return False
+
+    def close(self):
         if self.current_angle <= self.min_angle:
             return True
+
+        self.current_angle -= 1
+        self.rotate(self.current_angle)
+
+    def activate_twist(self):
+        self.enable_motor(True)
+        self.rotate(0)
+
+    def deactivate_twist(self):
+        self.enable_motor(False)
 
 
 class AutoDoorSensor(NodePath):
 
-    def __init__(self, name, model, pos, scale, bitmask):
+    def __init__(self, name, world, geom_np, pos, scale, bitmask):
         super().__init__(BulletGhostNode(name))
-        geom_nd = model.copy_to(self)
-        nd = geom_nd.node()
+        geom_np = geom_np.copy_to(self)
+        nd = geom_np.node()
         geom = nd.get_geom(0)
         shape = BulletConvexHullShape()
         shape.add_geom(geom)
@@ -142,23 +157,31 @@ class AutoDoorSensor(NodePath):
         self.set_pos(pos)
         self.set_collide_mask(bitmask)
 
+        self.world = world
+        self.state = SensorStatus.WAITING
+        self.timer = 0
+
     def sense_person(self):
         for node in self.node().get_overlapping_nodes():
-            print(node.get_name())
+            # print(node.get_name())
             if all(node != door for door in self.doors):
                 return True
+
+    def make_emergency_stop(self):
+        for door in self.doors:
+            for con in self.world.contact_test(door).get_contacts():
+                # print(con.get_node0().get_name(), con.get_node1().get_name())
+                if con.get_node1().get_name().startswith(('character', 'detect')):
+                    return True
 
 
 class SlidingDoorSensor(AutoDoorSensor):
 
-    def __init__(self, name, model, pos, scale, bitmask, *sliders):
-        super().__init__(name, model, pos, scale, bitmask)
+    def __init__(self, name, world, geom_np, pos, scale, bitmask, *sliders):
+        super().__init__(name, world, geom_np, pos, scale, bitmask)
         self.sliders = sliders
         self.doors = [slider.door_nd for slider in sliders]
-        self.state = SensorStatus.WAITING
-        self.dist = 0
-        self.rate = 0.02
-        self.timer = 0
+        self.keep_time = 10
 
     def detect(self, task):
         match self.state:
@@ -167,16 +190,12 @@ class SlidingDoorSensor(AutoDoorSensor):
                     self.state = SensorStatus.OPEN
 
             case SensorStatus.OPEN:
-                self.dist += 1
-                is_open = True
-
+                result = True
                 for slider in self.sliders:
-                    if not slider.is_open():
-                        slider.slide_in(self.dist * self.rate)
-                        is_open = False
+                    if not slider.open():
+                        result = False
 
-                if is_open:
-                    self.dist = 0
+                if result:
                     self.state = SensorStatus.CHECKING
 
             case SensorStatus.CHECKING:
@@ -186,7 +205,7 @@ class SlidingDoorSensor(AutoDoorSensor):
             case SensorStatus.KEEP_TIME:
                 self.timer += 1
 
-                if self.timer >= 10:
+                if self.timer >= self.keep_time:
                     self.timer = 0
                     self.state = SensorStatus.CLOSE
 
@@ -194,16 +213,11 @@ class SlidingDoorSensor(AutoDoorSensor):
                 if self.sense_person():
                     self.state = SensorStatus.OPEN
                 else:
-                    self.dist += 1
-                    is_close = True
-
+                    result = True
                     for slider in self.sliders:
-                        if not slider.is_close():
-                            slider.slide_out(self.dist * self.rate)
-                            is_close = False
-
-                    if is_close:
-                        self.dist = 0
+                        if not slider.close():
+                            result = False
+                    if result:
                         self.state = SensorStatus.WAITING
 
         return task.cont
@@ -211,31 +225,29 @@ class SlidingDoorSensor(AutoDoorSensor):
 
 class ConeTwistDoorSensor(AutoDoorSensor):
 
-    def __init__(self, name, model, pos, scale, bitmask, *twists):
-        super().__init__(name, model, pos, scale, bitmask)
+    def __init__(self, name, world, geom_np, pos, scale, bitmask, *twists):
+        super().__init__(name, world, geom_np, pos, scale, bitmask)
         self.twists = twists
-        self.doors = list(set(twist.door_nd for twist in twists))
-        self.state = SensorStatus.WAITING
-        self.timer = 0
+        self.doors = set(twist.door_nd for twist in twists)
+        self.keep_time = 20
 
     def detect(self, task):
+
         match self.state:
             case SensorStatus.WAITING:
                 if self.sense_person():
-                    print('its called')
                     for twist in self.twists:
-                        twist.enable_motor(True)
+                        twist.activate_twist()
                     self.state = SensorStatus.OPEN
 
             case SensorStatus.OPEN:
-                result = True
-                for twist in self.twists:
-                    if not twist.has_opened():
-                        twist.open()
-                        result = False
-
-                if result:
-                    self.state = SensorStatus.CHECKING
+                if not self.make_emergency_stop():
+                    result = True
+                    for twist in self.twists:
+                        if not twist.open():
+                            result = False
+                    if result:
+                        self.state = SensorStatus.CHECKING
 
             case SensorStatus.CHECKING:
                 if not self.sense_person():
@@ -243,21 +255,20 @@ class ConeTwistDoorSensor(AutoDoorSensor):
 
             case SensorStatus.KEEP_TIME:
                 self.timer += 1
-
-                if self.timer >= 20:
+                if self.timer >= self.keep_time:
                     self.timer = 0
                     self.state = SensorStatus.CLOSE
 
             case SensorStatus.CLOSE:
-                result = True
-
-                for twist in self.twists:
-                    if not twist.has_closed():
-                        result = False
-                        twist.close()
-
-                if result:
-                    self.state = SensorStatus.WAITING
+                if not self.make_emergency_stop():
+                    result = True
+                    for twist in self.twists:
+                        if not twist.close():
+                            result = False
+                    if result:
+                        for twist in self.twists:
+                            twist.deactivate_twist()
+                        self.state = SensorStatus.WAITING
 
         return task.cont
 
@@ -399,6 +410,7 @@ class Buildings:
             hpr = Vec3(0, 0, 0) if horizontal else Vec3(90, 0, 0)
 
         door = Door(name, self.cube, pos, hpr, scale, BitMask32.allOn())
+        # door = Door(name, self.cube, pos, hpr, scale, BitMask32.bit(1) | BitMask32.bit(2))
         su = (scale.x * 2 + scale.y * 2) / 4
         sv = scale.z / 4
         door.set_tex_scale(TextureStage.get_default(), su, sv)
@@ -408,15 +420,6 @@ class Buildings:
         return door
 
     def twist(self, door, wall, door_frame, wall_frame, inward=True):
-        # twist = BulletConeTwistConstraint(
-        #     wall.node(),
-        #     door.node(),
-        #     TransformState.make_pos(wall_frame),
-        #     TransformState.make_pos(door_frame)
-        # )
-        # twist.setDebugDrawSize(2.0)
-        # twist.setLimit(0, 120, 0, softness=0.9, bias=0.3, relaxation=4.0)
-        
         twist = ConeTwistDoor(
             door.node(),
             wall.node(),
@@ -439,9 +442,16 @@ class Buildings:
         self.world.attach_constraint(slider, True)
         return slider
 
-    # def sliding_door_sensor(self, name, parent, pos, scale, bitmask=BitMask32.bit(5), *door):
-    def sliding_door_sensor(self, name, parent, pos, scale, *door):
-        sensor = SlidingDoorSensor(name, self.cube, pos, scale, BitMask32.bit(5), *door)
+    def twist_door_sensor(self, name, parent, pos, scale, bitmask, *twists):
+        sensor = ConeTwistDoorSensor(name, self.world, self.cube, pos, scale, bitmask, *twists)
+        sensor.hide()
+        sensor.reparent_to(parent)
+        self.world.attach_ghost(sensor.node())
+
+        return sensor
+
+    def sliding_door_sensor(self, name, parent, pos, scale, bitmask, *door):
+        sensor = SlidingDoorSensor(name, self.world, self.cube, pos, scale, bitmask, *door)
         sensor.hide()
         sensor.reparent_to(parent)
         self.world.attach_ghost(sensor.node())
@@ -591,30 +601,23 @@ class StoneHouse(Buildings):
         for i, (pos, scale, hor) in enumerate(walls_1st_floor):
             self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=prevention_mask_wall)
 
-        # doors on the lst floor
-        door_scale = Vec3(2, 0.5, 4)
-        twists = []
-
-        # left
+        # left door on the lst floor
         wall1_l = self.block('wall1_l', walls, Point3(-4, -8.25, 2.5), Vec3(4, 0.5, 4), bitmask=prevention_mask_wall)
-        door1_l = self.door('door1_l', doors, Point3(-1, -8.25, 2.5), door_scale)
+        door1_l = self.door('door1_l', doors, Point3(-1, -8.25, 2.5), Vec3(2, 0.5, 4))
         self.knob(door1_l, 'knob1_l', Point3(0.4, 0, 0))
-
+        # right door on the lst floor
+        wall1_r = self.block('wall1_r', walls, Point3(4, -8.25, 2.5), Vec3(4, 0.5, 4), bitmask=prevention_mask_wall)
+        door1_r = self.door('door1_r', doors, Point3(1, -8.25, 2.5), Vec3(2, 0.5, 4))
+        self.knob(door1_r, 'knob1_r', Point3(-0.4, 0, 0))
+        # sensor of the doors on the lst floor
+        twists = []
         for h in [1.8, -1.8]:
             twists.append(self.twist(door1_l, wall1_l, Point3(-1, 0, h), Point3(2, 0, h)))
-
-        # right
-        wall1_r = self.block('wall1_r', walls, Point3(4, -8.25, 2.5), Vec3(4, 0.5, 4), bitmask=prevention_mask_wall)
-        door1_r = self.door('door1_r', doors, Point3(1, -8.25, 2.5), door_scale)
-        self.knob(door1_r, 'knob1_r', Point3(-0.4, 0, 0))
-
-        for h in [1.8, -1.8]:
             twists.append(self.twist(door1_r, wall1_r, Point3(1, 0, h), Point3(-2, 0, h)))
 
-        self.sensor1 = ConeTwistDoorSensor('sensor1_twist', self.cube, Point3(0, -7, 0), Vec3(4, 4, 1), BitMask32.bit(5), *twists)
-        self.sensor1.hide()
-        self.sensor1.reparent_to(invisible)
-        self.world.attach_ghost(self.sensor1.node())
+        self.sensor1 = self.twist_door_sensor(
+            'sensor1_twist', invisible, Point3(0, -8, 0), Vec3(4, 4, 1), BitMask32.bit(3), *twists
+        )
 
         # 2nd floor
         pos_scale = [
@@ -671,7 +674,9 @@ class StoneHouse(Buildings):
         self.knob(door2_r, 'knob2_r', Point3(-0.3, 0, 0))
         slider2 = self.slider(door2_r, wall2_r, Point3(0.75, 0, 0), Point3(-0.75, 0, 0))
 
-        self.sensor2 = self.sliding_door_sensor('stone_sensor2', invisible, Point3(-10, -0, 6.75), Vec3(3, 4, 0.5), slider1, slider2)
+        self.sensor2 = self.sliding_door_sensor(
+            'stone_sensor2', invisible, Point3(-10, -0, 6.75), Vec3(3, 4, 0.5), BitMask32.bit(5), slider1, slider2
+        )
 
         # roof
         self.block('roof', floors, Point3(-4, 4.25, 13.25), Vec3(20, 8.5, 0.5))
@@ -806,7 +811,8 @@ class BrickHouse(Buildings):
         door = self.door('door_1', doors, Point3(3, -8.125, 3.25), door_scale)
         self.knob(door, 'knob_1', Point3(0.4, 0, 0))
         slider = self.slider(door, wall_l, Point3(-1, 0, 0), Point3(1, 0, 0))
-        self.sensor = self.sliding_door_sensor('brick_sensor', invisible, Point3(3, -8.25, 1), Vec3(2, 3, 1), slider)
+        self.sensor = self.sliding_door_sensor(
+            'brick_sensor', invisible, Point3(3, -8.25, 1), Vec3(2, 3, 1), BitMask32.bit(5), slider)
 
         # roofs
         pos_scale = [
