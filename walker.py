@@ -44,8 +44,7 @@ class Walker(NodePath):
         self.world = world
         # bit(1): wall, floor, steps and so on, bit(3): fence, bit(4): lift
         self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(3) | BitMask32.bit(4) | BitMask32.bit(5))
-        # self.set_pos(Point3(25, -10, 1))
-        self.set_pos(Point3(37.2328, 53.0963, 2.92))
+        self.set_pos(Point3(25, -10, 1))
 
         self.set_scale(0.5)
         self.reparent_to(base.render)
