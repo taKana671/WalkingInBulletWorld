@@ -16,7 +16,7 @@ from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletSphereSh
 from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.bullet import BulletRigidBodyNode
 
-from automadic_doors import SlidingDoor, ConeTwistDoor, SlidingDoorSensor, ConeTwistDoorSensor
+from automatic_doors import SlidingDoor, ConeTwistDoor, SlidingDoorSensor, ConeTwistDoorSensor
 from create_geomnode import Cube, RightTriangularPrism, Tube, RingShape, SphericalShape, Cylinder
 
 
