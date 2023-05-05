@@ -86,11 +86,6 @@ class Walking(ShowBase):
 
         self.taskMgr.add(self.update, 'update')
 
-        self.ok = False
-        self.close = False
-        self.i = 1
-        self.door_angle = 0
-
     def toggle_debug(self):
         if self.debug_np.is_hidden():
             self.debug_np.show()
