@@ -95,9 +95,9 @@ class Scene(NodePath):
             [Bridge, Point3(38, 43, 1), 0],
             [Tunnel, Point3(-45, -68, 3), 222],
         ]
-        for bldg, pos, h in buildings:
-            building = bldg(self.world, self.buildings, pos, h)
-            building.build()
+        for bldg_cls, pos, h in buildings:
+            bldg = bldg_cls(self.world, pos, h)
+            bldg.building.reparent_to(self.buildings)
 
     def make_terrain(self, img_file):
         img = PNMImage(Filename(img_file))

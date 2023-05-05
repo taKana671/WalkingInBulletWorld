@@ -4,20 +4,19 @@ Textures: Eric Matyas (https://soundimage.org/attribution-info/)
 
 This module contains classes to build houses, bridges, tunnels and so on.
 """
-
 import math
 from enum import Enum
 from itertools import product, chain
 
-from panda3d.core import Vec3, Vec2, Point3
-from panda3d.core import CardMaker, Texture, TextureStage
+from panda3d.core import Vec3, Vec2, Point3, LColor
+from panda3d.core import Texture, TextureStage
 from panda3d.core import BitMask32, TransformState
 from panda3d.core import NodePath, PandaNode
 from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletSphereShape
 from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.bullet import BulletRigidBodyNode
-from panda3d.bullet import BulletConeTwistConstraint
 
+from automadic_doors import SlidingDoor, ConeTwistDoor, SlidingDoorSensor, ConeTwistDoorSensor
 from create_geomnode import Cube, RightTriangularPrism, Tube, RingShape, SphericalShape, Cylinder
 
 
@@ -38,89 +37,68 @@ class Images(Enum):
         return f'textures/{self.value}'
 
 
-class Block(NodePath):
+class Material(NodePath):
 
-    def __init__(self, name, model, pos, hpr, scale, bitmask):
+    def __init__(self, name, pos, hpr, scale, bitmask):
         super().__init__(BulletRigidBodyNode(name))
-        self.model = model.copy_to(self)
         self.set_pos(pos)
         self.set_hpr(hpr)
         self.set_scale(scale)
+        self.set_collide_mask(bitmask)
+
+
+class Block(Material):
+
+    def __init__(self, name, model, pos, hpr, scale, bitmask):
+        super().__init__(name, pos, hpr, scale, bitmask)
+        self.model = model.copy_to(self)
         end, tip = self.model.get_tight_bounds()
         self.node().add_shape(BulletBoxShape((tip - end) / 2))
         self.set_collide_mask(bitmask)
         self.node().set_mass(0)
 
 
-class InvisibleLift(NodePath):
+class InvisibleLift(Material):
 
     def __init__(self, name, shape, pos, hpr, scale, bitmask):
-        super().__init__(BulletRigidBodyNode(name))
-        self.set_pos(pos)
-        self.set_hpr(hpr)
-        self.set_scale(scale)
+        super().__init__(name, pos, hpr, scale, bitmask)
         self.node().add_shape(shape)
-        self.set_collide_mask(bitmask)
         self.node().set_kinematic(True)
         self.hide()
 
 
-class Plane(NodePath):
-
-    def __init__(self, name, parent, model, pos):
-        super().__init__(BulletRigidBodyNode(name))
-        self.reparent_to(parent)
-        self.model = model
-        self.model.reparent_to(self)
-        self.set_pos(pos)
-        end, tip = self.model.get_tight_bounds()
-        self.node().add_shape(BulletBoxShape((tip - end) / 2))
-        self.set_collide_mask(BitMask32.bit(1))
-
-
-class Convex(NodePath):
+class Convex(Material):
 
     def __init__(self, name, model, pos, hpr, scale, bitmask):
-        super().__init__(BulletRigidBodyNode(name))
+        super().__init__(name, pos, hpr, scale, bitmask)
         self.model = model.copy_to(self)
-        self.set_pos(pos)
-        self.set_hpr(hpr)
-        self.set_scale(scale)
         shape = BulletConvexHullShape()
         shape.add_geom(self.model.node().get_geom(0))
         self.node().add_shape(shape)
-        self.set_collide_mask(bitmask)
 
 
-class Ring(NodePath):
+class Ring(Material):
 
     def __init__(self, name, model, pos, hpr, scale, bitmask):
-        super().__init__(BulletRigidBodyNode(name))
+        super().__init__(name, pos, hpr, scale, bitmask)
         self.model = model.copy_to(self)
         mesh = BulletTriangleMesh()
         mesh.add_geom(self.model.node().get_geom(0))
         shape = BulletTriangleMeshShape(mesh, dynamic=False)
         self.node().add_shape(shape)
-        self.set_collide_mask(bitmask)
-        self.set_pos(pos)
-        self.set_hpr(hpr)
-        self.set_scale(scale)
 
 
-class Sphere(NodePath):
+class Sphere(Material):
 
     def __init__(self, name, model, pos, scale, bitmask):
-        super().__init__(BulletRigidBodyNode(name))
+        super().__init__(name, pos, Vec3(0), scale, bitmask)
         self.model = model.copy_to(self)
         end, tip = self.model.get_tight_bounds()
         size = tip - end
         self.node().add_shape(BulletSphereShape(size.z / 2))
-        self.set_collide_mask(bitmask)
-        self.set_pos(pos)
-        self.set_scale(scale)
 
 
-class Materials:
+class Buildings:
 
     _textures = dict()
 
@@ -140,8 +118,8 @@ class Materials:
 
         return self._textures[image]
 
-    def block(self, name, parent, pos, scale, hpr=None, horizontal=True,
-              active_always=False, bitmask=BitMask32.bit(1), hide=False):
+    def block(self, name, parent, pos, scale,
+              hpr=None, horizontal=True, bitmask=BitMask32.bit(1), hide=False, active=False):
         if not hpr:
             hpr = Vec3(0, 0, 0) if horizontal else Vec3(90, 0, 0)
 
@@ -150,12 +128,12 @@ class Materials:
         sv = scale.z / 4
         block.set_tex_scale(TextureStage.get_default(), su, sv)
 
-        if active_always:
-            block.node().set_mass(1)
-            block.node().set_deactivation_enabled(False)
-
         if hide:
             block.hide()
+
+        if active:
+            block.node().set_mass(1)
+            block.node().set_deactivation_enabled(False)
 
         block.reparent_to(parent)
         self.world.attach(block.node())
@@ -175,37 +153,75 @@ class Materials:
         self.world.attach(lift.node())
         return lift
 
-    def knob(self, parent, left_hinge):
-        x = 0.4 if left_hinge else -0.4
-        pos = Point3(x, 0, 0)
-        hpr = Vec3(90, 0, 0)
-        scale = Vec3(1.5, 0.05, 0.05)
-        knob = Block('knob', self.cube, pos, hpr, scale, BitMask32.bit(1))
-        knob.set_color(0, 0, 0, 1)
-        knob.reparent_to(parent)
-
-    def door(self, name, parent, pos, scale, static_body, hpr=None, horizontal=True, left_hinge=True):
-        door = self.block(name, parent, pos, scale, hpr, horizontal, active_always=True, bitmask=BitMask32.allOn())
-        self.knob(door, left_hinge)
-
+    def knob(self, door, name, pos, color=LColor(0, 0, 0, 1)):
         end, tip = door.get_tight_bounds()
-        door_size = tip - end
-        end, tip = static_body.get_tight_bounds()
-        static_size = tip - end
+        scale = Vec3((tip - end).y + 1, 0.05, 0.05)
+        hpr = Vec3(90, 0, 0)
+        knob = Block(name, self.cube, pos, hpr, scale, BitMask32.bit(1))
+        knob.set_hpr(hpr)
+        knob.set_color(color)
+        knob.reparent_to(door)
 
-        door_x = -(door_size.x / 2) if left_hinge else door_size.x / 2
-        wall_x = static_size.x / 2 if left_hinge else -static_size.x / 2
+    def twist(self, door, wall, door_frame, wall_frame, inward=True):
+        direction = 1 if door_frame.x < 0 else -1
+        if not inward:
+            direction *= -1
 
-        twist = BulletConeTwistConstraint(
-            static_body.node(),
+        twist = ConeTwistDoor(
             door.node(),
-            TransformState.make_pos(Point3(wall_x, static_size.y / 2, 0)),
-            TransformState.make_pos(Point3(door_x, door_size.y / 2, 0)),
+            wall.node(),
+            TransformState.make_pos(door_frame),
+            TransformState.make_pos(wall_frame),
+            direction
         )
 
-        twist.setLimit(60, 60, 0, softness=0.1, bias=0.1, relaxation=8.0)
-        # twist.setLimit(60, 60, 0, softness=0.9, bias=0.3, relaxation=1.0)
-        self.world.attach_constraint(twist)
+        self.world.attach_constraint(twist, True)
+        return twist
+
+    def slider(self, door, wall, door_frame, wall_frame):
+        movement_range = -door_frame.x * 2
+        direction = 1 if movement_range > 0 else -1
+
+        slider = SlidingDoor(
+            door.node(),
+            wall.node(),
+            TransformState.make_pos(door_frame),
+            TransformState.make_pos(wall_frame),
+            movement_range,
+            direction
+        )
+
+        self.world.attach_constraint(slider, True)
+        return slider
+
+    def door_sensor(self, name, parent, pos, scale, bitmask, sensor, *constraints):
+        """Arges:
+                sensor (SlidingDoorSensor or ConeTwistDoorSensor)
+        """
+        sensor = sensor(name, self.world, self.cube, pos, scale, bitmask, *constraints)
+        sensor.hide()
+        sensor.reparent_to(parent)
+        self.world.attach_ghost(sensor.node())
+
+        return sensor
+    
+    
+    
+    # def twist_door_sensor(self, name, parent, pos, scale, bitmask, *twists):
+    #     sensor = ConeTwistDoorSensor(name, self.world, self.cube, pos, scale, bitmask, *twists)
+    #     sensor.hide()
+    #     sensor.reparent_to(parent)
+    #     self.world.attach_ghost(sensor.node())
+
+    #     return sensor
+
+    # def sliding_door_sensor(self, name, parent, pos, scale, bitmask, *door):
+    #     sensor = SlidingDoorSensor(name, self.world, self.cube, pos, scale, bitmask, *door)
+    #     sensor.hide()
+    #     sensor.reparent_to(parent)
+    #     self.world.attach_ghost(sensor.node())
+
+    #     return sensor
 
     def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True, bitmask=BitMask32.bit(3), hide=False):
         if not hpr:
@@ -237,24 +253,6 @@ class Materials:
         room_camera = self.block(name, parent, pos, Vec3(0.25, 0.25, 0.25))
         room_camera.set_color((0, 0, 0, 1))
         return room_camera
-
-    def plane(self, name, parent, pos, rows, cols, size=2):
-        model = NodePath(PandaNode(f'{name}Model'))
-        card = CardMaker('card')
-        half = size / 2
-        card.set_frame(-half, half, -half, half)
-
-        for r in range(rows):
-            for c in range(cols):
-                g = model.attach_new_node(card.generate())
-                g.setP(-90)
-                x = (c - cols / 2) * size
-                y = (r - rows / 2) * size
-                g.set_pos(x, y, 0)
-
-        plane = Plane(name, parent, model, pos)
-        self.world.attach(plane.node())
-        return plane
 
     def point_on_circumference(self, angle, radius):
         rad = math.radians(angle)
@@ -293,14 +291,19 @@ class Materials:
         return sphere
 
 
-class StoneHouse(Materials):
+class StoneHouse(Buildings):
 
-    def __init__(self, world, parent, center, h=0):
+    def __init__(self, world, center, h=0):
         super().__init__(world)
-        self.house = NodePath(PandaNode('stoneHouse'))
-        self.house.reparent_to(parent)
-        self.house.set_pos(center)
-        self.house.set_h(h)
+        self.building = NodePath(PandaNode('stoneHouse'))
+        self.building.set_pos(center)
+        self.building.set_h(h)
+        self.build()
+        base.taskMgr.add(self.sensor1.sensing, 'stone1_sensing')
+        base.taskMgr.add(self.sensor2.sensing, 'stone2_sensing')
+        # Child nodes of the self.building are combined together into one node
+        # (maybe into the node lastly parented to self.house?).
+        self.building.flatten_strong()
 
     def make_textures(self):
         self.wall_tex = self.texture(Images.FIELD_STONE)    # for walls
@@ -312,22 +315,23 @@ class StoneHouse(Materials):
     def build(self):
         self.make_textures()
         walls = NodePath('walls')
-        walls.reparent_to(self.house)
+        walls.reparent_to(self.building)
         floors = NodePath('floors')
-        floors.reparent_to(self.house)
+        floors.reparent_to(self.building)
         doors = NodePath('doors')
-        doors.reparent_to(self.house)
+        doors.reparent_to(self.building)
         columns = NodePath('columns')
-        columns.reparent_to(self.house)
+        columns.reparent_to(self.building)
         fences = NodePath('fences')
-        fences.reparent_to(self.house)
+        fences.reparent_to(self.building)
         invisible = NodePath('invisible')
-        invisible.reparent_to(self.house)
+        invisible.reparent_to(self.building)
         room_camera = NodePath('room_camera')
-        room_camera.reparent_to(self.house)
+        room_camera.reparent_to(self.building)
 
-        prevention_mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
-        prevention_mask_fence = BitMask32.bit(3) | BitMask32.bit(2)
+        mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
+        mask_fence = BitMask32.bit(3) | BitMask32.bit(2)
+        mask_door = BitMask32.all_on()
 
         # columns
         gen = ((x, y) for x, y in product((-15, 15), (-11, 11)))
@@ -361,11 +365,29 @@ class StoneHouse(Materials):
             [Point3(0, -8.25, 5.5), Vec3(12, 0.5, 2), True],           # front top
         ]
         for i, (pos, scale, hor) in enumerate(walls_1st_floor):
-            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=prevention_mask_wall)
+            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=mask_wall)
 
-        # walls connected to the doors on the 1st floor
-        wall1_l = self.block('wall1_fl', walls, Point3(-4, -8.25, 2.5), Vec3(4, 0.5, 4), bitmask=prevention_mask_wall)    # front left
-        wall1_r = self.block('wall1_fr', walls, Point3(4, -8.25, 2.5), Vec3(4, 0.5, 4), bitmask=prevention_mask_wall)     # front right
+        # doors on the lst floor
+        door_scale = Vec3(2, 0.5, 4)
+        mask_door
+        y, z = -8.25, 2.5
+        # left
+        wall1_l = self.block('wall1_l', walls, Point3(-4, y, z), Vec3(4, 0.5, 4), bitmask=mask_wall)
+        door1_l = self.block('door1_l', doors, Point3(-1, y, z), door_scale, bitmask=mask_door, active=True)
+        self.knob(door1_l, 'knob1_l', Point3(0.4, 0, 0))
+        # right
+        wall1_r = self.block('wall1_r', walls, Point3(4, y, z), Vec3(4, 0.5, 4), bitmask=mask_wall)
+        door1_r = self.block('door1_r', doors, Point3(1, y, z), door_scale, bitmask=mask_door, active=True)
+        self.knob(door1_r, 'knob1_r', Point3(-0.4, 0, 0))
+        # twists
+        twists = []
+        for h in [1.8, -1.8]:
+            twists.append(self.twist(door1_l, wall1_l, Point3(-1, 0, h), Point3(2, 0, h)))
+            twists.append(self.twist(door1_r, wall1_r, Point3(1, 0, h), Point3(-2, 0, h)))
+
+        self.sensor1 = self.door_sensor(
+            'stone_sensor1', invisible, Point3(0, -8, 0), Vec3(4, 4, 1), BitMask32.bit(3), ConeTwistDoorSensor, *twists
+        )
 
         # 2nd floor
         pos_scale = [
@@ -397,7 +419,10 @@ class StoneHouse(Materials):
             [Point3(-13.75, 4, 12), Vec3(8, 0.5, 2), False],        # left
             [Point3(5.75, 4.25, 10), Vec3(7.5, 0.5, 6), False],     # right
             [Point3(-4, 8.25, 10), Vec3(20, 0.5, 6), True],         # rear
-            [Point3(-7.25, 0.25, 9), Vec3(2.5, 0.5, 4), True],      # front
+            [Point3(-6.5, 0.25, 9), Vec3(1, 0.5, 4), True],         # front
+            [Point3(-7.75, 0.125, 9), Vec3(1.5, 0.25, 4), True],    # front
+            [Point3(-13.25, 0.25, 9), Vec3(0.5, 0.5, 4), True],     # front
+            [Point3(-12.25, 0.125, 9), Vec3(1.5, 0.25, 4), True],   # front
             [Point3(-9.75, 0.25, 12), Vec3(7.5, 0.5, 2), True],     # front
             [Point3(0, 0.25, 8), Vec3(12, 0.5, 2), True],           # front
             [Point3(-4, 0.25, 10), Vec3(4, 0.5, 2), True],          # front
@@ -405,10 +430,25 @@ class StoneHouse(Materials):
             [Point3(0, 0.25, 12), Vec3(12, 0.5, 2), True]           # front
         ]
         for i, (pos, scale, hor) in enumerate(walls_2nd_floor):
-            self.block(f'wall2_{i}', walls, pos, scale, horizontal=hor, bitmask=prevention_mask_wall)
+            self.block(f'wall2_{i}', walls, pos, scale, horizontal=hor, bitmask=mask_wall)
 
-        # walls connected to the door on the 2nd floor
-        wall2_l = self.block('wall2_l', walls, Point3(-12.5, 0.25, 9), Vec3(2, 0.5, 4), bitmask=prevention_mask_wall)
+        # doors on the 2nd floor
+        door_scale = Vec3(1.5, 0.25, 4)
+        y, z = 0.375, 9
+        # left
+        wall2_l = self.block('wall2_l', invisible, Point3(-12.25, y, z), door_scale, bitmask=mask_wall, hide=True)
+        door2_l = self.block('door2_l', doors, Point3(-10.75, y, z), door_scale, bitmask=mask_door, active=True)
+        self.knob(door2_l, 'knob2_l', Point3(0.3, 0, 0))
+        # right
+        wall2_r = self.block('wall2_r', invisible, Point3(-7.75, y, z), door_scale, bitmask=mask_wall, hide=True)
+        door2_r = self.block('door2_r', doors, Point3(-9.25, y, z), door_scale, bitmask=mask_door, active=True)
+        self.knob(door2_r, 'knob2_r', Point3(-0.3, 0, 0))
+
+        x = door_scale.x / 2
+        slider1 = self.slider(door2_l, wall2_l, Point3(-x, 0, 0), Point3(x, 0, 0))
+        slider2 = self.slider(door2_r, wall2_r, Point3(x, 0, 0), Point3(-x, 0, 0))
+        self.sensor2 = self.door_sensor('stone_sensor2', invisible, Point3(-10, -0, 6.75), Vec3(3, 4, 0.5), BitMask32.bit(5),
+                                        SlidingDoorSensor, slider1, slider2)
 
         # roof
         self.block('roof', floors, Point3(-4, 4.25, 13.25), Vec3(20, 8.5, 0.5))
@@ -439,36 +479,26 @@ class StoneHouse(Materials):
                 for k, x_diff in enumerate(x_diffs):
                     rail_pos = pos + Vec3(x_diff, 0, 2.5)
                     self.block(
-                        f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, 45, 0), bitmask=prevention_mask_fence
+                        f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, 45, 0), bitmask=mask_fence
                     )
-
-        # doors
-        doors_data = [
-            [Point3(-1, -8.25, 2.5), Vec3(2, 0.5, 4), wall1_l, True],    # left door of the room on the 1st floor
-            [Point3(1, -8.25, 2.5), Vec3(2, 0.5, 4), wall1_r, False],    # left door of the room on the 1st floor
-            [Point3(-10, 0.25, 9), Vec3(3, 0.5, 4), wall2_l, True]       # foor ofr the room on the 2nd floor
-        ]
-        for i, (pos, scale, body, hinge) in enumerate(doors_data):
-            self.door(f'door_{i}', doors, pos, scale, body, horizontal=True, left_hinge=hinge)
 
         doors.set_texture(self.door_tex)
         walls.set_texture(self.wall_tex)
         floors.set_texture(self.floor_tex)
         columns.set_texture(self.column_tex)
         fences.set_texture(self.fence_tex)
-        # Child nodes of the self.house are combined together into one node
-        # (maybe into the node lastly parented to self.house?).
-        self.house.flatten_strong()
 
 
-class BrickHouse(Materials):
+class BrickHouse(Buildings):
 
-    def __init__(self, world, parent, center, h=0):
+    def __init__(self, world, center, h=0):
         super().__init__(world)
-        self.house = NodePath(PandaNode('brickHouse'))
-        self.house.reparent_to(parent)
-        self.house.set_pos(center)
-        self.house.set_h(h)
+        self.building = NodePath(PandaNode('brickHouse'))
+        self.building.set_pos(center)
+        self.building.set_h(h)
+        self.build()
+        base.taskMgr.add(self.sensor.sensing, 'brick_sensing')
+        self.building.flatten_strong()
 
     def make_textures(self):
         self.wall_tex = self.texture(Images.BRICK)      # for walls
@@ -479,17 +509,17 @@ class BrickHouse(Materials):
     def build(self):
         self.make_textures()
         floors = NodePath('foundation')
-        floors.reparent_to(self.house)
+        floors.reparent_to(self.building)
         walls = NodePath('wall')
-        walls.reparent_to(self.house)
+        walls.reparent_to(self.building)
         roofs = NodePath('roof')
-        roofs.reparent_to(self.house)
+        roofs.reparent_to(self.building)
         doors = NodePath('door')
-        doors.reparent_to(self.house)
+        doors.reparent_to(self.building)
         invisible = NodePath('invisible')
-        invisible.reparent_to(self.house)
+        invisible.reparent_to(self.building)
         room_camera = NodePath('room_camera')
-        room_camera.reparent_to(self.house)
+        room_camera.reparent_to(self.building)
 
         # room floors
         pos_scale = [
@@ -498,6 +528,8 @@ class BrickHouse(Materials):
         ]
         for i, (pos, scale) in enumerate(pos_scale):
             self.block(f'room_brick{i}', floors, pos, scale)
+            if i == 1:
+                self.small_room = self.block(f'room_brick{i}', floors, pos, scale)
 
         # room_camera
         self.room_camera('room_brick1_camera', room_camera, Point3(3, 3, 5.5))
@@ -519,11 +551,12 @@ class BrickHouse(Materials):
                 self.triangular_prism('hidden_slope', invisible, slope_pos, Vec3(0, 180, 90), Vec3(1, 1, 7), hide=True)
 
         # walls
-        prevention_mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
+        mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
 
         walls_1st_floor = [
             [Point3(0, 4.25, 5.5), Vec3(12, 0.5, 8), True],          # rear
             [Point3(5, -8.25, 3.25), Vec3(2, 0.5, 3.5), True],       # front right
+            [Point3(1, -8.375, 3.25), Vec3(2, 0.25, 3.5), True],     # front left
             [Point3(3, -8.25, 5.25), Vec3(6, 0.5, 0.5), True],       # front_top
             [Point3(-1.5, -4.25, 5.5), Vec3(2, 0.5, 8), True],       # back room front right
             [Point3(-5.25, -4.25, 5.5), Vec3(1.5, 0.5, 8), True],    # back room front left
@@ -542,10 +575,18 @@ class BrickHouse(Materials):
             [Point3(6.25, 0, 8.0), Vec3(3, 0.5, 3), False]
         ]
         for i, (pos, scale, hor) in enumerate(walls_1st_floor):
-            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=prevention_mask_wall)
+            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=mask_wall)
 
-        # wall connected to the door
-        wall1_l = self.block('wall1_l', walls, Point3(1, -8.25, 3.25), Vec3(2, 0.5, 3.5), bitmask=prevention_mask_wall)
+        # door
+        door_scale = Vec3(2, 0.25, 3.5)
+        y, z = -8.125, 3.25
+
+        wall_l = self.block('wall1_l', walls, Point3(1, y, z), door_scale, bitmask=mask_wall, hide=True)
+        door = self.block('door_1', doors, Point3(3, y, z), door_scale, bitmask=BitMask32.all_on(), active=True)
+        self.knob(door, 'knob_1', Point3(0.4, 0, 0))
+        slider = self.slider(door, wall_l, Point3(-1, 0, 0), Point3(1, 0, 0))
+        self.sensor = self.door_sensor(
+            'brick_sensor', invisible, Point3(3, -8.25, 1), Vec3(2, 3, 1), BitMask32.bit(5), SlidingDoorSensor, slider)
 
         # roofs
         pos_scale = [
@@ -555,24 +596,21 @@ class BrickHouse(Materials):
         for i, (pos, scale) in enumerate(chain(*pos_scale)):
             self.block(f'roof_{i}', roofs, pos, scale)
 
-        # doors
-        self.door('door_1', doors, Point3(3, -8.25, 3.25), Vec3(2, 0.5, 3.5), wall1_l)
-
         floors.set_texture(self.floor_tex)
         walls.set_texture(self.wall_tex)
         roofs.set_texture(self.roof_tex)
         doors.set_texture(self.door_tex)
-        self.house.flatten_strong()
 
 
-class Terrace(Materials):
+class Terrace(Buildings):
 
-    def __init__(self, world, parent, center, h=0):
+    def __init__(self, world, center, h=0):
         super().__init__(world)
-        self.terrace = NodePath(PandaNode('terrace'))
-        self.terrace.reparent_to(parent)
-        self.terrace.set_pos(center)
-        self.terrace.set_h(h)
+        self.building = NodePath(PandaNode('terrace'))
+        self.building.set_pos(center)
+        self.building.set_h(h)
+        self.build()
+        self.building.flatten_strong()
 
     def make_textures(self):
         self.wall_tex = self.texture(Images.LAYINGBROCK)    # for walls
@@ -583,15 +621,15 @@ class Terrace(Materials):
     def build(self):
         self.make_textures()
         floors = NodePath('floors')
-        floors.reparent_to(self.terrace)
+        floors.reparent_to(self.building)
         walls = NodePath('walls')
-        walls.reparent_to(self.terrace)
+        walls.reparent_to(self.building)
         roofs = NodePath('roofs')
-        roofs.reparent_to(self.terrace)
+        roofs.reparent_to(self.building)
         steps = NodePath('steps')
-        steps.reparent_to(self.terrace)
+        steps.reparent_to(self.building)
         lifts = NodePath('lifts')
-        lifts.reparent_to(self.terrace)
+        lifts.reparent_to(self.building)
 
         prevention_mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
         prevention_mask_fence = BitMask32.bit(3) | BitMask32.bit(2)
@@ -682,17 +720,17 @@ class Terrace(Materials):
         floors.set_texture(self.floor_tex)
         roofs.set_texture(self.roof_tex)
         steps.set_texture(self.steps_tex)
-        self.terrace.flatten_strong()
 
 
-class Observatory(Materials):
+class Observatory(Buildings):
 
-    def __init__(self, world, parent, center, h=0):
+    def __init__(self, world, center, h=0):
         super().__init__(world)
-        self.observatory = NodePath(PandaNode('observatory'))
-        self.observatory.reparent_to(parent)
-        self.observatory.set_pos(center)
-        self.observatory.set_h(h)
+        self.building = NodePath(PandaNode('observatory'))
+        self.building.set_pos(center)
+        self.building.set_h(h)
+        self.build()
+        self.building.flatten_strong()
 
     def make_textures(self):
         self.steps_tex = self.texture(Images.METALBOARD)
@@ -702,13 +740,13 @@ class Observatory(Materials):
     def build(self):
         self.make_textures()
         steps = NodePath('steps')
-        steps.reparent_to(self.observatory)
+        steps.reparent_to(self.building)
         landings = NodePath('landings')
-        landings.reparent_to(self.observatory)
+        landings.reparent_to(self.building)
         posts = NodePath('posts')
-        posts.reparent_to(self.observatory)
+        posts.reparent_to(self.building)
         invisible = NodePath('invisible')
-        invisible.reparent_to(self.observatory)
+        invisible.reparent_to(self.building)
 
         # spiral center pole
         center = Point3(10, 0, 20)
@@ -809,17 +847,17 @@ class Observatory(Materials):
         steps.set_texture(self.steps_tex)
         landings.set_texture(self.landing_tex)
         posts.set_texture(self.posts_tex)
-        self.observatory.flatten_strong()
 
 
-class Bridge(Materials):
+class Bridge(Buildings):
 
-    def __init__(self, world, parent, center, h=0):
+    def __init__(self, world, center, h=0):
         super().__init__(world)
-        self.bridge = NodePath(PandaNode('bridge'))
-        self.bridge.reparent_to(parent)
-        self.bridge.set_pos(center)
-        self.bridge.set_h(h)
+        self.building = NodePath(PandaNode('bridge'))
+        self.building.set_pos(center)
+        self.building.set_h(h)
+        self.build()
+        self.building.flatten_strong()
 
     def make_textures(self):
         self.bridge_tex = self.texture(Images.IRON)         # for bridge girder
@@ -829,13 +867,13 @@ class Bridge(Materials):
     def build(self):
         self.make_textures()
         girders = NodePath('girders')
-        girders.reparent_to(self.bridge)
+        girders.reparent_to(self.building)
         columns = NodePath('columns')
-        columns.reparent_to(self.bridge)
+        columns.reparent_to(self.building)
         fences = NodePath('fences')
-        fences.reparent_to(self.bridge)
+        fences.reparent_to(self.building)
         lifts = NodePath('lift')
-        lifts.reparent_to(self.bridge)
+        lifts.reparent_to(self.building)
 
         # bridge girders
         pos_scale = [
@@ -902,17 +940,17 @@ class Bridge(Materials):
         girders.set_texture(self.bridge_tex)
         columns.set_texture(self.column_tex)
         fences.set_texture(self.fence_tex)
-        self.bridge.flatten_strong()
 
 
-class Tunnel(Materials):
+class Tunnel(Buildings):
 
-    def __init__(self, world, parent, center, h=0):
+    def __init__(self, world, center, h=0):
         super().__init__(world)
-        self.tunnel = NodePath(PandaNode('tunnel'))
-        self.tunnel.reparent_to(parent)
-        self.tunnel.set_pos(center)
-        self.tunnel.set_h(h)
+        self.building = NodePath(PandaNode('tunnel'))
+        self.building.set_pos(center)
+        self.building.set_h(h)
+        self.build()
+        self.building.flatten_strong()
 
     def make_textures(self):
         self.wall_tex = self.texture(Images.IRON)           # for tunnel
@@ -922,13 +960,13 @@ class Tunnel(Materials):
     def build(self):
         self.make_textures()
         walls = NodePath('wall')
-        walls.reparent_to(self.tunnel)
+        walls.reparent_to(self.building)
         metal = NodePath('rings')
-        metal.reparent_to(self.tunnel)
+        metal.reparent_to(self.building)
         pedestals = NodePath('pedestals')
-        pedestals.reparent_to(self.tunnel)
+        pedestals.reparent_to(self.building)
         invisible = NodePath('invisible')
-        invisible.reparent_to(self.tunnel)
+        invisible.reparent_to(self.building)
 
         # tunnel
         geomnode = Tube(height=20)
@@ -995,4 +1033,3 @@ class Tunnel(Materials):
         walls.set_texture(self.wall_tex)
         metal.set_texture(self.metal_tex)
         pedestals.set_texture(self.pedestal_tex)
-        self.tunnel.flatten_strong()

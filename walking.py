@@ -8,7 +8,6 @@ from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletDebugNode
 from panda3d.core import NodePath, PandaNode, TextNode
 from panda3d.core import Vec3, Point3, BitMask32, Quat
-
 from lights import BasicAmbientLight, BasicDayLight
 from scene import Scene
 from walker import Walker
