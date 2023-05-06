@@ -4,6 +4,8 @@ A character walking around on uneven terrain in Bullet World
 
 I thought out the way of rotating camera while avoiding walls and other obstacles to follow a character, of making the character go up and down the stairs, and of preventing the character, which is my favorite BulletCharacterControllerNode, from going through walls when moving fast. And I enjoyed procedurally making all of the houses and bridges. 
 
+The doors automatically open. To go in and out at the doors, stop in front of them to wait a little. Pressing [up arrow] key makes the character go up and down stairs. 
+
 ![DEMO_new](https://user-images.githubusercontent.com/48859041/233696155-3bfe126e-ed1f-47d3-9937-a8623c39cca1.png)
 
 # Requirements
@@ -23,7 +25,7 @@ I thought out the way of rotating camera while avoiding walls and other obstacle
 
 # Controls:
 * Press [Esc] to quit.
-* Press [up arrow] key to go foward, go up stairs and open doors.
+* Press [up arrow] key to go foward.
 * Press [left arrow] key to turn left.
 * Press [right arrow] key to turn right.
 * Press [down arrow] key to go back.
