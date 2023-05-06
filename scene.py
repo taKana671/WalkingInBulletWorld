@@ -81,11 +81,11 @@ class Scene(NodePath):
         LerpTexOffsetInterval(self.water.surface, 200, (1, 0), (0, 0)).loop()
 
         # make buildings
-        self.buildings = NodePath('buildings')
-        self.buildings.reparent_to(self)
         self.make_buildings()
 
     def make_buildings(self):
+        self.buildings = NodePath('buildings')
+        self.buildings.reparent_to(self)
 
         buildings = [
             [StoneHouse, Point3(38, 75, 1), 0],
@@ -96,8 +96,8 @@ class Scene(NodePath):
             [Tunnel, Point3(-45, -68, 3), 222],
         ]
         for bldg_cls, pos, h in buildings:
-            bldg = bldg_cls(self.world, pos, h)
-            bldg.building.reparent_to(self.buildings)
+            bldg = bldg_cls(self.world, self.buildings, pos, h)
+            bldg.build()
 
     def make_terrain(self, img_file):
         img = PNMImage(Filename(img_file))

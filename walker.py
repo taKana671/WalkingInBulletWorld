@@ -19,6 +19,9 @@ class Status(Enum):
 
 
 class CollisionDetection(NodePath):
+    """Intended to be parented to a character to prevent it from going through
+       walls and fences. CCD cannot be set to BulletCharacterControllerNode.
+    """
 
     def __init__(self, name, pos):
         super().__init__(BulletRigidBodyNode(name))
@@ -26,8 +29,8 @@ class CollisionDetection(NodePath):
         self.node().add_shape(shape)
         self.set_collide_mask(BitMask32.bit(2))
         self.node().set_kinematic(True)
-        self.node().setCcdMotionThreshold(1e-7)
-        self.node().setCcdSweptSphereRadius(0.5)
+        self.node().set_ccd_motion_threshold(1e-7)
+        self.node().set_ccd_swept_sphere_radius(0.5)
         self.set_pos(pos)
 
 
@@ -37,12 +40,13 @@ class Walker(NodePath):
     WALK = 'walk'
 
     def __init__(self, world):
-        # h, w = 6, 1.5
         h, w = 6, 1.2
         shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
-        super().__init__(BulletCharacterControllerNode(shape, 1.0, 'character'))  # 0.4 # name must start with character because it is used in door safety system
+        # name must start with 'character' because it's used in door safety system
+        super().__init__(BulletCharacterControllerNode(shape, 1.0, 'character'))
         self.world = world
-        # bit(1): wall, floor, steps and so on, bit(3): fence, bit(4): lift
+        # bit(1): wall, floor and so on; bit(3): ignored by camera follwing the character;
+        # bit(4): embedded objects like lift; bit(5): door sensors
         self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(3) | BitMask32.bit(4) | BitMask32.bit(5))
         self.set_pos(Point3(25, -10, 1))
 
@@ -75,11 +79,11 @@ class Walker(NodePath):
         self.frame_cnt = 0
 
         # make node having collision shape for preventing penetration.
-        self.detection_nd_f = CollisionDetection('detect_front', Point3((0, -1.2, 0)))
+        self.detection_nd_f = CollisionDetection('detect_front', Point3(0, -1.2, 0))
         self.detection_nd_f.reparent_to(self.direction_nd)
         self.world.attach(self.detection_nd_f.node())
 
-        self.detection_nd_b = CollisionDetection('detect_back', Point3((0, 1.2, 0)))
+        self.detection_nd_b = CollisionDetection('detect_back', Point3(0, 1.2, 0))
         self.detection_nd_b.reparent_to(self.direction_nd)
         self.world.attach(self.detection_nd_b.node())
 
@@ -124,14 +128,12 @@ class Walker(NodePath):
         return None
 
     def detect_penetration(self, detection_nd):
-        """Return True if penetration is detected.
+        """Return True if Ralph collides with objects to which BitMask32.bit(2) has been set as collide mask.
            Arges:
-                detection_nd (CollisionDetection): specify self.detection_nd_f or self.detection_nd_b
+                detection_nd (CollisionDetection)
         """
-        for con in self.world.contact_test(detection_nd.node(), use_filter=True).get_contacts():
-            # if not con.get_node1().get_name().startswith('door'):
-            #     # print(con.get_node0().get_name(), con.get_node1().get_name())
-            #     return True
+        if self.world.contact_test(detection_nd.node(), use_filter=True).get_num_contacts() > 0:
+            # print('contact!')
             return True
 
     def update(self, dt, direction, angle):
