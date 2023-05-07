@@ -252,7 +252,8 @@ class ConeTwistDoorSensor(AutoDoorSensor):
     def close(self):
         if self.detect_person():
             self.state = SensorStatus.OPEN
-        if not self.detect_collision():
+        # if not self.detect_collision():
+        else:
             result = True
             for twist in self.twists:
                 if not twist.close():
