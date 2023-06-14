@@ -1,7 +1,7 @@
 import array
 import math
 
-from panda3d.core import Vec3
+from panda3d.core import Vec3, Point3
 from panda3d.core import NodePath
 from panda3d.core import Geom, GeomNode, GeomTriangles
 from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
@@ -84,20 +84,6 @@ class Polyhedrons(GeomRoot):
                         yield (start, start + i - 1, start + i)
                     else:
                         yield (start + i - 1, start, start + i)
-
-
-@singleton
-class Cube(Polyhedrons):
-
-    def create_geomnode(self):
-        face_vertices = [[CUBE['vertices'][i] for i in face] for face in CUBE['faces']]
-
-        geomnode = self.create_polyhedron(
-            face_vertices,
-            CUBE['uv'],
-            CUBE['normal']
-        )
-        return geomnode
 
 
 @singleton
@@ -496,41 +482,103 @@ class Cylinder(GeomRoot):
         return node
 
 
-CUBE = {
-    'vertices': [
-        (-0.5, -0.5, 0.5), (-0.5, 0.5, 0.5), (0.5, 0.5, 0.5), (0.5, -0.5, 0.5),
-        (-0.5, -0.5, -0.5), (-0.5, 0.5, -0.5), (0.5, 0.5, -0.5), (0.5, -0.5, -0.5)
-    ],
-    'faces': [
-        (0, 1, 5, 4), (0, 4, 7, 3), (0, 3, 2, 1),
-        (1, 2, 6, 5), (2, 3, 7, 6), (4, 5, 6, 7)
-    ],
-    # 'uv': [
-    #     ((1, 1), (0.75, 1), (0.75, 0), (1, 0)),
-    #     ((0, 1), (0, 0), (0.25, 0), (0.25, 1)),
-    #     ((0, 0), (1, 0), (1, 1), (0, 1)),
-    #     ((0.75, 1), (0.5, 1), (0.5, 0), (0.75, 0)),
-    #     ((0.5, 1), (0.25, 1), (0.25, 0), (0.5, 0)),
-    #     ((0, 0), (1, 0), (1, 1), (0, 1)),
-    # ],
-    'uv': [
-        ((1, 1), (0.9, 1), (0.9, 0), (1, 0)),
-        ((0, 1), (0, 0), (0.4, 0), (0.4, 1)),
-        ((0, 0), (1, 0), (1, 1), (0, 1)),
-        ((0.9, 1), (0.5, 1), (0.5, 0), (0.9, 0)),
-        ((0.5, 1), (0.4, 1), (0.4, 0), (0.5, 0)),
-        # ((1, 0), (0.9, 0), (0.5, 0), (0.4, 0))
-        ((0, 0), (1, 0), (1, 1), (0, 1)),
-    ],
-    'normal': [
-        [(-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)],
-        [(0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0)],
-        [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)],
-        [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)],
-        [(1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0)],
-        [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)]
-    ]
-}
+@singleton
+class Cube(GeomRoot):
+    """Create a geom node of cube.
+        Arges:
+            w (float): width; dimension along the x-axis; cannot be negative;
+            d (float): depth; dimension along the y-axis; cannot be negative;
+            h (float): height; dimension along the z-axis; cannot be negative;
+            segs_w (int) the number of subdivisions in width;
+            segs_d (int) the number of subdivisions in depth;
+            segs_h (int) the number of subdivisions in height
+    """
+
+    def __init__(self, w=1.0, d=1.0, h=1.0, segs_w=1, segs_d=1, segs_h=1):
+        self.w = w
+        self.d = d
+        self.h = h
+        self.segs_w = segs_w
+        self.segs_d = segs_d
+        self.segs_h = segs_h
+        self.color = (1, 1, 1, 1)
+        geomnode = self.create_cube()
+        super().__init__(geomnode)
+
+    def create_cube(self):
+        fmt = self.create_format()
+        vdata_values = array.array('f', [])
+        prim_indices = array.array('H', [])
+
+        vertex_count = 0
+        vertex = Point3()
+        segs = (self.segs_w, self.segs_d, self.segs_h)
+        dims = (self.w, self.d, self.h)
+        segs_u = self.segs_w * 2 + self.segs_d * 2
+        offset_u = 0
+
+        # (fixed, outer loop, inner loop, normal, uv)
+        side_idxes = [
+            (2, 0, 1, 1, False),     # top
+            (1, 0, 2, -1, False),    # front
+            (0, 1, 2, 1, False),     # right
+            (1, 0, 2, 1, True),      # back
+            (0, 1, 2, -1, True),     # left
+            (2, 0, 1, -1, False),    # bottom
+        ]
+
+        for a, (i0, i1, i2, n, reverse) in enumerate(side_idxes):
+            segs1 = segs[i1]
+            segs2 = segs[i2]
+            dim1_start = dims[i1] * -0.5
+            dim2_start = dims[i2] * -0.5
+
+            normal = Vec3()
+            normal[i0] = n
+            vertex[i0] = dims[i0] * 0.5 * n
+
+            for j in range(segs1 + 1):
+                vertex[i1] = dim1_start + j / segs1 * dims[i1]
+
+                if i0 == 2:
+                    u = j / segs1
+                else:
+                    u = (segs1 - j + offset_u) / segs_u if reverse else (j + offset_u) / segs_u
+
+                for k in range(segs2 + 1):
+                    vertex[i2] = dim2_start + k / segs2 * dims[i2]
+                    v = k / segs2
+                    vdata_values.extend(vertex)
+                    vdata_values.extend(self.color)
+                    vdata_values.extend(normal)
+                    vdata_values.extend((u, v))
+                if j > 0:
+                    for k in range(segs2):
+                        idx = vertex_count + j * (segs2 + 1) + k
+                        prim_indices.extend((idx, idx - segs2 - 1, idx - segs2))
+                        prim_indices.extend((idx, idx - segs2, idx + 1))
+
+            vertex_count += (segs1 + 1) * (segs2 + 1)
+            offset_u += segs2
+
+        vdata = GeomVertexData('cylinder', fmt, Geom.UHStatic)
+        vdata.unclean_set_num_rows(vertex_count)
+        vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
+        vdata_mem[:] = vdata_values
+
+        prim = GeomTriangles(Geom.UHStatic)
+        prim_array = prim.modify_vertices()
+
+        prim_array.unclean_set_num_rows(len(prim_indices))
+        prim_mem = memoryview(prim_array).cast('B').cast('H')
+        prim_mem[:] = prim_indices
+
+        node = GeomNode('geomnode')
+        geom = Geom(vdata)
+        geom.add_primitive(prim)
+        node.add_geom(geom)
+        return node
+
 
 RIGHT_TRIANGULAR_PRISM = {
     'vertices': [
