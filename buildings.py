@@ -15,6 +15,7 @@ from panda3d.bullet import BulletRigidBodyNode
 
 from automatic_doors import SlidingDoor, ConeTwistDoor, SlidingDoorSensor, ConeTwistDoorSensor
 from create_geomnode import Cube, RightTriangularPrism, Tube, RingShape, SphericalShape, Cylinder
+from gondola_lift import Car
 
 
 class Images(Enum):
@@ -204,7 +205,7 @@ class Buildings(NodePath):
         return sensor
 
     def pole(self, name, parent, pos, scale, tex_scale,
-             hpr=None, vertical=True, bitmask=BitMask32.bit(3), hide=False):
+             hpr=None, vertical=True, bitmask=BitMask32.bit(3), hide=False, active=False):
         if not hpr:
             hpr = Vec3(0, 0, 180) if vertical else Vec3(0, 90, 0)
 
@@ -213,6 +214,10 @@ class Buildings(NodePath):
 
         if hide:
             pole.hide()
+
+        if active:
+            # pole.node().set_mass(1)
+            pole.node().set_deactivation_enabled(False)
 
         pole.reparent_to(parent)
         self.world.attach(pole.node())
@@ -1013,3 +1018,131 @@ class Tunnel(Buildings):
         metal.set_texture(self.metal_tex)
         pedestals.set_texture(self.pedestal_tex)
         self.flatten_strong()
+
+
+class AdventurePlayground(Buildings):
+
+    def __init__(self, world, parent, center, h=0):
+        super().__init__(world, 'tent')
+        self.set_pos(center)
+        self.set_h(h)
+        self.reparent_to(parent)
+        self.center = center
+
+    def make_textures(self):
+        self.floor_tex = self.texture(Images.IRON)
+        self.metal_tex = self.texture(Images.METALBOARD)
+        self.column_tex = self.texture(Images.CONCRETE)
+        self.board_tex = self.texture(Images.BOARD)
+
+    def build(self):
+        self.make_textures()
+        floors = NodePath('floor')
+        floors.reparent_to(self)
+        lifts = NodePath('lift')
+        lifts.reparent_to(self)
+        columns = NodePath('column')
+        columns.reparent_to(self)
+        metal = NodePath('metal')
+        metal.reparent_to(self)
+
+        boards = NodePath('boards')
+        boards.reparent_to(self)
+
+        # poles = NodePath('pole')
+        # poles.reparent_to(self)
+        # cloths = NodePath('cloth')
+        # cloths.reparent_to(self)
+
+        # floors    
+        pos_scale = [
+            [Point3(0, 0, 3), Vec3(6, 1, 4)],
+            # [Point3(0, 2.5, 3), Vec3(4, 1, 1)]
+        ]
+        for i, (pos, scale) in enumerate(pos_scale):
+            b = self.block(f'floor_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0))
+            b.node().set_kinematic(True)
+
+        # column supporting floor
+        self.pole('column_1', columns, Point3(0, 0, 2.5), Vec3(1.5, 1.5, 6), Vec2(2, 1))
+
+        # roofs
+        pos_scale = [
+            [Point3(0, 4, 9.5), Vec3(4, 4, 0.5)]
+        ]
+        for i, (pos, scale) in enumerate(pos_scale):
+            r = self.block(f'roof_{i}', floors, pos, scale)
+            r.node().set_kinematic(True)
+        
+        b = self.block(f'board_{i}', boards, Point3(0, 4, 3), Vec3(4, 4, 0.5), active=True)
+
+        Car(Point3(0, 0, 0), self.world, r, b)
+
+        
+        # gondola lif posts
+        x_pos = [-2.875, 2.875]
+        y_pos = [-1.875, 1.875]
+        z = 6.5
+        scale = Vec3(0.25, 0.25, 6)
+
+        for i, (x, y) in enumerate(product(x_pos, y_pos)):
+            self.block(f'post_v{i}', metal, Point3(x, y, z), scale, horizontal=False)
+        
+        # self.block('post_h1', metal, Point3(0, 1.875, 9), Vec3(6, 0.25, 0.25))
+
+        # rail
+        # self.block('rail', metal, Point3(0, 5, 9), Vec3(0.25, 6, 0.25))
+        # p = Point3(0, 2, 4) + self.center 
+        # car = Car(p, self.world)
+
+        # pos_x = [2.75, -2.75]
+        # pos_y = [3.25]
+        # scale = Vec3(0.25, 0.25, 12)
+        # for i, y in enumerate(pos_y):
+        #     for j, x in enumerate(pos_x):
+        #         pos = Point3(x, y, 3)
+        #         self.block(f'post_v{i}{j}', metal, pos, scale, horizontal=False)            
+
+        #     self.block(f'post_h{i}', metal, Point3(0, y, 9.25), Vec3(6, 0.5, 0.5))
+
+
+
+        # for y in gon
+
+
+
+        # steps
+        for i in range(5):
+            pos = Point3(0, -2.5 - i, 2 - i)
+            block = self.block(f'step_{i}', floors, pos, Vec3(6, 1, 1))
+            self.lift(f'lift_{i}', lifts, block)
+
+        boards.set_texture(self.board_tex)
+        floors.set_texture(self.floor_tex)
+        columns.set_texture(self.column_tex)
+        metal.set_texture(self.metal_tex)
+        self.flatten_strong()
+
+
+
+        # self.pole('pile_1', poles, Point3(-4, -3, 4), Vec3(0.2, 0.2, 10), Vec2(1, 1))
+        # self.pole('pile_2', poles, Point3(4, -3, 4), Vec3(0.2, 0.2, 10), Vec2(1, 1))
+        # self.pole('pile_3', poles, Point3(-4, 3, 4), Vec3(0.2, 0.2, 10), Vec2(1, 1))
+        # pole = self.pole('pile_3', poles, Point3(4, 3, 4), Vec3(0.2, 0.2, 10), Vec2(1, 1))
+        # # self.pole('pile_4', poles, Point3(-3, 0, 4), Vec3(0.2, 0.2, 10), Vec2(1, 1),
+        # #           hpr=Vec3(90, 90, 0), active=True, bitmask=BitMask32.bit(1))
+
+        # # pole(self, name, parent, pos, scale, tex_scale,
+        # #      hpr=None, vertical=True, bitmask=BitMask32.bit(3), hide=False):
+        
+        # pt00 = Point3(-4, -3, 4) + self.center
+        # pt10 = Point3(4, -3, 4) + self.center
+        # pt01 = Point3(-4, 3, 4) + self.center
+        # pt11 = Point3(4, 3, 4) + self.center
+
+        # pt00 = Point3(-4, -3, 4)
+        # pt10 = Point3(4, -3, 4)
+        # pt01 = Point3(-4, 3, 4)
+        # pt11 = Point3(4, 3, 4)        
+        # cloth = Cloth(self.world, pole, pt00, pt10, pt01, pt11, 29, 29)
+        # cloth.cloth.reparent_to(cloths)
