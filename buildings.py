@@ -5,6 +5,7 @@ import math
 from enum import Enum
 from itertools import product, chain
 
+import numpy as np
 from panda3d.core import Vec3, Vec2, Point3, LColor
 from panda3d.core import Texture, TextureStage
 from panda3d.core import BitMask32, TransformState
@@ -15,7 +16,7 @@ from panda3d.bullet import BulletRigidBodyNode
 
 from automatic_doors import SlidingDoor, ConeTwistDoor, SlidingDoorSensor, ConeTwistDoorSensor
 from create_geomnode import Cube, RightTriangularPrism, Tube, RingShape, SphericalShape, Cylinder
-from gondola_lift import Car
+from create_softbody import RopeMaker
 
 
 class Images(Enum):
@@ -29,6 +30,9 @@ class Images(Enum):
     COBBLESTONES = 'cobblestones.jpg'
     METALBOARD = 'metalboard.jpg'
     CONCRETE2 = 'concrete2.jpg'
+    ROPE = 'rope.jpg'
+
+    BARK = 'bark1.jpg'
 
     @property
     def path(self):
@@ -216,7 +220,7 @@ class Buildings(NodePath):
             pole.hide()
 
         if active:
-            # pole.node().set_mass(1)
+            pole.node().set_mass(20)
             pole.node().set_deactivation_enabled(False)
 
         pole.reparent_to(parent)
@@ -1033,7 +1037,8 @@ class AdventurePlayground(Buildings):
         self.floor_tex = self.texture(Images.IRON)
         self.metal_tex = self.texture(Images.METALBOARD)
         self.column_tex = self.texture(Images.CONCRETE)
-        self.board_tex = self.texture(Images.BOARD)
+        # self.board_tex = self.texture(Images.BOARD)
+        self.board_tex = self.texture(Images.BARK)
 
     def build(self):
         self.make_textures()
@@ -1066,27 +1071,85 @@ class AdventurePlayground(Buildings):
         # column supporting floor
         self.pole('column_1', columns, Point3(0, 0, 2.5), Vec3(1.5, 1.5, 6), Vec2(2, 1))
 
-        # roofs
-        pos_scale = [
-            [Point3(0, 4, 9.5), Vec3(4, 4, 0.5)]
-        ]
-        for i, (pos, scale) in enumerate(pos_scale):
-            r = self.block(f'roof_{i}', floors, pos, scale)
-            r.node().set_kinematic(True)
+        rope = RopeMaker(self.world)
+
+        # self.pole('hanger_l', boards, Point3(-1.75, 2, 6), Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=Vec3(0, 90, 180))
+        # self.pole('hanger_r', boards, Point3(1.75, 2, 6), Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=Vec3(0, 90, 180))
+
+        # self.pole('hanger_l', boards, Point3(-0.75, 2, 5), Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=Vec3(0, 90, 180))
+        # self.pole('hanger_r', boards, Point3(0.75, 2, 5), Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=Vec3(0, 90, 180))
+
+        self.pole('hanger_l', boards, Point3(-1.25, 2, 5), Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=Vec3(0, 90, 180))
+        self.pole('hanger_r', boards, Point3(1.25, 2, 5), Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=Vec3(0, 90, 180))
+
+        start_y = 2.5
+
+        for i in range(5):
+            y = start_y + i
+            log_pos = Point3(-1.5, y, 3)
+            log = self.pole(f'log_{i}', boards, log_pos, Vec3(1, 1, 3), Vec2(2, 1),
+                            hpr=(0, 0, 90), active=True, bitmask=BitMask32.bit(1))
+
+            from_pt = Point3(-1.25, y, 5 - 0.25) + self.center
+            to_pt = Point3(-1.25, y, 3.5) + self.center
+            rope.attach_last_node(i, Images.ROPE.path, from_pt, to_pt, log)
+
+            from_pt = Point3(1.25, y, 5 - 0.25) + self.center
+            to_pt = Point3(1.25, y, 3.5) + self.center
+            rope.attach_last_node(i + 1, Images.ROPE.path, from_pt, to_pt, log)
+
+
+
+
+
+        # # x_pos = [-2, 2]
+        # x_pos = [-1.75, 1.75]
+        # start_y = 2.5
+        # start_z = 6
+        # slope = 0
+
+        # for i in range(5):
+        #     y = start_y + i
+        #     z = start_z + slope * i
+            
+        #     log_pos = Point3(0, y, 3)
+        #     # log = self.pole(f'log_{i}', boards, log_pos, Vec3(1, 1, 4), Vec2(2, 1),
+        #                     # hpr=(0, 90, 90), active=True, bitmask=BitMask32.all_on())
+        #     log = self.block(f'board_{i}', boards, log_pos, Vec3(4, 1, 1), active=True)
+            
+        #     for j, x in enumerate(x_pos):
+        #         hanger_pos = Point3(x, y, z)
+        #         self.pole(f'hanger_{i}{j}', metal, hanger_pos, Vec3(0.3, 0.3, 1), Vec2(2, 1), vertical=False)
+        #         # x_rope = x + np.sign(x) * -1 * 0.25
+        #         # print(x, x_rope)
+        #         from_pt = Point3(x, y - 0.5, z - 0.15) + self.center
+        #         to_pt = Point3(x, y, 2.5) + self.center
+        #         rope.attach_last_node(f'{i}{j}', Images.ROPE.path, from_pt, to_pt, log)
+                    
         
-        b = self.block(f'board_{i}', boards, Point3(0, 4, 3), Vec3(4, 4, 0.5), active=True)
+        
+        
+        # # roofs
+        # pos_scale = [
+        #     [Point3(0, 4, 9.5), Vec3(4, 4, 0.5)]
+        # ]
+        # for i, (pos, scale) in enumerate(pos_scale):
+        #     r = self.block(f'roof_{i}', floors, pos, scale)
+        #     r.node().set_kinematic(True)
+        
+        # b = self.block(f'board_{i}', boards, Point3(0, 4, 3), Vec3(4, 4, 0.5), active=True)
 
-        Car(Point3(0, 0, 0), self.world, r, b)
+        # # Car(Point3(0, 0, 0), self.world, r, b)
 
         
-        # gondola lif posts
-        x_pos = [-2.875, 2.875]
-        y_pos = [-1.875, 1.875]
-        z = 6.5
-        scale = Vec3(0.25, 0.25, 6)
+        # # gondola lif posts
+        # x_pos = [-2.875, 2.875]
+        # y_pos = [-1.875, 1.875]
+        # z = 6.5
+        # scale = Vec3(0.25, 0.25, 6)
 
-        for i, (x, y) in enumerate(product(x_pos, y_pos)):
-            self.block(f'post_v{i}', metal, Point3(x, y, z), scale, horizontal=False)
+        # for i, (x, y) in enumerate(product(x_pos, y_pos)):
+        #     self.block(f'post_v{i}', metal, Point3(x, y, z), scale, horizontal=False)
         
         # self.block('post_h1', metal, Point3(0, 1.875, 9), Vec3(6, 0.25, 0.25))
 
