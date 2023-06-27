@@ -16,7 +16,7 @@ from panda3d.bullet import BulletRigidBodyNode
 
 from automatic_doors import SlidingDoor, ConeTwistDoor, SlidingDoorSensor, ConeTwistDoorSensor
 from create_geomnode import Cube, RightTriangularPrism, Tube, RingShape, SphericalShape, Cylinder
-from create_softbody import RopeMaker
+from create_softbody import RopeMaker, ClothMaker
 
 
 class Images(Enum):
@@ -33,6 +33,7 @@ class Images(Enum):
     ROPE = 'rope.jpg'
 
     BARK = 'bark1.jpg'
+    FABRIC = 'fabric2.jpg'
 
     @property
     def path(self):
@@ -1037,175 +1038,114 @@ class AdventurePlayground(Buildings):
         self.floor_tex = self.texture(Images.IRON)
         self.metal_tex = self.texture(Images.METALBOARD)
         self.column_tex = self.texture(Images.CONCRETE)
-        # self.board_tex = self.texture(Images.BOARD)
-        self.board_tex = self.texture(Images.BARK)
+        self.board_tex = self.texture(Images.BOARD)
+        self.bark_tex = self.texture(Images.BARK)
 
     def build(self):
         self.make_textures()
-        floors = NodePath('floor')
-        floors.reparent_to(self)
-        lifts = NodePath('lift')
-        lifts.reparent_to(self)
-        columns = NodePath('column')
-        columns.reparent_to(self)
-        metal = NodePath('metal')
-        metal.reparent_to(self)
-
+        barks = NodePath('barks')
+        barks.reparent_to(self)
         boards = NodePath('boards')
         boards.reparent_to(self)
 
-        # poles = NodePath('pole')
-        # poles.reparent_to(self)
-        # cloths = NodePath('cloth')
-        # cloths.reparent_to(self)
-
-        # floors    
-        pos_scale = [
-            [Point3(0, 0, 3), Vec3(6, 1, 4)],
-            # [Point3(0, 2.5, 3), Vec3(4, 1, 1)]
-        ]
-        for i, (pos, scale) in enumerate(pos_scale):
-            b = self.block(f'floor_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0))
-            b.node().set_kinematic(True)
-
-        # column supporting floor
-        self.pole('column_1', columns, Point3(0, 0, 2.5), Vec3(1.5, 1.5, 6), Vec2(2, 1))
-
         rope = RopeMaker(self.world)
+        x_pos = [-1.25, 1.25]
+        log_num = 10
 
-        # self.pole('hanger_l', boards, Point3(-1.75, 2, 6), Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=Vec3(0, 90, 180))
-        # self.pole('hanger_r', boards, Point3(1.75, 2, 6), Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=Vec3(0, 90, 180))
+        # south landing
+        start_sy = -0.5
+        start_z = 1
 
-        # self.pole('hanger_l', boards, Point3(-0.75, 2, 5), Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=Vec3(0, 90, 180))
-        # self.pole('hanger_r', boards, Point3(0.75, 2, 5), Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=Vec3(0, 90, 180))
+        for i in range(8):
+            y = start_sy - i
+            z = start_z - (i - 3) * 0.5 if i >= 3 else start_z
+            pos = Point3(-1.5, y, z)
+            self.pole(f'log_landing_s{i}', barks, pos, Vec3(1, 1, 3), Vec2(2, 1), hpr=(0, 0, 90), bitmask=BitMask32.bit(1))
 
-        self.pole('hanger_l', boards, Point3(-1.25, 2, 5), Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=Vec3(0, 90, 180))
-        self.pole('hanger_r', boards, Point3(1.25, 2, 5), Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=Vec3(0, 90, 180))
+        # columns supporting the south landing
+        z = -4
+        col_y_pos = [-0.5, -3.5]
 
-        start_y = 2.5
+        for i, (x, y) in enumerate(product(x_pos, col_y_pos)):
+            pos = Point3(x, y, z)
+            self.pole(f'pole_s{i}', boards, pos, Vec3(0.5, 0.5, 1 - z), Vec2(2, 1), hpr=(0, 0, 0))
 
-        for i in range(5):
-            y = start_y + i
-            log_pos = Point3(-1.5, y, 3)
-            log = self.pole(f'log_{i}', boards, log_pos, Vec3(1, 1, 3), Vec2(2, 1),
+        # handrails of the south bridge
+        handrail_sz = 3
+
+        for i, x in enumerate(x_pos):
+            pos = Point3(x, start_sy, handrail_sz)
+            self.pole(f'handrail_{i}', boards, pos, Vec3(0.5, 0.5, log_num + 1), Vec2(2, 1), hpr=Vec3(0, 90, 180))
+            pole_pos = Point3(x, start_sy, start_z)
+            self.pole(f'pole_s{i}', boards, pole_pos, Vec3(0.5, 0.5, 2.25), Vec2(2, 1), hpr=(0, 0, 0))
+
+        # logs of the south bridge
+        log_start_sy = 0.5
+
+        for i in range(10):
+            y = log_start_sy + i
+            log_pos = Point3(-1.5, y, 1)
+            log = self.pole(f'log_{i}', barks, log_pos, Vec3(0.9, 0.9, 3), Vec2(2, 1),
                             hpr=(0, 0, 90), active=True, bitmask=BitMask32.bit(1))
 
-            from_pt = Point3(-1.25, y, 5 - 0.25) + self.center
-            to_pt = Point3(-1.25, y, 3.5) + self.center
-            rope.attach_last_node(i, Images.ROPE.path, from_pt, to_pt, log)
+            for j, x in enumerate(x_pos):
+                from_pt = Point3(x, y, 3 - 0.25) + self.center
+                to_pt = Point3(x, y, 1.45) + self.center
+                rope.attach_last_node(f's{i}{j}', Images.ROPE.path, from_pt, to_pt, log)
 
-            from_pt = Point3(1.25, y, 5 - 0.25) + self.center
-            to_pt = Point3(1.25, y, 3.5) + self.center
-            rope.attach_last_node(i + 1, Images.ROPE.path, from_pt, to_pt, log)
+        # middle landing
+        start_my = 10.5
+
+        for i in range(6):
+            y = start_my + i
+            pos = Point3(-1.5, y, start_z)
+            self.pole(f'log_landing_s{i}', barks, pos, Vec3(1, 1, 3), Vec2(2, 1), hpr=(0, 0, 90), bitmask=BitMask32.bit(1))
+
+        # columns of the middle landing
+        mid_y_pos = [10.5, 15.5]
+        cloth_pts = []
+
+        for i, (x, y) in enumerate(product(x_pos, mid_y_pos)):
+            pos = Point3(x, y, -4)
+            self.pole(f'pole_sm{i}', boards, pos, Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=(0, 0, 0))
+            cloth_pts.append(Point3(x, y, 6) + self.center)
+
+        cloth = ClothMaker(self.world)
+        cloth.create_cloth(1, Images.FABRIC.path, *cloth_pts, 8, 12)
+        print(cloth_pts)
+
+        # handrails of the north bridge
+        handrail_nz = 5
+        start_ny = 15.5
+
+        for i, x in enumerate(x_pos):
+            pos = Point3(x, start_ny, handrail_nz)
+            self.pole(f'handrail_s{i}', boards, pos, Vec3(0.5, 0.5, log_num + 1), Vec2(2, 1), hpr=Vec3(0, 90, 180))
+
+        # logs of the north bridge
+        log_start_ny = 16.5
+
+        for i in range(10):
+            y = log_start_ny + i
+            log_pos = Point3(-1.5, y, 1)
+            log = self.pole(f'log_{i}', barks, log_pos, Vec3(0.9, 0.9, 3), Vec2(2, 1),
+                            hpr=(0, 0, 90), active=True, bitmask=BitMask32.bit(1))
+
+            for j, x in enumerate(x_pos):
+                from_pt = Point3(x, y, handrail_nz - 0.25) + self.center
+                to_pt = Point3(x, y, 1.45) + self.center
+                rope.attach_last_node(f's{i}{j}', Images.ROPE.path, from_pt, to_pt, log)
 
 
 
 
 
-        # # x_pos = [-2, 2]
-        # x_pos = [-1.75, 1.75]
-        # start_y = 2.5
-        # start_z = 6
-        # slope = 0
-
-        # for i in range(5):
-        #     y = start_y + i
-        #     z = start_z + slope * i
-            
-        #     log_pos = Point3(0, y, 3)
-        #     # log = self.pole(f'log_{i}', boards, log_pos, Vec3(1, 1, 4), Vec2(2, 1),
-        #                     # hpr=(0, 90, 90), active=True, bitmask=BitMask32.all_on())
-        #     log = self.block(f'board_{i}', boards, log_pos, Vec3(4, 1, 1), active=True)
-            
-        #     for j, x in enumerate(x_pos):
-        #         hanger_pos = Point3(x, y, z)
-        #         self.pole(f'hanger_{i}{j}', metal, hanger_pos, Vec3(0.3, 0.3, 1), Vec2(2, 1), vertical=False)
-        #         # x_rope = x + np.sign(x) * -1 * 0.25
-        #         # print(x, x_rope)
-        #         from_pt = Point3(x, y - 0.5, z - 0.15) + self.center
-        #         to_pt = Point3(x, y, 2.5) + self.center
-        #         rope.attach_last_node(f'{i}{j}', Images.ROPE.path, from_pt, to_pt, log)
-                    
+        # cloth = ClothMaker(self.world)
+            # cloth_pt = Point3(x, y, 6) + self.center
+            # cloth_pts.append(cloth_pt)
+        # # cloth_pts = [Point3(x, y, 6) + self.center for x, y in product([-1.5, 1.5], [0, -4])]
         
-        
-        
-        # # roofs
-        # pos_scale = [
-        #     [Point3(0, 4, 9.5), Vec3(4, 4, 0.5)]
-        # ]
-        # for i, (pos, scale) in enumerate(pos_scale):
-        #     r = self.block(f'roof_{i}', floors, pos, scale)
-        #     r.node().set_kinematic(True)
-        
-        # b = self.block(f'board_{i}', boards, Point3(0, 4, 3), Vec3(4, 4, 0.5), active=True)
-
-        # # Car(Point3(0, 0, 0), self.world, r, b)
-
-        
-        # # gondola lif posts
-        # x_pos = [-2.875, 2.875]
-        # y_pos = [-1.875, 1.875]
-        # z = 6.5
-        # scale = Vec3(0.25, 0.25, 6)
-
-        # for i, (x, y) in enumerate(product(x_pos, y_pos)):
-        #     self.block(f'post_v{i}', metal, Point3(x, y, z), scale, horizontal=False)
-        
-        # self.block('post_h1', metal, Point3(0, 1.875, 9), Vec3(6, 0.25, 0.25))
-
-        # rail
-        # self.block('rail', metal, Point3(0, 5, 9), Vec3(0.25, 6, 0.25))
-        # p = Point3(0, 2, 4) + self.center 
-        # car = Car(p, self.world)
-
-        # pos_x = [2.75, -2.75]
-        # pos_y = [3.25]
-        # scale = Vec3(0.25, 0.25, 12)
-        # for i, y in enumerate(pos_y):
-        #     for j, x in enumerate(pos_x):
-        #         pos = Point3(x, y, 3)
-        #         self.block(f'post_v{i}{j}', metal, pos, scale, horizontal=False)            
-
-        #     self.block(f'post_h{i}', metal, Point3(0, y, 9.25), Vec3(6, 0.5, 0.5))
-
-
-
-        # for y in gon
-
-
-
-        # steps
-        for i in range(5):
-            pos = Point3(0, -2.5 - i, 2 - i)
-            block = self.block(f'step_{i}', floors, pos, Vec3(6, 1, 1))
-            self.lift(f'lift_{i}', lifts, block)
-
+        # cloth.create_cloth(1, Images.FABRIC.path, *cloth_pts, 10, 12)
+        barks.set_texture(self.bark_tex)
         boards.set_texture(self.board_tex)
-        floors.set_texture(self.floor_tex)
-        columns.set_texture(self.column_tex)
-        metal.set_texture(self.metal_tex)
         self.flatten_strong()
-
-
-
-        # self.pole('pile_1', poles, Point3(-4, -3, 4), Vec3(0.2, 0.2, 10), Vec2(1, 1))
-        # self.pole('pile_2', poles, Point3(4, -3, 4), Vec3(0.2, 0.2, 10), Vec2(1, 1))
-        # self.pole('pile_3', poles, Point3(-4, 3, 4), Vec3(0.2, 0.2, 10), Vec2(1, 1))
-        # pole = self.pole('pile_3', poles, Point3(4, 3, 4), Vec3(0.2, 0.2, 10), Vec2(1, 1))
-        # # self.pole('pile_4', poles, Point3(-3, 0, 4), Vec3(0.2, 0.2, 10), Vec2(1, 1),
-        # #           hpr=Vec3(90, 90, 0), active=True, bitmask=BitMask32.bit(1))
-
-        # # pole(self, name, parent, pos, scale, tex_scale,
-        # #      hpr=None, vertical=True, bitmask=BitMask32.bit(3), hide=False):
-        
-        # pt00 = Point3(-4, -3, 4) + self.center
-        # pt10 = Point3(4, -3, 4) + self.center
-        # pt01 = Point3(-4, 3, 4) + self.center
-        # pt11 = Point3(4, 3, 4) + self.center
-
-        # pt00 = Point3(-4, -3, 4)
-        # pt10 = Point3(4, -3, 4)
-        # pt01 = Point3(-4, 3, 4)
-        # pt11 = Point3(4, 3, 4)        
-        # cloth = Cloth(self.world, pole, pt00, pt10, pt01, pt11, 29, 29)
-        # cloth.cloth.reparent_to(cloths)

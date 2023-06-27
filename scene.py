@@ -94,8 +94,8 @@ class Scene(NodePath):
             [Observatory, Point3(-80, 80, -2.5), 45],
             [Bridge, Point3(38, 43, 1), 0],
             [Tunnel, Point3(-45, -68, 3), 222],
-            [AdventurePlayground, Point3(70, -15, -1.5), 0]
-            # [GondolaLift, Point3(77.147, 39.3058, -3.48162), 0]
+            [AdventurePlayground, Point3(71, -5.2, -2), 0]
+            # [GondolaLift, Point3(77.147, 39.3058, -3.48162), 0] 70, -15, -1.5
         ]
         for bldg_cls, pos, h in buildings:
             bldg = bldg_cls(self.world, self.buildings, pos, h)
