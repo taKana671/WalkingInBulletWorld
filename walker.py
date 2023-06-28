@@ -51,7 +51,8 @@ class Walker(NodePath):
         # self.set_pos(Point3(25, -10, 1))
 
         # self.set_pos(Point3(74.1052, -33.6279, 10))
-        self.set_pos(Point3(77.0065, -40.5386, -0.272899))
+        # self.set_pos(Point3(77.0065, -40.5386, -0.272899))
+        self.set_pos(Point3(73.7741, 28.4174, -2.84356))
 
         self.set_scale(0.5)
         self.reparent_to(base.render)
