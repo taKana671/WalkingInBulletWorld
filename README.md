@@ -13,7 +13,7 @@ I made an adventure bridge by using Bullet Softbody Rope and Bullet Softbody Pat
 ![DEMO_ADVENTURE3](https://github.com/taKana671/WalkingInBulletWorld/assets/48859041/58b224e2-3935-49f8-869c-84563d6175f8)
 
 # Requirements
-* Panda3D 1.10.12
+* Panda3D 1.10.13
 * pandas 1.5.2
 * numpy 1.23.5
 
