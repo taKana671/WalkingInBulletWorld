@@ -8,6 +8,10 @@ The doors automatically open and close. To go in and out at the doors, stop in f
 
 ![DEMO_new](https://user-images.githubusercontent.com/48859041/233696155-3bfe126e-ed1f-47d3-9937-a8623c39cca1.png)
 
+I made an adventure bridge by using Bullet Softbody Rope and Bullet Softbody Patch. Carefully cross the bridge.
+
+![DEMO_ADVENTURE](https://github.com/taKana671/WalkingInBulletWorld/assets/48859041/ed157f28-1b7c-414a-99dd-fd271257a409)
+
 # Requirements
 * Panda3D 1.10.12
 * pandas 1.5.2
