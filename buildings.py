@@ -207,8 +207,8 @@ class Buildings(NodePath):
 
         return sensor
 
-    def pole(self, name, parent, pos, scale, tex_scale,
-             hpr=None, vertical=True, bitmask=BitMask32.bit(3), hide=False, active=False):
+    def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True, 
+             bitmask=BitMask32.bit(3), hide=False, active=False):
         if not hpr:
             hpr = Vec3(0, 0, 180) if vertical else Vec3(0, 90, 0)
 
@@ -1073,14 +1073,15 @@ class AdventureBridge(Buildings):
                 pos = Point3(-1.5, start_y + j, start_z)
                 self.pole(f'landing_{i}{j}', barks, pos, Vec3(1, 1, 3), Vec2(2, 1), hpr=(0, 0, 90), bitmask=BitMask32.bit(1))
 
-            # poles
+            # poles and cloth
             y_pos = [start_y, start_y + 5]
+            cloth_pts = []
+
             for j, (x, y) in enumerate(product(x_pos, y_pos)):
                 pos = Point3(x, y, -4)
                 self.pole(f'pole_{i}{j}', boards, pos, Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=(0, 0, 0))
+                cloth_pts.append(Point3(x, y, 6) + self.center)
 
-            # cloth
-            cloth_pts = [Point3(x, y, 6) + self.center for x, y in product(x_pos, y_pos)]
             cloth.create_cloth(i, Images.FABRIC.path, *cloth_pts, 8, 12)
 
         # bridges of horizontal logs
