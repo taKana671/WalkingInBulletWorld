@@ -1052,7 +1052,7 @@ class AdventureBridge(Buildings):
         step_start_z = start_z - 0.5
         steps = [
             [-6.5, 4, True],
-            [64.5, 5, False]
+            [48.5, 7, False]
         ]
         for i, (start_y, cnt, decrease) in enumerate(steps):
             for j in range(cnt):
@@ -1066,7 +1066,6 @@ class AdventureBridge(Buildings):
             (10.5, 6),  # landing_2
             (26.5, 6),  # landing_3
             (42.5, 6),  # landing_4
-            (58.5, 6)   # landing_5
         ]
         for i, (start_y, n) in enumerate(landings):
             for j in range(n):
@@ -1084,11 +1083,9 @@ class AdventureBridge(Buildings):
 
             cloth.create_cloth(i, Images.FABRIC.path, *cloth_pts, 8, 12)
 
-        # bridges of horizontal logs
         bridges = [
-            [-0.5, 3, 0.5, [0.75, 0.5, 0.25, 0, -0.25, -0.25, 0, 0.25, 0.5, 0.75]],     # between landing_1 and landing_2
-            [15.5, 5, 16.5, [1.25, 1.5, 1.75, 2.0, 2.25, 2.25, 2.0, 1.75, 1.5, 1.25]],  # between landing_2 and landing_3
-            [31.5, 4, 32.5, [0.75, 0.5, 0.25, 0, -0.25, -0.25, 0, 0.25, 0.5, 0.75]]     # between landing_3 and landing_4
+            [-0.5, 5, 0.5, [1.25, 1.5, 1.75, 2.0, 2.25, 2.25, 2.0, 1.75, 1.5, 1.25]], # between landing_1 and landing_2
+            [15.5, 4, 16.5, [0.75, 0.5, 0.25, 0, -0.25, -0.25, 0, 0.25, 0.5, 0.75]],  # between landing_2 and landing_3
         ]
         for i, (handrail_y, handrail_z, log_y, log_z) in enumerate(bridges):
             # handrails
@@ -1111,7 +1108,7 @@ class AdventureBridge(Buildings):
 
         # bridges of vertical logs
         bridges = [
-            [47.5, 5, 48.5]     # between landing_4 and landing_5
+            [31.5, 4, 32.5]
         ]
         for i, (handrail_y, handrail_z, log_y) in enumerate(bridges):
             # handrails
