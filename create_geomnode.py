@@ -54,7 +54,7 @@ class Tube(GeomRoot):
     """Create a geom node of the tube.
        Args:
             segs_a (int): subdivisions of the mantle along the rotation axis;
-            segs_c (int): subdivisions of the mantle along a circular cross_section;
+            segs_c (int): subdivisions of the mantle along a circular cross-section;
             height (float): the length of the tube;
             radius (float): the radius of the tube; cannot be negative;
     """

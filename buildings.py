@@ -15,6 +15,7 @@ from panda3d.bullet import BulletRigidBodyNode
 
 from automatic_doors import SlidingDoor, ConeTwistDoor, SlidingDoorSensor, ConeTwistDoorSensor
 from create_geomnode import Cube, RightTriangularPrism, Tube, RingShape, SphericalShape, Cylinder
+from create_softbody import RopeMaker, ClothMaker
 
 
 class Images(Enum):
@@ -28,6 +29,9 @@ class Images(Enum):
     COBBLESTONES = 'cobblestones.jpg'
     METALBOARD = 'metalboard.jpg'
     CONCRETE2 = 'concrete2.jpg'
+    ROPE = 'rope2.jpg'
+    BARK = 'bark1.jpg'
+    FABRIC = 'fabric2.jpg'
 
     @property
     def path(self):
@@ -203,8 +207,8 @@ class Buildings(NodePath):
 
         return sensor
 
-    def pole(self, name, parent, pos, scale, tex_scale,
-             hpr=None, vertical=True, bitmask=BitMask32.bit(3), hide=False):
+    def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True, 
+             bitmask=BitMask32.bit(3), hide=False, active=False):
         if not hpr:
             hpr = Vec3(0, 0, 180) if vertical else Vec3(0, 90, 0)
 
@@ -213,6 +217,10 @@ class Buildings(NodePath):
 
         if hide:
             pole.hide()
+
+        if active:
+            pole.node().set_mass(20)
+            # pole.node().set_deactivation_enabled(False)
 
         pole.reparent_to(parent)
         self.world.attach(pole.node())
@@ -1012,4 +1020,119 @@ class Tunnel(Buildings):
         walls.set_texture(self.wall_tex)
         metal.set_texture(self.metal_tex)
         pedestals.set_texture(self.pedestal_tex)
+        self.flatten_strong()
+
+
+class AdventureBridge(Buildings):
+
+    def __init__(self, world, parent, center, h=0):
+        super().__init__(world, 'tent')
+        self.set_pos(center)
+        # self.set_h(h)
+        self.reparent_to(parent)
+        self.center = center
+
+    def make_textures(self):
+        self.board_tex = self.texture(Images.BOARD)
+        self.bark_tex = self.texture(Images.BARK)
+
+    def build(self):
+        self.make_textures()
+        barks = NodePath('barks')
+        barks.reparent_to(self)
+        boards = NodePath('boards')
+        boards.reparent_to(self)
+
+        rope = RopeMaker(self.world)
+        cloth = ClothMaker(self.world)
+        x_pos = [-1.25, 1.25]
+        start_z = 1
+
+        # steps
+        step_start_z = start_z - 0.5
+        steps = [
+            [-6.5, 4, True],
+            [64.5, 5, False]
+        ]
+        for i, (start_y, cnt, decrease) in enumerate(steps):
+            for j in range(cnt):
+                y = start_y - j if decrease else start_y + j
+                pos = Point3(-1.5, y, step_start_z - j * 0.5)
+                self.pole(f'step_{i}{j}', barks, pos, Vec3(1, 1, 3), Vec2(2, 1), hpr=(0, 0, 90), bitmask=BitMask32.bit(1))
+
+        # landings
+        landings = [
+            (-5.5, 6),  # landing_1
+            (10.5, 6),  # landing_2
+            (26.5, 6),  # landing_3
+            (42.5, 6),  # landing_4
+            (58.5, 6)   # landing_5
+        ]
+        for i, (start_y, n) in enumerate(landings):
+            for j in range(n):
+                pos = Point3(-1.5, start_y + j, start_z)
+                self.pole(f'landing_{i}{j}', barks, pos, Vec3(1, 1, 3), Vec2(2, 1), hpr=(0, 0, 90), bitmask=BitMask32.bit(1))
+
+            # poles and cloth
+            y_pos = [start_y, start_y + 5]
+            cloth_pts = []
+
+            for j, (x, y) in enumerate(product(x_pos, y_pos)):
+                pos = Point3(x, y, -4)
+                self.pole(f'pole_{i}{j}', boards, pos, Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=(0, 0, 0))
+                cloth_pts.append(Point3(x, y, 6) + self.center)
+
+            cloth.create_cloth(i, Images.FABRIC.path, *cloth_pts, 8, 12)
+
+        # bridges of horizontal logs
+        bridges = [
+            [-0.5, 3, 0.5, [0.75, 0.5, 0.25, 0, -0.25, -0.25, 0, 0.25, 0.5, 0.75]],     # between landing_1 and landing_2
+            [15.5, 5, 16.5, [1.25, 1.5, 1.75, 2.0, 2.25, 2.25, 2.0, 1.75, 1.5, 1.25]],  # between landing_2 and landing_3
+            [31.5, 4, 32.5, [0.75, 0.5, 0.25, 0, -0.25, -0.25, 0, 0.25, 0.5, 0.75]]     # between landing_3 and landing_4
+        ]
+        for i, (handrail_y, handrail_z, log_y, log_z) in enumerate(bridges):
+            # handrails
+            handrail_sz = len(log_z) + 1
+            for j, x in enumerate(x_pos):
+                pos = Point3(x, handrail_y, handrail_z)
+                self.pole(f'handrail_h{i}{j}', boards, pos, Vec3(0.5, 0.5, handrail_sz), Vec2(2, 1),
+                          hpr=Vec3(0, 90, 180), bitmask=BitMask32.bit(1))
+            # logs
+            for j in range(len(log_z)):
+                y = log_y + j
+                pos = Point3(-1.5, y, log_z[j])
+                log = self.pole(f'log_h{i}', barks, pos, Vec3(0.9, 0.9, 3), Vec2(2, 1), active=True,
+                                hpr=(0, 0, 90), bitmask=BitMask32.bit(1))
+
+                for k, x in enumerate(x_pos):
+                    from_pt = Point3(x, y, handrail_z - 0.25) + self.center
+                    to_pt = Point3(x, y, log_z[j] + 0.45) + self.center
+                    rope.attach_last(f'rope_h{i}{j}{k}', Images.ROPE.path, from_pt, to_pt, log)
+
+        # bridges of vertical logs
+        bridges = [
+            [47.5, 5, 48.5]     # between landing_4 and landing_5
+        ]
+        for i, (handrail_y, handrail_z, log_y) in enumerate(bridges):
+            # handrails
+            for j, x in enumerate(x_pos):
+                pos = Point3(x, handrail_y, handrail_z)
+                self.pole(f'handrail_v{i}{j}', boards, pos, Vec3(0.5, 0.5, 11), Vec2(2, 1),
+                          hpr=Vec3(0, 90, 180), bitmask=BitMask32.bit(1))
+            # logs
+            for j in range(10):
+                y = log_y + j
+                pos = Point3(0, y, 1)
+
+                if j % 2 == 0:
+                    log = self.pole(f'log_v{i}', barks, pos, Vec3(1, 1, 1.9), Vec2(2, 1),
+                                    hpr=(0, 90, 180), active=True, bitmask=BitMask32.bit(1))
+
+                for k, (from_x, to_x) in enumerate(zip(x_pos, [-0.5, 0.5])):
+                    from_pt = Point3(from_x, y, handrail_z - 0.25) + self.center
+                    to_pt = Point3(to_x, y + 0.5, 1) + self.center
+                    rope.attach_last(f'rope_v{i}{j}{k}', Images.ROPE.path, from_pt, to_pt, log)
+
+        barks.set_texture(self.bark_tex)
+        boards.set_texture(self.board_tex)
         self.flatten_strong()
