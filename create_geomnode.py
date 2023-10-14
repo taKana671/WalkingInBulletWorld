@@ -11,10 +11,15 @@ from utils import singleton
 
 class GeomRoot(NodePath):
 
-    def __init__(self):
-        geomnode = self.create_geomnode()
+    def __init__(self, name):
+        geomnode = self.create_geomnode(name)
         super().__init__(geomnode)
         self.set_two_sided(True)
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if 'create_vertices' not in cls.__dict__:
+            raise NotImplementedError('Subclasses should implement create_vertices.')
 
     def create_format(self):
         arr_format = GeomVertexArrayFormat()
@@ -25,14 +30,14 @@ class GeomRoot(NodePath):
         fmt = GeomVertexFormat.register_format(arr_format)
         return fmt
 
-    def create_geomnode(self):
+    def create_geomnode(self, name):
         fmt = self.create_format()
         vdata_values = array.array('f', [])
         prim_indices = array.array('H', [])
 
         vertex_count = self.create_vertices(vdata_values, prim_indices)
 
-        vdata = GeomVertexData('tube', fmt, Geom.UHStatic)
+        vdata = GeomVertexData(name, fmt, Geom.UHStatic)
         vdata.unclean_set_num_rows(vertex_count)
         vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
         vdata_mem[:] = vdata_values
@@ -64,7 +69,7 @@ class Tube(GeomRoot):
         self.segs_c = segs_c
         self.height = height
         self.radius = radius
-        super().__init__()
+        super().__init__('tube')
 
     def create_vertices(self, vdata_values, prim_indices):
         delta_angle = 2.0 * math.pi / self.segs_c
@@ -113,7 +118,7 @@ class RingShape(GeomRoot):
         self.ring_radius = ring_radius
         self.section_radius = section_radius
         self.slope = slope
-        super().__init__()
+        super().__init__('ring_shape')
 
     def create_vertices(self, vdata_values, prim_indices):
         delta_angle_h = 2.0 * math.pi / self.segs_r
@@ -162,7 +167,7 @@ class SphericalShape(GeomRoot):
     def __init__(self, radius=1.5, segments=22):
         self.radius = radius
         self.segments = segments
-        super().__init__()
+        super().__init__('spherical')
 
     def create_bottom_pole(self, vdata_values, prim_indices):
         # the bottom pole vertices
@@ -263,7 +268,7 @@ class Cylinder(GeomRoot):
         self.segs_c = segs_c
         self.height = height
         self.segs_a = segs_a
-        super().__init__()
+        super().__init__('cyinder')
 
     def cap_vertices(self, delta_angle, bottom=True):
         z = 0 if bottom else self.height
@@ -380,7 +385,7 @@ class Cube(GeomRoot):
         self.segs_d = segs_d
         self.segs_h = segs_h
         self.color = (1, 1, 1, 1)
-        super().__init__()
+        super().__init__('cube')
 
     def create_vertices(self, vdata_values, prim_indices):
         vertex_count = 0
@@ -453,7 +458,7 @@ class RightTriangularPrism(GeomRoot):
         self.h = h
         self.segs_h = segs_h
         self.color = (1, 1, 1, 1)
-        super().__init__()
+        super().__init__('right_triangular_prism')
 
     def create_caps(self, points, index_offset, vdata_values, prim_indices):
         vertex_count = 0
