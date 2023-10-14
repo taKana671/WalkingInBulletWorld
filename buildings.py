@@ -395,11 +395,12 @@ class StoneHouse(Buildings):
 
         # balcony fence
         pos_scale_hpr = [
-            [Point3(4, -8.25, 7.5), Vec3(0.5, 1, 20), Vec3(0, 90, 90)],
-            [Point3(-5.75, -5, 7.5), Vec3(0.5, 1, 6), Vec3(0, 90, 0)],
-            [Point3(13.75, -4, 7.5), Vec3(0.5, 1, 8), Vec3(0, 90, 0)],
-            [Point3(10, 0.25, 7.25), Vec3(0.5, 1.5, 8), Vec3(0, 90, 90)]
+            [Point3(4, -8.25, 7.75), Vec3(0.5, 1.5, 20), Vec3(0, 90, 90)],
+            [Point3(-5.75, -5, 7.75), Vec3(0.5, 1.5, 6), Vec3(0, 90, 0)],
+            [Point3(13.75, -4, 7.75), Vec3(0.5, 1.5, 8), Vec3(0, 90, 0)],
+            [Point3(10, 0.25, 7.5), Vec3(0.5, 2.0, 8), Vec3(0, 90, 90)]
         ]
+
         for i, (pos, scale, hpr) in enumerate(pos_scale_hpr):
             self.block(f'balcony_{i}', floors, pos, scale, hpr=hpr)
 
@@ -452,7 +453,7 @@ class StoneHouse(Buildings):
             block = self.block(f'step_2{i}', floors, pos, Vec3(7.5, 1, 1), hpr=Vec3(0, 90, 0), hide=hide)
             self.lift(f'lift_2{i}', invisible, block)
 
-        # steps that leade to the 1st floor
+        # steps that leads to the 1st floor
         x_diffs = [15.9, -15.9]
 
         for i in range(5):
