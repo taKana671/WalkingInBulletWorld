@@ -207,7 +207,7 @@ class Buildings(NodePath):
 
         return sensor
 
-    def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True, 
+    def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True,
              bitmask=BitMask32.bit(3), hide=False, active=False):
         if not hpr:
             hpr = Vec3(0, 0, 180) if vertical else Vec3(0, 90, 0)
@@ -356,8 +356,8 @@ class StoneHouse(Buildings):
             [Point3(0, 8.25, 3.5), Vec3(12, 0.5, 6), True],            # rear
             [Point3(0, -8.25, 5.5), Vec3(12, 0.5, 2), True],           # front top
         ]
-        for i, (pos, scale, hor) in enumerate(walls_1st_floor):
-            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=mask_wall)
+        for i, (pos, scale, hpr) in enumerate(walls_1st_floor):
+            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hpr, bitmask=mask_wall)
 
         # doors on the lst floor
         door_scale = Vec3(2, 0.5, 4)
@@ -1134,3 +1134,101 @@ class AdventureBridge(Buildings):
         barks.set_texture(self.bark_tex)
         boards.set_texture(self.board_tex)
         self.flatten_strong()
+
+
+class TimeTravelHouse(Buildings):
+
+    def __init__(self, world, parent, center, h=0):
+        super().__init__(world, 'timeTravelHouse')
+        self.set_pos(center)
+        # self.set_h(h)
+        self.reparent_to(parent)
+        self.center = center
+
+    def make_textures(self):
+        self.floor_tex = self.texture(Images.IRON)
+        self.walls_tex = self.texture(Images.CONCRETE2)
+        self.poles_tex = self.texture(Images.LAYINGBROCK)
+
+    def build(self):
+        self.make_textures()
+        floor = NodePath('barks')
+        floor.reparent_to(self)
+        walls = NodePath('walls')
+        walls.reparent_to(self)
+        poles = NodePath('poles')
+        poles.reparent_to(self)
+
+
+        self.block('floor1', floor, Point3(0, 0, 0), Vec3(12, 1, 12), hpr=Vec3(0, 90, 0))
+
+        mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
+
+        # walls
+        pos_scale_hpr = [
+            [Point3(-3.25, 0, 2.5), Vec3(6, 0.5, 4), False],          # left
+            [Point3(3.25, 0, 2.5), Vec3(6, 0.5, 4), False],           # right
+            [Point3(0, 3.25, 2.5), Vec3(6, 0.5, 4), True],            # rear
+            [Point3(-2, -3.25, 2.25), Vec3(2, 0.5, 3.5), True],       # left flont
+            [Point3(2, -3.25, 2.25), Vec3(2, 0.5, 3.5), True],        # right flont
+            [Point3(0, -3.25, 4.25), Vec3(6, 0.5, 0.5), True],        # front top
+        ]
+        for i, (pos, scale, hpr) in enumerate(pos_scale_hpr):
+            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hpr, bitmask=mask_wall)
+
+        # columns
+        for i, (x, y) in enumerate(product([3.4, -3.4], [3.4, -3.4])):
+            pos = Point3(x, y, 4.5)
+            self.pole(f'column_{i}', poles, pos, Vec3(0.8, 0.8, 4), Vec2(2, 1))
+
+        # # roof
+        # pos_scale_hpr = [
+        #     [Point3(0, -0.5, 6.25), Vec3(8, 1, 0.5), True],       # left flont
+        #     [Point3(0, -1.5, 5.75), Vec3(8, 1, 0.5), True],       # left flont
+        #     [Point3(0, -2.5, 5.25), Vec3(8, 1, 0.5), True],        # right flont
+        #     [Point3(0, -3.5, 4.75), Vec3(8, 1, 0.5), True],        # front top
+        # ]
+        # roof
+        start_y, start_z = 3.5, 4.75
+        scale = Vec3(8, 1, 0.5)
+        for i in range(7):
+            y = start_y - i * 0.5
+            z = start_z + i * 0.5
+            for j, sign in enumerate([1, -1]):
+                pos = Point3(0, sign * y, z)
+                self.block(f'roof_{i}{j}', floor, pos, scale, True)
+
+        
+        start_sy = 6
+        start_z = 4.75
+        for i in range(6):
+            sy = start_sy - i
+            scale = Vec3(0.5, sy, 0.5)
+            z = start_z + i * 0.5
+            for j, x in enumerate([3.25, -3.25]):
+                pos = Point3(x, 0, z)
+                self.block(f'wall1_{i}', walls, pos, scale, False)
+
+            
+
+
+        # for i, (pos, scale, hpr) in enumerate(pos_scale_hpr):
+            # self.block(f'wall1_{i}', floor, pos, scale, horizontal=hpr, bitmask=mask_wall)
+
+
+        poles.set_texture(self.poles_tex)
+        floor.set_texture(self.floor_tex)
+        walls.set_texture(self.walls_tex)
+
+
+
+
+        # barks = NodePath('barks')
+        # barks.reparent_to(self)
+        # boards = NodePath('boards')
+        # boards.reparent_to(self)
+
+        # rope = RopeMaker(self.world)
+        # cloth = ClothMaker(self.world)
+        # x_pos = [-1.25, 1.25]
+        # start_z = 1
