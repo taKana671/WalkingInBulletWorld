@@ -48,9 +48,7 @@ class Walker(NodePath):
         # bit(1): wall, floor and so on; bit(3): ignored by camera follwing the character;
         # bit(4): embedded objects like lift; bit(5): door sensors
         self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(3) | BitMask32.bit(4) | BitMask32.bit(5))
-        # self.set_pos(Point3(25, -10, 1))
-
-        self.set_pos(Point3(-8.0396, -77.1119, 0.773281))
+        self.set_pos(Point3(25, -10, 1))
 
         self.set_scale(0.5)
         self.reparent_to(base.render)
