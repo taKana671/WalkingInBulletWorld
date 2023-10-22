@@ -32,6 +32,10 @@ class Images(Enum):
     ROPE = 'rope2.jpg'
     BARK = 'bark1.jpg'
     FABRIC = 'fabric2.jpg'
+    CONCRETE4 = 'concrete4.jpg'
+    BRICK2 = 'tile2.jpg'
+
+    SMALL_STONES = 'small_stones.jpg'
 
     @property
     def path(self):
@@ -207,7 +211,7 @@ class Buildings(NodePath):
 
         return sensor
 
-    def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True, 
+    def pole(self, name, parent, pos, scale, tex_scale, hpr=None, vertical=True,
              bitmask=BitMask32.bit(3), hide=False, active=False):
         if not hpr:
             hpr = Vec3(0, 0, 180) if vertical else Vec3(0, 90, 0)
@@ -239,9 +243,19 @@ class Buildings(NodePath):
         self.world.attach(prism.node())
         return prism
 
-    def room_camera(self, name, parent, pos):
+    def room_camera(self, name, parent, pos, moving_direction=None, hide=False):
+        """Args:
+            moving_direction (str): 'x' or 'y'
+        """
         room_camera = self.block(name, parent, pos, Vec3(0.25, 0.25, 0.25))
         room_camera.set_color((0, 0, 0, 1))
+
+        if moving_direction:
+            room_camera.set_tag('moving_direction', moving_direction)
+
+        if hide:
+            room_camera.hide()
+
         return room_camera
 
     def point_on_circumference(self, angle, radius):
@@ -356,12 +370,11 @@ class StoneHouse(Buildings):
             [Point3(0, 8.25, 3.5), Vec3(12, 0.5, 6), True],            # rear
             [Point3(0, -8.25, 5.5), Vec3(12, 0.5, 2), True],           # front top
         ]
-        for i, (pos, scale, hor) in enumerate(walls_1st_floor):
-            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=mask_wall)
+        for i, (pos, scale, hpr) in enumerate(walls_1st_floor):
+            self.block(f'wall1_{i}', walls, pos, scale, horizontal=hpr, bitmask=mask_wall)
 
         # doors on the lst floor
         door_scale = Vec3(2, 0.5, 4)
-        mask_door
         y, z = -8.25, 2.5
         # left
         wall1_l = self.block('wall1_l', walls, Point3(-4, y, z), Vec3(4, 0.5, 4), bitmask=mask_wall)
@@ -1133,4 +1146,122 @@ class AdventureBridge(Buildings):
 
         barks.set_texture(self.bark_tex)
         boards.set_texture(self.board_tex)
+        self.flatten_strong()
+
+
+class MazeHouse(Buildings):
+
+    def __init__(self, world, parent, center, h=0):
+        super().__init__(world, 'timeTravelHouse')
+        self.set_pos(center)
+        # self.set_h(h)
+        self.reparent_to(parent)
+        self.center = center
+
+    def make_textures(self):
+        self.roofs_tex = self.texture(Images.CONCRETE)
+        self.walls_tex = self.texture(Images.BRICK2)
+        self.floor_tex = self.texture(Images.CONCRETE4)
+
+    def build(self):
+        self.make_textures()
+        floor = NodePath('barks')
+        floor.reparent_to(self)
+        walls = NodePath('walls')
+        walls.reparent_to(self)
+        roofs = NodePath('roof')
+        roofs.reparent_to(self)
+        room_camera = NodePath('room_camera')
+        room_camera.reparent_to(self)
+        invisible = NodePath('invisible')
+        invisible.reparent_to(self)
+
+        # room_camera
+        self.block('room_jphouse', floor, Point3(0, 0, 0), Vec3(14.5, 3, 14.5), hpr=Vec3(0, 90, 0))
+        self.room_camera('room_jphouse_camera', room_camera, Point3(0, 0, 9), 'x', True)
+
+        # walls
+        sy = 0.5
+        mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
+
+        # outer walls
+        xy_sx_hor = [
+            [(-7, 0), 14.5, False],   # left
+            [(7, 0), 14.5, False],    # right
+            [(-3.75, -7), 6, True],   # front left
+            [(3.75, -7), 6, True],    # front right
+            [(-3.75, 7), 6, True],    # rear left
+            [(3.75, 7), 6, True],     # rear right
+        ]
+        for i, ((x, y), sx, hor) in enumerate(xy_sx_hor):
+            pos = Point3(x, y, 3.5)
+            scale = Vec3(sx, sy, 4)
+            self.block(f'outer_walls_{i}', walls, pos, scale, horizontal=hor, bitmask=mask_wall)
+
+        # inner walls
+        xy_sx_hor = [
+            [(-1, -3.75), 6, False],
+            [(2.25, -1), 6, True],
+            [(1, -4.75), 4, False],
+            [(3, -3), 3.5, True],
+            [(3, -5.75), 2, False],
+            [(5, -3.75), 2, False],
+            [(-5.75, -5), 2, True],
+            [(-3, -3), 4.5, False],
+            [(-4.25, -3), 2, True],
+            [(-5, -0.75), 4, False],
+            [(-2, 1), 5.5, True],
+            [(1, 0.25), 2, False],
+            [(4.75, 1), 4, True],
+            [(3, 2), 1.5, False],
+            [(0, 3), 10.5, True],
+            [(-5, 4.25), 2, False],
+            [(-3.75, 5), 2, True],
+            [(-1, 5.75), 2, False],
+            [(2.25, 5), 6, True],
+        ]
+
+        for i, ((x, y), sx, hor) in enumerate(xy_sx_hor):
+            pos = Point3(x, y, 3.25)
+            scale = Vec3(sx, sy, 3.5)
+            self.block(f'inner_wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=mask_wall)
+
+        # steps
+        steps_num = 3
+
+        for i in range(steps_num):
+            for j, sign in enumerate([1, -1]):
+                y = (7.75 + i * 0.5) * sign
+                step_pos = Point3(0, y, 1 - i)
+                scale = Vec3(4, 1 + i, 1)
+                block = self.block(f'step_{i}{j}', floor, step_pos, scale)
+
+                if i > 0:
+                    self.lift(f'step_lift_{i}{j}', invisible, block)
+
+                # invisible slope
+                if i == steps_num - 1:
+                    sx = 180 if sign == 1 else 0
+                    slope_pos = step_pos + Vec3(0, 2 * sign, 0)
+                    self.triangular_prism(f'hidden_slope_{i}{j}', invisible, slope_pos, Vec3(sx, 180, 90), Vec3(1, 1, 4), hide=True)
+
+        # columns in front of the entrance and exit
+        scale = Vec3(0.5, 0.5, 7)
+        for i, x in enumerate([2.25, -2.25]):
+            for j, y in enumerate([-10, 10]):
+                pos = (x, y, 2)
+                self.block(f'column_{i}{j}', walls, pos, scale)
+
+        # roofs
+        for i in range(4):
+            sx = 5 - i
+            sz = 3.5 - i
+            z = 5.75 + 0.5 * i
+            for j, y in enumerate([-8.5, 8.5]):
+                self.block('roof', roofs, Point3(0, y, z), Vec3(sx, 0.5, sz), hpr=Vec3(0, 90, 0))
+
+        floor.set_texture(self.floor_tex)
+        walls.set_texture(self.walls_tex)
+        roofs.set_texture(self.roofs_tex)
+
         self.flatten_strong()

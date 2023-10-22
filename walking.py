@@ -72,6 +72,7 @@ class Walking(ShowBase):
         self.directional_light = BasicDayLight(self.walker)
 
         self.mask = BitMask32.bit(1)
+        self.movable_room_camera = None
 
         inputState.watch_with_modifiers('forward', 'arrow_up')
         inputState.watch_with_modifiers('backward', 'arrow_down')
@@ -171,18 +172,31 @@ class Walking(ShowBase):
 
         # reparent camera
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
+
             if (name := location.get_node().get_name()).startswith('room'):
                 room_camera = self.render.find(f'**/{name}_camera')
+                if room_camera.get_tag('moving_direction'):
+                    self.movable_room_camera = room_camera
                 self.camera.detach_node()
                 self.camera.reparent_to(room_camera)
                 self.camera.set_pos(0, 0, 0)
                 self.camera.look_at(self.floater)
 
     def control_camera_indoors(self):
+        if self.movable_room_camera:
+            match self.movable_room_camera.get_tag('moving_direction'):
+                case 'y':
+                    y = self.walker.get_y(self.movable_room_camera)
+                    self.camera.set_y(y)
+                case 'x':
+                    x = self.walker.get_x(self.movable_room_camera)
+                    self.camera.set_x(x)
+
         self.camera.look_at(self.floater)
 
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
             if not location.get_node().get_name().startswith('room'):
+                self.movable_room_camera = None
                 self.camera.detach_node()
                 self.camera.reparent_to(self.walker)
                 self.camera.set_pos(0, -10, 2)
