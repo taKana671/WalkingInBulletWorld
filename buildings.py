@@ -1152,7 +1152,7 @@ class AdventureBridge(Buildings):
 class MazeHouse(Buildings):
 
     def __init__(self, world, parent, center, h=0):
-        super().__init__(world, 'timeTravelHouse')
+        super().__init__(world, 'mazeHouse')
         self.set_pos(center)
         # self.set_h(h)
         self.reparent_to(parent)
@@ -1241,9 +1241,9 @@ class MazeHouse(Buildings):
 
                 # invisible slope
                 if i == steps_num - 1:
-                    sx = 180 if sign == 1 else 0
+                    angle_x = 180 if sign == 1 else 0
                     slope_pos = step_pos + Vec3(0, 2 * sign, 0)
-                    self.triangular_prism(f'hidden_slope_{i}{j}', invisible, slope_pos, Vec3(sx, 180, 90), Vec3(1, 1, 4), hide=True)
+                    self.triangular_prism(f'hidden_slope_{i}{j}', invisible, slope_pos, Vec3(angle_x, 180, 90), Vec3(1, 1, 4), hide=True)
 
         # columns in front of the entrance and exit
         scale = Vec3(0.5, 0.5, 7)
@@ -1263,5 +1263,76 @@ class MazeHouse(Buildings):
         floor.set_texture(self.floor_tex)
         walls.set_texture(self.walls_tex)
         roofs.set_texture(self.roofs_tex)
+
+        self.flatten_strong()
+
+
+class Tower(Buildings):
+
+    def __init__(self, world, parent, center, h=0):
+        super().__init__(world, 'tower')
+        self.set_pos(center)
+        # self.set_h(h)
+        self.reparent_to(parent)
+        self.center = center
+
+    def make_textures(self):
+        self.prism_tex = self.texture(Images.CONCRETE)
+        self.walls_tex = self.texture(Images.BRICK2)
+        self.floor_tex = self.texture(Images.CONCRETE4)
+
+    def build(self):
+        self.make_textures()
+        # floor = NodePath('barks')
+        # floor.reparent_to(self)
+        walls = NodePath('walls')
+        walls.reparent_to(self)
+        # prisms = NodePath('roof')
+        # prisms.reparent_to(self)
+        # room_camera = NodePath('room_camera')
+        # room_camera.reparent_to(self)
+        # invisible = NodePath('invisible')
+        # invisible.reparent_to(self)
+
+
+        blocks = [
+            (0, 2),
+            (-2, 0),
+            (2, 0),
+            (0, -2)
+        ]
+        # for i, pos in enumerate(blocks):
+        #     self.block(f'outer_walls_{i}', walls, pos, Vec3(2))
+        
+        tri_prism = [
+            [(-2, 2), 90],
+            [(-2, -2), 180],
+            [(2, -2), 270],
+            [(2, 2), 360]
+        ]
+        scale = Vec3(2)
+        tex_scale = Vec2(3, 0.5)
+
+        for i in range(6):
+            z = i * 2
+            for j, (block, prism) in enumerate(zip(blocks, tri_prism)):
+                (x, y), angle_x = prism
+                pos = Point3(x, y, z)
+                angle = Vec3(angle_x, 0, 0)
+                self.triangular_prism(f'prism_{i}', walls, pos, angle, scale, tex_scale)
+            
+                x, y = block
+                if i <= 1 and x == 0 and y == -2:
+                    continue
+                self.block(f'outer_walls_{i}', walls, Point3(x, y, z), scale)
+              
+        
+        # for i, ((x, y), angle_x) in enumerate(tri_prism):
+        #     self.triangular_prism(f'prism_{i}', walls, Point3(x, y, 0), Vec3(angle_x, 0, 0), Vec3(2), Vec2(3, 0.5)) 
+
+        
+        walls.set_texture(self.walls_tex)
+        # prisms.set_texture(self.prism_tex)
+        # roofs.set_texture(self.roofs_tex)
 
         self.flatten_strong()
