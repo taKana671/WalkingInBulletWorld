@@ -184,8 +184,10 @@ class Buildings(NodePath):
         self.world.attach_constraint(twist, True)
         return twist
 
-    def slider(self, door, wall, door_frame, wall_frame):
-        movement_range = -door_frame.x * 2
+    def slider(self, door, wall, door_frame, wall_frame, horizon=True):
+        
+        movement_range = -door_frame.x * 2 if horizon else -door_frame.z * 2
+        # movement_range = -door_frame.x * 2
         direction = 1 if movement_range > 0 else -1
 
         slider = SlidingDoor(
@@ -196,6 +198,17 @@ class Buildings(NodePath):
             movement_range,
             direction
         )
+
+
+        if not horizon:
+            slider = SlidingDoor(
+                door.node(),
+                wall.node(),
+                TransformState.make_pos_hpr(door_frame, Vec3(0, 0, -90)),
+                TransformState.make_pos_hpr(wall_frame, Vec3(0, 0, -90)),
+                movement_range,
+                direction
+            )
 
         self.world.attach_constraint(slider, True)
         return slider
@@ -1165,7 +1178,7 @@ class MazeHouse(Buildings):
 
     def build(self):
         self.make_textures()
-        floor = NodePath('barks')
+        floor = NodePath('floor')
         floor.reparent_to(self)
         walls = NodePath('walls')
         walls.reparent_to(self)
@@ -1276,63 +1289,154 @@ class Tower(Buildings):
         self.reparent_to(parent)
         self.center = center
 
-    def make_textures(self):
-        self.prism_tex = self.texture(Images.CONCRETE)
-        self.walls_tex = self.texture(Images.BRICK2)
-        self.floor_tex = self.texture(Images.CONCRETE4)
-
     def build(self):
+        self._build()
+        base.taskMgr.add(self.sensor.sensing, 'tower_sensing')
+        self.flatten_strong()
+
+
+    def make_textures(self):
+        self.metal_tex = self.texture(Images.METALBOARD)
+        self.walls_tex = self.texture(Images.BRICK2)
+        self.floor_tex = self.texture(Images.IRON)
+
+    def _build(self):
         self.make_textures()
-        # floor = NodePath('barks')
-        # floor.reparent_to(self)
+        floor = NodePath('floor')
+        floor.reparent_to(self)
         walls = NodePath('walls')
         walls.reparent_to(self)
-        # prisms = NodePath('roof')
-        # prisms.reparent_to(self)
+        shutter = NodePath('roof')
+        shutter.reparent_to(self)
         # room_camera = NodePath('room_camera')
         # room_camera.reparent_to(self)
-        # invisible = NodePath('invisible')
-        # invisible.reparent_to(self)
+        invisible = NodePath('invisible')
+        invisible.reparent_to(self)
 
+        # foundation
+        self.block('floor', floor, Point3(0, 0, 0), Vec3(16, 2, 16), hpr=Vec3(0, 90, 0))
 
-        blocks = [
-            (0, 2),
-            (-2, 0),
-            (2, 0),
-            (0, -2)
+        mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
+
+        sz = 4
+        blocks_xy_scale = [
+            [[(0, 5.5), Vec3(4, 1, sz)],
+             [(-4.5, 0), Vec3(3, 4, sz)],
+             [(4.5, 0), Vec3(3, 4, sz)],
+             [(-2.5, -0.125), Vec3(1, 3.75, sz)],
+             [(2.5, -0.125), Vec3(1, 3.75, sz)]],
+            [[(0, 5.5), Vec3(4, 1, sz)],
+             [(-4.5, 0), Vec3(3, 4, sz)],
+             [(4.5, 0), Vec3(3, 4, sz)],
+             [(-2.5, -0.125), Vec3(1, 3.75, sz)],
+             [(2.5, -0.125), Vec3(1, 3.75, sz)],
+             [(0, -0.125), Vec3(4, 3.75, sz)]]
         ]
-        # for i, pos in enumerate(blocks):
-        #     self.block(f'outer_walls_{i}', walls, pos, Vec3(2))
-        
-        tri_prism = [
-            [(-2, 2), 90],
-            [(-2, -2), 180],
-            [(2, -2), 270],
-            [(2, 2), 360]
-        ]
-        scale = Vec3(2)
-        tex_scale = Vec2(3, 0.5)
 
-        for i in range(6):
-            z = i * 2
-            for j, (block, prism) in enumerate(zip(blocks, tri_prism)):
-                (x, y), angle_x = prism
-                pos = Point3(x, y, z)
+        prisms = [
+            [(-4, 4), 90],
+            [(-4, -4), 180],
+            [(4, -4), 270],
+            [(4, 4), 360]
+        ]
+        pri_scale = Vec3(4)
+        tex_scale = Vec2(4, 1)
+
+        for i, blocks in enumerate(blocks_xy_scale):
+            z = 3 + i * 4
+            for j, ((x, y), scale) in enumerate(blocks):
+                self.block(f'wall_{i}{j}', walls, Point3(x, y, z), scale, bitmask=mask_wall)
+
+            for j, ((x, y), angle_x) in enumerate(prisms):
                 angle = Vec3(angle_x, 0, 0)
-                self.triangular_prism(f'prism_{i}', walls, pos, angle, scale, tex_scale)
+                pos = Point3(x, y, z)
+                self.triangular_prism(f'prism_{i}', walls, pos, angle, pri_scale, tex_scale)
+
+
+
+
+
+
+
+        # blocks on the 1st floor
+
+
+
+
+        # blocks = [(0, 2), (-2, 0), (2, 0), (0, -2)]
+        # blocks = [
+        #     [(0, 5.5), Vec3(4, 1, 4)],
+        #     [(-4, 0), Vec3(4)],
+        #     [(0, -4), Vec3(4)],
+        #     [(4, 0), Vec3(4)],]
+
+        # tri_prism = [
+        #     [(-4, 4), 90],
+        #     [(-4, -4), 180],
+        #     [(4, -4), 270],
+        #     [(4, 4), 360]
+        # ]
+        # pri_scale = Vec3(4)
+        # tex_scale = Vec2(4, 1)
+
+        # for i in range(6):
+        #     z = i * 4
+        #     for j, (block, prism) in enumerate(zip(blocks, tri_prism)):
+        #         (x, y), angle_x = prism
+                
+        #         if i > 3 and y < 4:
+        #             continue
+                
+        #         pos = Point3(x, y, z)
+        #         angle = Vec3(angle_x, 0, 0)
+        #         self.triangular_prism(f'prism_{i}', walls, pos, angle, pri_scale, tex_scale)
             
-                x, y = block
-                if i <= 1 and x == 0 and y == -2:
-                    continue
-                self.block(f'outer_walls_{i}', walls, Point3(x, y, z), scale)
+        #         (x, y), scale = block
+        #         # if x == 0 and y == -2:
+        #         if i < 1 and x == 0 and y == -4:
+        #             continue
+        #         self.block(f'outer_walls_{i}', walls, Point3(x, y, z), scale)
+            # break
+
+
+
+        # for i in range(2):
+        #     z = i * 2
+        #     for j, (block, prism) in enumerate(zip(blocks, tri_prism)):
+        #         (x, y), angle_x = prism
+        #         pos = Point3(x, y, z)
+        #         angle = Vec3(angle_x, 0, 0)
+        #         # self.triangular_prism(f'prism_{i}', walls, pos, angle, scale, tex_scale)
+            
+        #         x, y = block
+        #         # if x == 0 and y == -2:
+        #         # if i <= 1 and x == 0 and y == -2:
+        #         #     continue
+        #         self.block(f'outer_walls_{i}', walls, Point3(x, y, z), scale)
+        #     break
               
+        
+        # shutter
+        shutter_scale = Vec3(6, 0.25, 4)
+        # # y, z = -8.125, 3.25
+
+        shutter_wall = self.block('shutter_wall', walls, Point3(0, 1.875, 7), shutter_scale)  #, hide=True)
+        shutter = self.block('shutter', shutter, Point3(0, 1.875, 3), shutter_scale, bitmask=BitMask32.all_on(), active=True)
+        # self.knob(door, 'knob_1', Point3(0.4, 0, 0))
+        slider = self.slider(shutter, shutter_wall, Point3(0, 0, 2), Point3(0, 0, -2), False)
+        self.sensor = self.door_sensor(
+            'shutter_sensor', invisible, Point3(0, 0, 0.75), Vec3(2, 1.5, 0.5), BitMask32.bit(5), SlidingDoorSensor, slider)
+        
+        
         
         # for i, ((x, y), angle_x) in enumerate(tri_prism):
         #     self.triangular_prism(f'prism_{i}', walls, Point3(x, y, 0), Vec3(angle_x, 0, 0), Vec3(2), Vec2(3, 0.5)) 
 
-        
+        floor.set_texture(self.floor_tex)
         walls.set_texture(self.walls_tex)
+        shutter.set_texture(self.metal_tex)
+
         # prisms.set_texture(self.prism_tex)
         # roofs.set_texture(self.roofs_tex)
 
-        self.flatten_strong()
+        # self.flatten_strong()
