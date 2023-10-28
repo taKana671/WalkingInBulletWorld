@@ -95,7 +95,7 @@ class ConeTwistDoor(BulletConeTwistConstraint):
         if self.current_angle >= self.max_angle:
             return True
 
-        self.current_angle += 1
+        self.current_angle += 1.5
         self.rotate(self.current_angle)
         return False
 
@@ -134,8 +134,8 @@ class AutoDoorSensor(NodePath):
 
     def detect_person(self):
         for node in self.node().get_overlapping_nodes():
-            # print(node.get_name())
             if all(node != door for door in self.doors):
+                print(node.get_name())
                 return True
 
     def detect_collision(self):
