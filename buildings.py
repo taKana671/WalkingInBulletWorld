@@ -16,6 +16,7 @@ from panda3d.bullet import BulletRigidBodyNode
 from automatic_doors import SlidingDoor, ConeTwistDoor, SlidingDoorSensor, ConeTwistDoorSensor
 from create_geomnode import Cube, RightTriangularPrism, Tube, RingShape, SphericalShape, Cylinder
 from create_softbody import RopeMaker, ClothMaker
+from elevator import Elevator, ElevatorDoorSensor
 
 
 class Images(Enum):
@@ -1290,8 +1291,9 @@ class Tower(Buildings):
 
     def build(self):
         self._build()
-        base.taskMgr.add(self.sensor_1.sensing, 'tower_sensing')
-        base.taskMgr.add(self.sensor_2.sensing, 'tower2_sensing')
+        base.taskMgr.add(self.elevator.update, 'tower_elevator')
+        # base.taskMgr.add(self.sensor_1.sensing, 'tower_sensing')
+        # base.taskMgr.add(self.sensor_2.sensing, 'tower2_sensing')
         self.flatten_strong()
 
 
@@ -1325,9 +1327,9 @@ class Tower(Buildings):
         for i, (pos, scale) in enumerate(pos_scale):
             self.block(f'floor1_{i}', floor, pos, scale, hpr=Vec3(0, 90, 0))
 
-        # foundation 
-        self.elevator = self.block('room_elevator', floor, Point3(0, 3.5, 0.5), Vec3(4, 1, 3), hpr=Vec3(0, 90, 0))
-        self.elevator.node().set_kinematic(True)
+        # foundation
+        self.cage = self.block('room_elevator', floor, Point3(0, 3.5, 0.5), Vec3(4, 1, 3), hpr=Vec3(0, 90, 0))
+        self.cage.node().set_kinematic(True)
         # self.block('room1', floors, Point3(0, 0, 0), Vec3(12, 1, 16), hpr=Vec3(0, 90, 0))
         self.room_camera('room_elevator_camera', room_camera, Point3(0, 3.5, 16.875))
 
@@ -1405,8 +1407,8 @@ class Tower(Buildings):
         slider1_1 = self.slider(door1_l, wall1_l, Point3(-x, 0, 0), Point3(x, 0, 0))
         slider1_2 = self.slider(door1_r, wall1_r, Point3(x, 0, 0), Point3(-x, 0, 0))
         self.sensor_1 = self.door_sensor('tower_sensor1', invisible, Point3(0, 1, 0.75), Vec3(2, 2, 0.5), BitMask32.bit(5),
-                                         SlidingDoorSensor, slider1_1, slider1_2)
-
+                                         ElevatorDoorSensor, Point3(0, 3.5, 0.5), slider1_1, slider1_2)
+        # Point3(87, 24, -3.7)
         # self.sensor = self.door_sensor('tower_sensor1', invisible, Point3(-2.25, 0.75, 3), Vec3(0.5), BitMask32.bit(5),
         #                                SlidingDoorSensor, slider1, slider2)
         self.block('guard', invisible, Point3(0, 2.125, 4.75), Vec3(4, 0.25, 0.5), bitmask=BitMask32.bit(6), hide=True)
@@ -1425,7 +1427,7 @@ class Tower(Buildings):
         slider2_1 = self.slider(door2_l, wall2_l, Point3(-x, 0, 0), Point3(x, 0, 0))
         slider2_2 = self.slider(door2_r, wall2_r, Point3(x, 0, 0), Point3(-x, 0, 0))
         self.sensor_2 = self.door_sensor('tower_sensor2', invisible, Point3(0, 1, 12.75), Vec3(2, 2, 0.5), BitMask32.bit(5),
-                                         SlidingDoorSensor, slider2_1, slider2_2)
+                                         ElevatorDoorSensor, Point3(0, 3.5, 12.5), slider2_1, slider2_2)
         # self.sensor = self.door_sensor('tower_sensor1', invisible, Point3(-2.25, 0.75, 3), Vec3(0.5), BitMask32.bit(5),
         #                                SlidingDoorSensor, slider1, slider2)
 
@@ -1439,6 +1441,9 @@ class Tower(Buildings):
         # slider1 = self.slider(shutter, shutter_wall, Point3(0, 0, 2), Point3(0, 0, -2), False)
         # self.sensor = self.door_sensor(
         #     'shutter_sensor', invisible, Point3(-2.25, 0.75, 3), Vec3(0.5), BitMask32.bit(5), SlidingDoorSensor, slider1)
+
+
+        self.elevator = Elevator(self.world, self.cage, self.sensor_1, self.sensor_2)
 
 
         floor.set_texture(self.floor_tex)

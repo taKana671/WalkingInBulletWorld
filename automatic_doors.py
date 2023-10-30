@@ -95,7 +95,7 @@ class ConeTwistDoor(BulletConeTwistConstraint):
         if self.current_angle >= self.max_angle:
             return True
 
-        self.current_angle += 1.5
+        self.current_angle += 1
         self.rotate(self.current_angle)
         return False
 
@@ -114,7 +114,7 @@ class ConeTwistDoor(BulletConeTwistConstraint):
         self.enable_motor(False)
 
 
-class AutoDoorSensor(NodePath):
+class MotionSensor(NodePath):
 
     def __init__(self, name, world, geom_np, pos, scale, bitmask):
         super().__init__(BulletGhostNode(name))
@@ -129,8 +129,8 @@ class AutoDoorSensor(NodePath):
         self.set_collide_mask(bitmask)
 
         self.world = world
-        self.state = SensorStatus.WAITING
-        self.timer = 0
+        # self.state = SensorStatus.WAITING
+        # self.timer = 0
 
     def detect_person(self):
         for node in self.node().get_overlapping_nodes():
@@ -144,6 +144,45 @@ class AutoDoorSensor(NodePath):
                 # print(con.get_node0().get_name(), con.get_node1().get_name())
                 if con.get_node1().get_name().startswith(('character', 'detect')):
                     return True
+
+
+# class AutoDoorSensor(NodePath):
+class AutoDoorSensor(MotionSensor):
+
+    def __init__(self, name, world, geom_np, pos, scale, bitmask):
+        super().__init__(name, world, geom_np, pos, scale, bitmask)
+        self.state = SensorStatus.WAITING
+        self.timer = 0
+
+
+    # def __init__(self, name, world, geom_np, pos, scale, bitmask):
+    #     super().__init__(BulletGhostNode(name))
+    #     geom_np = geom_np.copy_to(self)
+    #     nd = geom_np.node()
+    #     geom = nd.get_geom(0)
+    #     shape = BulletConvexHullShape()
+    #     shape.add_geom(geom)
+    #     self.node().add_shape(shape)
+    #     self.set_scale(scale)
+    #     self.set_pos(pos)
+    #     self.set_collide_mask(bitmask)
+
+    #     self.world = world
+    #     self.state = SensorStatus.WAITING
+    #     self.timer = 0
+
+    # def detect_person(self):
+    #     for node in self.node().get_overlapping_nodes():
+    #         if all(node != door for door in self.doors):
+    #             print(node.get_name())
+    #             return True
+
+    # def detect_collision(self):
+    #     for door in self.doors:
+    #         for con in self.world.contact_test(door).get_contacts():
+    #             # print(con.get_node0().get_name(), con.get_node1().get_name())
+    #             if con.get_node1().get_name().startswith(('character', 'detect')):
+    #                 return True
 
     def sensing(self, task):
         match self.state:
