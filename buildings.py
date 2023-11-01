@@ -186,38 +186,35 @@ class Buildings(NodePath):
         return twist
 
     def slider(self, door, wall, door_frame, wall_frame, horizon=True):
+        if horizon:
+            ts_door_frame = TransformState.make_pos(door_frame)
+            ts_wall_frame = TransformState.make_pos(wall_frame)
+            movement_range = -door_frame.x * 2
+        else:  # shutter
+            ts_door_frame = TransformState.make_pos_hpr(door_frame, Vec3(0, 0, -90))
+            ts_wall_frame = TransformState.make_pos_hpr(wall_frame, Vec3(0, 0, -90))
+            movement_range = -door_frame.z * 2
 
-        movement_range = -door_frame.x * 2 if horizon else -door_frame.z * 2
-        # movement_range = -door_frame.x * 2
         direction = 1 if movement_range > 0 else -1
 
         slider = SlidingDoor(
             door.node(),
             wall.node(),
-            TransformState.make_pos(door_frame),
-            TransformState.make_pos(wall_frame),
+            ts_door_frame,
+            ts_wall_frame,
             movement_range,
             direction
         )
 
-        if not horizon:
-            slider = SlidingDoor(
-                door.node(),
-                wall.node(),
-                TransformState.make_pos_hpr(door_frame, Vec3(0, 0, -90)),
-                TransformState.make_pos_hpr(wall_frame, Vec3(0, 0, -90)),
-                movement_range,
-                direction
-            )
-
         self.world.attach_constraint(slider, True)
         return slider
 
-    def door_sensor(self, name, parent, pos, scale, bitmask, sensor, *constraints):
+    def door_sensor(self, name, parent, pos, scale, bitmask, sensor, *args):
         """Arges:
                 sensor (SlidingDoorSensor or ConeTwistDoorSensor)
+                args: stop_pos (Point3) and constrains if sensor is ElevatorDoorSensor, and constrains only if not.
         """
-        sensor = sensor(name, self.world, self.cube, pos, scale, bitmask, *constraints)
+        sensor = sensor(name, self.world, self.cube, pos, scale, bitmask, *args)
         sensor.hide()
         sensor.reparent_to(parent)
         self.world.attach_ghost(sensor.node())
@@ -1078,8 +1075,9 @@ class AdventureBridge(Buildings):
         # steps
         step_start_z = start_z - 0.5
         steps = [
-            [-6.5, 4, True],
-            [48.5, 7, False]
+            [-6.5, 6, True],
+            [32.5, 7, False]
+            # [48.5, 7, False]
         ]
         for i, (start_y, cnt, decrease) in enumerate(steps):
             for j in range(cnt):
@@ -1092,7 +1090,7 @@ class AdventureBridge(Buildings):
             (-5.5, 6),  # landing_1
             (10.5, 6),  # landing_2
             (26.5, 6),  # landing_3
-            (42.5, 6),  # landing_4
+            # (42.5, 6),  # landing_4
         ]
         for i, (start_y, n) in enumerate(landings):
             for j in range(n):
@@ -1111,8 +1109,8 @@ class AdventureBridge(Buildings):
             cloth.create_cloth(i, Images.FABRIC.path, *cloth_pts, 8, 12)
 
         bridges = [
-            [-0.5, 5, 0.5, [1.25, 1.5, 1.75, 2.0, 2.25, 2.25, 2.0, 1.75, 1.5, 1.25]], # between landing_1 and landing_2
-            [15.5, 4, 16.5, [0.75, 0.5, 0.25, 0, -0.25, -0.25, 0, 0.25, 0.5, 0.75]],  # between landing_2 and landing_3
+            [-0.5, 5, 0.5, [1.25, 1.5, 1.75, 2.0, 2.25, 2.25, 2.0, 1.75, 1.5, 1.25]],   # between landing_1 and landing_2
+            # [15.5, 4, 16.5, [0.75, 0.5, 0.25, 0, -0.25, -0.25, 0, 0.25, 0.5, 0.75]],  # between landing_2 and landing_3
         ]
         for i, (handrail_y, handrail_z, log_y, log_z) in enumerate(bridges):
             # handrails
@@ -1135,7 +1133,7 @@ class AdventureBridge(Buildings):
 
         # bridges of vertical logs
         bridges = [
-            [31.5, 4, 32.5]
+            [15.5, 4, 16.5]  # [31.5, 4, 32.5]
         ]
         for i, (handrail_y, handrail_z, log_y) in enumerate(bridges):
             # handrails
@@ -1285,17 +1283,14 @@ class Tower(Buildings):
     def __init__(self, world, parent, center, h=0):
         super().__init__(world, 'tower')
         self.set_pos(center)
-        # self.set_h(h)
+        self.set_h(h)
         self.reparent_to(parent)
         self.center = center
 
     def build(self):
         self._build()
-        base.taskMgr.add(self.elevator.update, 'tower_elevator')
-        # base.taskMgr.add(self.sensor_1.sensing, 'tower_sensing')
-        # base.taskMgr.add(self.sensor_2.sensing, 'tower2_sensing')
+        base.taskMgr.add(self.elevator.control, 'tower_elevator')
         self.flatten_strong()
-
 
     def make_textures(self):
         self.metal_tex = self.texture(Images.METALBOARD)
@@ -1308,40 +1303,29 @@ class Tower(Buildings):
         floor.reparent_to(self)
         walls = NodePath('walls')
         walls.reparent_to(self)
-        doors = NodePath('roof')
-        doors.reparent_to(self)
+        metal = NodePath('roof')
+        metal.reparent_to(self)
         room_camera = NodePath('room_camera')
         room_camera.reparent_to(self)
         invisible = NodePath('invisible')
         invisible.reparent_to(self)
 
         # floor
+        floor_h = 2
         pos_scale = [
-            [Point3(-5, 5, 0), Vec3(6, 2, 6)],          # left
-            [Point3(5, 5, 0), Vec3(6, 2, 6)],           # right
-            [Point3(0, -3, 0), Vec3(16, 2, 10)],        # front
-            [Point3(0, 6.5, 0), Vec3(16, 2, 3)],        # back
-            [Point3(0, 3.5, -0.5), Vec3(4, 1, 3)]
+            [Point3(-5, 5, 0), Vec3(6, floor_h, 6)],          # left
+            [Point3(5, 5, 0), Vec3(6, floor_h, 6)],           # right
+            [Point3(0, -3, 0), Vec3(16, floor_h, 10)],        # front
+            [Point3(0, 6.5, 0), Vec3(16, floor_h, 3)],        # back
+            [Point3(0, 3.5, -0.5), Vec3(4, floor_h / 2, 3)]
         ]
 
         for i, (pos, scale) in enumerate(pos_scale):
-            self.block(f'floor1_{i}', floor, pos, scale, hpr=Vec3(0, 90, 0))
+            self.block(f'floor_{i}', floor, pos, scale, hpr=Vec3(0, 90, 0))
 
-        # foundation
-        self.cage = self.block('room_elevator', floor, Point3(0, 3.5, 0.5), Vec3(4, 1, 3), hpr=Vec3(0, 90, 0))
-        self.cage.node().set_kinematic(True)
-        # self.block('room1', floors, Point3(0, 0, 0), Vec3(12, 1, 16), hpr=Vec3(0, 90, 0))
-        self.room_camera('room_elevator_camera', room_camera, Point3(0, 3.5, 16.875))
-
-        mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
-
+        # walls
         sz = 4
         blocks_xy_scale = [
-            # [[(0, 5.5), Vec3(4, 1, sz)],
-            #  [(-4.5, 0), Vec3(3, 4, sz)],
-            #  [(4.5, 0), Vec3(3, 4, sz)],
-            #  [(-2.5, -0.125), Vec3(1, 3.75, sz)],
-            #  [(2.5, -0.125), Vec3(1, 3.75, sz)]],
             [[(0, 5.5), Vec3(4, 1, sz)],
              [(-5, 0), Vec3(2, 4, sz)],
              [(-3, -0.125), Vec3(2, 3.75, sz)],
@@ -1352,100 +1336,121 @@ class Tower(Buildings):
              [(4.5, 0), Vec3(3, 4, sz)],
              [(-2.5, -0.125), Vec3(1, 3.75, sz)],
              [(2.5, -0.125), Vec3(1, 3.75, sz)],
-            #  [(0, -0.125), Vec3(4, 3.75, sz)], 3  # ********
-             [(0, 0), Vec3(4)],
-             [(0, -4), Vec3(4, 4, sz)]],
+             [(0, 0), Vec3(sz)],
+             [(0, -4), Vec3(sz)]],
             [[(0, 5.5), Vec3(4, 1, sz)],
-             [(-4, 0), Vec3(4)],
-             [(0, 0), Vec3(4)],
-             [(4, 0), Vec3(4)],
-             [(0, -4), Vec3(4)]],
+             [(-4, 0), Vec3(sz)],
+             [(0, 0), Vec3(sz)],
+             [(4, 0), Vec3(sz)],
+             [(0, -4), Vec3(sz)]],
             [[(0, 5.5), Vec3(4, 1, sz)],
              [(-5, 1.75), Vec3(2, 0.5, sz)],
              [(-3, 1.625), Vec3(2, 0.25, sz)],
              [(5, 1.75), Vec3(2, 0.5, sz)],
+             [(3, 1.625), Vec3(2, 0.25, sz)],
              [(3, 1.625), Vec3(2, 0.25, sz)]],
             [[(0, 4), Vec3(4, 4, 0.5)],
              [(0, 1.75), Vec3(12, 0.5, 0.5)]]
         ]
 
         prisms_xy_ax = [
-            [[(-4, 4), Vec3(4, 4, sz), 90], [(-4, -4), Vec3(4, 4, sz), 180], [(4, -4), Vec3(4, 4, sz), 270], [(4, 4), Vec3(4, 4, sz), 360]],
-            [[(-4, 4), Vec3(4, 4, sz), 90], [(-4, -4), Vec3(4, 4, sz), 180], [(4, -4), Vec3(4, 4, sz), 270], [(4, 4), Vec3(4, 4, sz), 360]],
-            [[(-4, 4), Vec3(4, 4, sz), 90], [(-4, -4), Vec3(4, 4, sz), 180], [(4, -4), Vec3(4, 4, sz), 270], [(4, 4), Vec3(4, 4, sz), 360]],
-            [[(-4, 4), Vec3(4, 4, sz), 90], [(4, 4), Vec3(4, 4, sz), 360]],
-            [[(-4, 4), Vec3(4, 4, 0.5), 90], [(4, 4), Vec3(4, 4, 0.5), 360]]
+            [[(-4, 4), sz, 90], [(-4, -4), sz, 180], [(4, -4), sz, 270], [(4, 4), sz, 360]],
+            [[(-4, 4), sz, 90], [(-4, -4), sz, 180], [(4, -4), sz, 270], [(4, 4), sz, 360]],
+            [[(-4, 4), sz, 90], [(-4, -4), sz, 180], [(4, -4), sz, 270], [(4, 4), sz, 360]],
+            [[(-4, 4), sz, 90], [(4, 4), sz, 360]],
+            [[(-4, 4), 0.5, 90], [(4, 4), 0.5, 360]]
         ]
-        pri_scale = Vec3(4, 4, sz),
+
+        mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
         tex_scale = Vec2(4, 1)
+        start_h = (floor_h / 2) + (sz / 2)
+        roof_top = len(blocks_xy_scale) - 1
 
         for i, (blocks, prisms) in enumerate(zip(blocks_xy_scale, prisms_xy_ax)):
-            z = 3 + i * 4
-            if i == 4:
+            z = start_h + i * sz
+            if i == roof_top:
                 z -= 1.75
             for j, ((x, y), scale) in enumerate(blocks):
                 self.block(f'wall_{i}{j}', walls, Point3(x, y, z), scale, bitmask=mask_wall)
 
-            for j, ((x, y), scale, angle_x) in enumerate(prisms):
-                angle = Vec3(angle_x, 0, 0)
-                pos = Point3(x, y, z)
-                self.triangular_prism(f'prism_{i}', walls, pos, angle, scale, tex_scale)
+            for j, ((x, y), scale_z, angle_x) in enumerate(prisms):
+                scale = Vec3(4, 4, scale_z)
+                self.triangular_prism(f'prism_{i}{j}', walls, Point3(x, y, z), Vec3(angle_x, 0, 0), scale, tex_scale)
+
+        # falling preventions
+        handrail_h = start_h + (roof_top - 1) * sz - 0.5
+        size = 0.25
+
+        handrails = [
+            [(5.875, 0), Vec3(size, 4, size), 0],
+            [(-5.875, -0.25), Vec3(size, 3.5, size), 0,],
+            [(0, -5.875), Vec3(4, size, size), 0],
+            [(-3.9, -3.9), Vec3(5.7, size, size), 135],
+            [(3.9, -3.9), Vec3(5.7, size, size), -135]
+        ]
+
+        for i, ((x, y), scale, angle_x) in enumerate(handrails):
+            pos = Point3(x, y, handrail_h)
+            hpr = Vec3(angle_x, 0, 0)
+            self.block(f'handrail_{i}', walls, pos, scale, hpr=hpr, bitmask=BitMask32.bit(3))
+
+        poles_xy = [
+            [(5.875, 1), (5.875, 0), (5.875, -1), (5.875, -1.875)],
+            [(4.9, -2.9), (3.9, -3.9), (2.9, -4.9), (1.9, -5.875)],
+            [(-1, -5.875), (0, -5.875), (1, -5.875)]
+        ]
+
+        for i, poles in enumerate(poles_xy):
+            if i < len(poles_xy) - 1:
+                poles += [(-x, y) for x, y in poles]
+            for j, (x, y) in enumerate(poles):
+                pos = Point3(x, y, handrail_h)
+                self.pole(f'pole_{i}', metal, pos, Vec3(0.2, 0.2, 2), Vec2(2, 1), bitmask=BitMask32.bit(1))
 
         # doors on the 1st floor
-
         door_scale = Vec3(2, 0.25, 3.85)
         mask_door = BitMask32.all_on()
-        y, z = 1.875, 2.925  # 3
+        y, z = 1.875, 2.925
         # left
         wall1_l = self.block('wall1_l', invisible, Point3(-3, y, z), door_scale, bitmask=mask_wall, hide=True)
-        door1_l = self.block('door1_l', doors, Point3(-1, y, z), door_scale, bitmask=mask_door, active=True)
+        door1_l = self.block('door1_l', metal, Point3(-1, y, z), door_scale, bitmask=mask_door, active=True)
         # right
         wall1_r = self.block('wall1_r', invisible, Point3(3, y, z), door_scale, bitmask=mask_wall, hide=True)
-        door1_r = self.block('door1_r', doors, Point3(1, y, z), door_scale, bitmask=mask_door, active=True)
+        door1_r = self.block('door1_r', metal, Point3(1, y, z), door_scale, bitmask=mask_door, active=True)
 
         x = door_scale.x / 2
         slider1_1 = self.slider(door1_l, wall1_l, Point3(-x, 0, 0), Point3(x, 0, 0))
         slider1_2 = self.slider(door1_r, wall1_r, Point3(x, 0, 0), Point3(-x, 0, 0))
-        self.sensor_1 = self.door_sensor('tower_sensor1', invisible, Point3(0, 1, 0.75), Vec3(2, 2, 0.5), BitMask32.bit(5),
+        self.sensor_1 = self.door_sensor('tower_sensor1', invisible, Point3(0, 1, 0.75), Vec3(4, 2, 0.5), BitMask32.bit(5),
                                          ElevatorDoorSensor, Point3(0, 3.5, 0.5), slider1_1, slider1_2)
-        # Point3(87, 24, -3.7)
-        # self.sensor = self.door_sensor('tower_sensor1', invisible, Point3(-2.25, 0.75, 3), Vec3(0.5), BitMask32.bit(5),
-        #                                SlidingDoorSensor, slider1, slider2)
-        self.block('guard', invisible, Point3(0, 2.125, 4.75), Vec3(4, 0.25, 0.5), bitmask=BitMask32.bit(6), hide=True)
-
 
         # doors on the 2nd floor
-        y, z = 1.875, 14.925  # 3
+        y, z = 1.875, 14.925
         # left
         wall2_l = self.block('wall2_l', invisible, Point3(-3, y, z), door_scale, bitmask=mask_wall, hide=True)
-        door2_l = self.block('door2_l', doors, Point3(-1, y, z), door_scale, bitmask=mask_door, active=True)
+        door2_l = self.block('door2_l', metal, Point3(-1, y, z), door_scale, bitmask=mask_door, active=True)
         # right
         wall2_r = self.block('wall1_r', invisible, Point3(3, y, z), door_scale, bitmask=mask_wall, hide=True)
-        door2_r = self.block('door1_r', doors, Point3(1, y, z), door_scale, bitmask=mask_door, active=True)
+        door2_r = self.block('door1_r', metal, Point3(1, y, z), door_scale, bitmask=mask_door, active=True)
 
         x = door_scale.x / 2
         slider2_1 = self.slider(door2_l, wall2_l, Point3(-x, 0, 0), Point3(x, 0, 0))
         slider2_2 = self.slider(door2_r, wall2_r, Point3(x, 0, 0), Point3(-x, 0, 0))
-        self.sensor_2 = self.door_sensor('tower_sensor2', invisible, Point3(0, 1, 12.75), Vec3(2, 2, 0.5), BitMask32.bit(5),
+        self.sensor_2 = self.door_sensor('tower_sensor2', invisible, Point3(0, 1, 12.75), Vec3(4, 2, 0.5), BitMask32.bit(5),
                                          ElevatorDoorSensor, Point3(0, 3.5, 12.5), slider2_1, slider2_2)
-        # self.sensor = self.door_sensor('tower_sensor1', invisible, Point3(-2.25, 0.75, 3), Vec3(0.5), BitMask32.bit(5),
-        #                                SlidingDoorSensor, slider1, slider2)
 
-        self.block('guard', invisible, Point3(0, 2.125, 16.75), Vec3(4, 0.25, 0.5), bitmask=BitMask32.bit(6), hide=True)
+        # invisible door guides
+        guide_scale = Vec3(4, 0.25, 0.5)
+        for z in (4.75, 16.75):  # (1.25, 4.75, 13.25, 16.75)
+            pos = Point3(0, 2.125, z)
+            self.block('guard', invisible, pos, guide_scale, bitmask=BitMask32.bit(6), hide=True)
 
-
-        # shutter
-        # shutter_scale = Vec3(4.5, 0.25, 6)
-        # shutter_wall = self.block('shutter_wall', walls, Point3(0, 1.875, 7), shutter_scale,  hide=True)
-        # shutter = self.block('shutter', shutter, Point3(0, 1.875, 3), shutter_scale, bitmask=BitMask32.all_on(), active=True)
-        # slider1 = self.slider(shutter, shutter_wall, Point3(0, 0, 2), Point3(0, 0, -2), False)
-        # self.sensor = self.door_sensor(
-        #     'shutter_sensor', invisible, Point3(-2.25, 0.75, 3), Vec3(0.5), BitMask32.bit(5), SlidingDoorSensor, slider1)
-
-
+        # elevator
+        self.cage = self.block('room_elevator', floor, Point3(0, 3.5, 0.5), Vec3(4, 1, 3), hpr=Vec3(0, 90, 0))
+        self.cage.node().set_kinematic(True)
         self.elevator = Elevator(self.world, self.cage, self.sensor_1, self.sensor_2)
-
+        self.room_camera('room_elevator_camera', room_camera, Point3(0, 3.5, 16.875))
 
         floor.set_texture(self.floor_tex)
         walls.set_texture(self.walls_tex)
-        doors.set_texture(self.metal_tex)
+        metal.set_texture(self.metal_tex)
