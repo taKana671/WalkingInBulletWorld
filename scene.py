@@ -10,7 +10,17 @@ from panda3d.core import CardMaker, TextureStage
 from panda3d.core import TransparencyAttrib
 from direct.interval.LerpInterval import LerpTexOffsetInterval
 
-from buildings import StoneHouse, BrickHouse, Terrace, Observatory, Bridge, Tunnel, AdventureBridge, MazeHouse
+from buildings import (
+    StoneHouse,
+    BrickHouse,
+    Terrace,
+    Observatory,
+    Bridge,
+    Tunnel,
+    AdventureBridge,
+    MazeHouse,
+    Tower
+)
 
 
 load_prc_file_data("", """
@@ -32,7 +42,7 @@ class Sky(NodePath):
         # sky = base.loader.load_model('models/night-stars/stars')
         # sky.set_scale(0.3)
         # sky.set_z(-50)
-      
+
         sky.set_color(2, 2, 2, 1)
         sky.set_scale(0.2)
         sky.reparent_to(self)
@@ -100,9 +110,11 @@ class Scene(NodePath):
             [Observatory, Point3(-80, 80, -2.5), 45],
             [Bridge, Point3(38, 43, 1), 0],
             [Tunnel, Point3(-45, -68, 3), 222],
-            [AdventureBridge, Point3(88, -42, -0.24), 0],
-            # [MazeHouse, Point3(-7, -64, -1.5), 0]
-            [MazeHouse, Point3(-24, 87, -0.5), 0]
+            # [AdventureBridge, Point3(88, -42, -0.24), 0],
+            [AdventureBridge, Point3(92, -29, -1), 0],
+            [MazeHouse, Point3(-24, 87, -1.5), 0],
+            # [Tower, Point3(87, 24, -2.5), 0]
+            [Tower, Point3(87, 23, -3.5), -10]
         ]
         for bldg_cls, pos, h in buildings:
             bldg = bldg_cls(self.world, self.buildings, pos, h)

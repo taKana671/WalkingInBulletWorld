@@ -114,7 +114,7 @@ class ConeTwistDoor(BulletConeTwistConstraint):
         self.enable_motor(False)
 
 
-class AutoDoorSensor(NodePath):
+class MotionSensor(NodePath):
 
     def __init__(self, name, world, geom_np, pos, scale, bitmask):
         super().__init__(BulletGhostNode(name))
@@ -127,14 +127,10 @@ class AutoDoorSensor(NodePath):
         self.set_scale(scale)
         self.set_pos(pos)
         self.set_collide_mask(bitmask)
-
         self.world = world
-        self.state = SensorStatus.WAITING
-        self.timer = 0
 
     def detect_person(self):
         for node in self.node().get_overlapping_nodes():
-            # print(node.get_name())
             if all(node != door for door in self.doors):
                 return True
 
@@ -144,6 +140,14 @@ class AutoDoorSensor(NodePath):
                 # print(con.get_node0().get_name(), con.get_node1().get_name())
                 if con.get_node1().get_name().startswith(('character', 'detect')):
                     return True
+
+
+class AutoDoorSensor(MotionSensor):
+
+    def __init__(self, name, world, geom_np, pos, scale, bitmask):
+        super().__init__(name, world, geom_np, pos, scale, bitmask)
+        self.state = SensorStatus.WAITING
+        self.timer = 0
 
     def sensing(self, task):
         match self.state:

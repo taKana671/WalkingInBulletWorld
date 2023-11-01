@@ -174,6 +174,7 @@ class Walking(ShowBase):
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
 
             if (name := location.get_node().get_name()).startswith('room'):
+                # import pdb; pdb.set_trace()
                 room_camera = self.render.find(f'**/{name}_camera')
                 if room_camera.get_tag('moving_direction'):
                     self.movable_room_camera = room_camera
