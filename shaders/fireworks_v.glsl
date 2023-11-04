@@ -1,10 +1,7 @@
 #version 300 es
-
 uniform mat4 p3d_ModelViewProjectionMatrix;
 in vec4 p3d_Vertex;
-
 in vec2 p3d_MultiTexCoord0;
-
 out vec2 texcoord;
 
 void main()

@@ -10,8 +10,8 @@ const float PI = 3.14159;
 
 vec3 glow(vec2 p, vec2 lpos) {
     vec2 q = p - lpos;
-    float atten = 1.0 / dot(q, q);
-    return vec3(1.0) * atten;
+    float atten = 1. / dot(q, q);
+    return vec3(1.) * atten;
 }
 
 float rand(vec2 co){
@@ -53,7 +53,7 @@ void main() {
     float expl_num = last_expl.y;
     float t_fadeout = last_expl.z;
 
-    vec3 base_col = vec3(0.5, 0.5, 0.5) + 0.4 * sin(vec3(1.0) * expl_num + vec3(0., 2.1, -21));
+    vec3 base_col = vec3(0.5, 0.5, 0.5) + 0.4 * sin(vec3(1.) * expl_num + vec3(0., 2.1, -21));
 
     // number of particles
     float n_lights = 100.;
