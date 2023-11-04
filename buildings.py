@@ -1278,18 +1278,17 @@ class MazeHouse(Buildings):
         self.flatten_strong()
 
 
-class Tower(Buildings):
+class ElevatorTower(Buildings):
 
     def __init__(self, world, parent, center, h=0):
-        super().__init__(world, 'tower')
+        super().__init__(world, 'elevator_tower')
         self.set_pos(center)
         self.set_h(h)
         self.reparent_to(parent)
-        self.center = center
 
     def build(self):
         self._build()
-        base.taskMgr.add(self.elevator.control, 'tower_elevator')
+        base.taskMgr.add(self.elevator.control, 'elevator_tower')
         self.flatten_strong()
 
     def make_textures(self):
@@ -1297,6 +1296,7 @@ class Tower(Buildings):
         self.walls_tex = self.texture(Images.BRICK2)
         self.floor_tex = self.texture(Images.IRON)
 
+    # def _build(self, elevator_callback):
     def _build(self):
         self.make_textures()
         floor = NodePath('floor')
@@ -1328,9 +1328,11 @@ class Tower(Buildings):
         blocks_xy_scale = [
             [[(0, 5.5), Vec3(4, 1, sz)],
              [(-5, 0), Vec3(2, 4, sz)],
-             [(-3, -0.125), Vec3(2, 3.75, sz)],
              [(5, 0), Vec3(2, 4, sz)],
-             [(3, -0.125), Vec3(2, 3.75, sz)]],
+             [(-3, -0.25), Vec3(2, 3.5, sz)],
+             [(3, -0.25), Vec3(2, 3.5, sz)],
+             [(-1.9375, 1.9375), Vec3(0.125, 0.125, sz)],
+             [(1.9375, 1.9375), Vec3(0.125, 0.125, sz)]],
             [[(0, 5.5), Vec3(4, 1, sz)],
              [(-4.5, 0), Vec3(3, 4, sz)],
              [(4.5, 0), Vec3(3, 4, sz)],
@@ -1345,10 +1347,11 @@ class Tower(Buildings):
              [(0, -4), Vec3(sz)]],
             [[(0, 5.5), Vec3(4, 1, sz)],
              [(-5, 1.75), Vec3(2, 0.5, sz)],
-             [(-3, 1.625), Vec3(2, 0.25, sz)],
+             [(-3, 1.5625), Vec3(2, 0.125, sz)],
              [(5, 1.75), Vec3(2, 0.5, sz)],
-             [(3, 1.625), Vec3(2, 0.25, sz)],
-             [(3, 1.625), Vec3(2, 0.25, sz)]],
+             [(3, 1.5625), Vec3(2, 0.125, sz)],
+             [(-1.9375, 1.9375), Vec3(0.125, 0.125, sz)],
+             [(1.9375, 1.9375), Vec3(0.125, 0.125, sz)]],
             [[(0, 4), Vec3(4, 4, 0.5)],
              [(0, 1.75), Vec3(12, 0.5, 0.5)]]
         ]
@@ -1379,20 +1382,20 @@ class Tower(Buildings):
 
         # falling preventions
         handrail_h = start_h + (roof_top - 1) * sz - 0.5
-        size = 0.25
+        size = 0.5
 
         handrails = [
-            [(5.875, 0), Vec3(size, 4, size), 0],
-            [(-5.875, -0.25), Vec3(size, 3.5, size), 0,],
-            [(0, -5.875), Vec3(4, size, size), 0],
-            [(-3.9, -3.9), Vec3(5.7, size, size), 135],
-            [(3.9, -3.9), Vec3(5.7, size, size), -135]
+            [(5.75, 0), Vec3(size, 4, size), 0],
+            [(-5.75, -0.25), Vec3(size, 3.5, size), 0,],
+            [(0, -5.75), Vec3(4, size, size), 0],
+            [(-3.8, -3.8), Vec3(5.7, size, size), 135],
+            [(3.8, -3.8), Vec3(5.7, size, size), -135]
         ]
 
         for i, ((x, y), scale, angle_x) in enumerate(handrails):
             pos = Point3(x, y, handrail_h)
             hpr = Vec3(angle_x, 0, 0)
-            self.block(f'handrail_{i}', walls, pos, scale, hpr=hpr, bitmask=BitMask32.bit(3))
+            self.block(f'handrail_{i}', walls, pos, scale, hpr=hpr, bitmask=BitMask32.bit(1))
 
         poles_xy = [
             [(5.875, 1), (5.875, 0), (5.875, -1), (5.875, -1.875)],
@@ -1405,12 +1408,14 @@ class Tower(Buildings):
                 poles += [(-x, y) for x, y in poles]
             for j, (x, y) in enumerate(poles):
                 pos = Point3(x, y, handrail_h)
-                self.pole(f'pole_{i}', metal, pos, Vec3(0.2, 0.2, 2), Vec2(2, 1), bitmask=BitMask32.bit(1))
+                self.pole(f'pole_{i}', metal, pos, Vec3(0.2, 0.2, 2), Vec2(2, 1), bitmask=BitMask32.bit(3))
 
         # doors on the 1st floor
-        door_scale = Vec3(2, 0.25, 3.85)
+        door_scale = Vec3(2, 0.25, 4.0)
         mask_door = BitMask32.all_on()
-        y, z = 1.875, 2.925
+        y = 1.75 
+        z = 3.0
+
         # left
         wall1_l = self.block('wall1_l', invisible, Point3(-3, y, z), door_scale, bitmask=mask_wall, hide=True)
         door1_l = self.block('door1_l', metal, Point3(-1, y, z), door_scale, bitmask=mask_door, active=True)
@@ -1425,7 +1430,7 @@ class Tower(Buildings):
                                          ElevatorDoorSensor, Point3(0, 3.5, 0.5), slider1_1, slider1_2)
 
         # doors on the 2nd floor
-        y, z = 1.875, 14.925
+        z = 15
         # left
         wall2_l = self.block('wall2_l', invisible, Point3(-3, y, z), door_scale, bitmask=mask_wall, hide=True)
         door2_l = self.block('door2_l', metal, Point3(-1, y, z), door_scale, bitmask=mask_door, active=True)
@@ -1438,12 +1443,6 @@ class Tower(Buildings):
         slider2_2 = self.slider(door2_r, wall2_r, Point3(x, 0, 0), Point3(-x, 0, 0))
         self.sensor_2 = self.door_sensor('tower_sensor2', invisible, Point3(0, 1, 12.75), Vec3(4, 2, 0.5), BitMask32.bit(5),
                                          ElevatorDoorSensor, Point3(0, 3.5, 12.5), slider2_1, slider2_2)
-
-        # invisible door guides
-        guide_scale = Vec3(4, 0.25, 0.5)
-        for z in (4.75, 16.75):  # (1.25, 4.75, 13.25, 16.75)
-            pos = Point3(0, 2.125, z)
-            self.block('guard', invisible, pos, guide_scale, bitmask=BitMask32.bit(6), hide=True)
 
         # elevator
         self.cage = self.block('room_elevator', floor, Point3(0, 3.5, 0.5), Vec3(4, 1, 3), hpr=Vec3(0, 90, 0))

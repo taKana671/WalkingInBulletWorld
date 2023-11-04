@@ -1,15 +1,18 @@
+from enum import Enum, auto
+
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletHeightfieldShape, ZUp
 from panda3d.core import NodePath, PandaNode
-from panda3d.core import Vec3, Point3, BitMask32
+from panda3d.core import Vec3, Point3, BitMask32, Vec2, LColor
 from panda3d.core import Filename
 from panda3d.core import PNMImage
 from panda3d.core import ShaderTerrainMesh, Shader, load_prc_file_data
 from panda3d.core import SamplerState
-from panda3d.core import CardMaker, TextureStage
-from panda3d.core import TransparencyAttrib
+from panda3d.core import CardMaker, TextureStage, Texture
+from panda3d.core import TransparencyAttrib, ColorBlendAttrib
 from direct.interval.LerpInterval import LerpTexOffsetInterval
 
+# from sky import Sky, Skies, InvalidSkyError
 from buildings import (
     StoneHouse,
     BrickHouse,
@@ -19,7 +22,7 @@ from buildings import (
     Tunnel,
     AdventureBridge,
     MazeHouse,
-    Tower
+    ElevatorTower
 )
 
 
@@ -32,20 +35,45 @@ load_prc_file_data("", """
     stm-max-chunk-count 2048""")
 
 
+class Skies(Enum):
+
+    DAY = auto()
+    NIGHT = auto()
+
+
 class Sky(NodePath):
 
     def __init__(self):
         super().__init__(PandaNode('sky'))
-        sky = base.loader.load_model('models/blue-sky/blue-sky-sphere')
+        self.blue_sky = base.loader.load_model('models/blue-sky/blue-sky-sphere')
+        self.night_sky = base.loader.load_model('models/night-stars/stars') 
 
-        # base.set_background_color(0, 0, 0, 1)
-        # sky = base.loader.load_model('models/night-stars/stars')
-        # sky.set_scale(0.3)
-        # sky.set_z(-50)
+        base.set_background_color(0, 0, 0, 1)
+        self.set_shader_off()
+        self.model = None
 
-        sky.set_color(2, 2, 2, 1)
-        sky.set_scale(0.2)
-        sky.reparent_to(self)
+    def set_model(self, sky_type):
+        """Change models.
+            Args:
+                sky_type (Skies): 
+        """
+        if self.model:
+            self.model.detach_node()
+
+        match sky_type:
+            case Skies.DAY:
+                self.model = self.blue_sky
+                self.model.set_color(2, 2, 2, 1)
+                self.model.set_scale(0.2)
+                self.model.set_z(0)
+
+            case Skies.NIGHT:
+                self.model = self.night_sky
+                self.model.set_color(2, 2, 2, 1)
+                self.model.set_scale(0.3)
+                self.model.set_z(-50)
+
+        self.model.reparent_to(self)
 
 
 class TerrainShape(NodePath):
@@ -73,15 +101,18 @@ class Water(NodePath):
 
 class Scene(NodePath):
 
-    def __init__(self, world):
+    def __init__(self, world, ambient_light, directional_light):
         super().__init__(PandaNode('scene'))
         self.reparent_to(base.render)
         self.world = world
+        self.ambient_light = ambient_light
+        self.directional_light = directional_light
         self.size = 256  # size of terrain and water
 
         # make sky
         self.sky = Sky()
         self.sky.reparent_to(self)
+        self.sky.set_model(Skies.DAY)
 
         # make terrain
         self.terrains = NodePath('terrain')
@@ -103,22 +134,15 @@ class Scene(NodePath):
         self.buildings = NodePath('buildings')
         self.buildings.reparent_to(self)
 
-        buildings = [
-            [StoneHouse, Point3(38, 75, 1), 0],
-            [BrickHouse, Point3(50, -27, 0), -45],
-            [Terrace, Point3(1, 1, -2), -180],
-            [Observatory, Point3(-80, 80, -2.5), 45],
-            [Bridge, Point3(38, 43, 1), 0],
-            [Tunnel, Point3(-45, -68, 3), 222],
-            # [AdventureBridge, Point3(88, -42, -0.24), 0],
-            [AdventureBridge, Point3(92, -29, -1), 0],
-            [MazeHouse, Point3(-24, 87, -1.5), 0],
-            # [Tower, Point3(87, 24, -2.5), 0]
-            [Tower, Point3(87, 23, -3.5), -10]
-        ]
-        for bldg_cls, pos, h in buildings:
-            bldg = bldg_cls(self.world, self.buildings, pos, h)
-            bldg.build()
+        StoneHouse(self.world, self.buildings, Point3(38, 75, 1), 0).build()
+        BrickHouse(self.world, self.buildings, Point3(50, -27, 0), -45).build()
+        Terrace(self.world, self.buildings, Point3(1, 1, -2), -180).build()
+        Observatory(self.world, self.buildings, Point3(-80, 80, -2.5), 45).build()
+        Bridge(self.world, self.buildings, Point3(38, 43, 1), 0).build()
+        Tunnel(self.world, self.buildings, Point3(-45, -68, 3), 222).build()
+        AdventureBridge(self.world, self.buildings, Point3(92, -29, -1), 0).build()
+        MazeHouse(self.world, self.buildings, Point3(-24, 87, -1.5), 0).build()
+        ElevatorTower(self.world, self.buildings, Point3(87, 23, -3.5)).build()
 
     def make_terrain(self, img_file):
         img = PNMImage(Filename(img_file))
@@ -146,3 +170,36 @@ class Scene(NodePath):
         grass_tex.setMinfilter(SamplerState.FT_linear_mipmap_linear)
         grass_tex.set_anisotropic_degree(16)
         self.terrain.set_texture(grass_tex)
+
+    def change_sky(self, sky_type):
+        match sky_type:
+            case Skies.DAY:
+                if self.sky.get_shader():
+                    self.sky.clear_shader()
+
+                self.sky.set_model(sky_type)
+                self.directional_light.set_brightness()
+                
+            case Skies.NIGHT: 
+                self.sky.set_model(sky_type)
+                self.directional_light.set_brightness(LColor(0, 0, 0, 1))
+
+                self.sky.set_shader(
+                    Shader.load(Shader.SL_GLSL, 'shaders/fireworks_v.glsl', 'shaders/fireworks_f.glsl'))
+                props = base.win.get_properties()
+                self.sky.set_shader_input('u_resolution', props.get_size())
+                tex = Texture()
+                self.sky.setShaderInput('tex', tex)
+
+            case _:
+                raise InvalidSkyError(sky_type)
+
+
+class InvalidSkyError(Exception):
+
+    def __init__(self, arg=""):
+        self.arg = arg
+
+    def __str__(self):
+        return f'{self.arg} is invalid. Please specify from members of Skies.'
+

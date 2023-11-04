@@ -1,15 +1,21 @@
 from panda3d.core import AmbientLight, DirectionalLight
 from panda3d.core import NodePath, PandaNode
-from panda3d.core import Vec3, Point3
+from panda3d.core import Vec3, Point3, LColor
 
 
 class BasicAmbientLight(NodePath):
 
     def __init__(self):
         super().__init__(AmbientLight('ambient_light'))
-        self.node().set_color((0.6, 0.6, 0.6, 1))
         base.render.set_light(self)
+        self.set_brightness()
         self.reparent_to(base.render)
+
+    def set_brightness(self, color=None):
+        if color is None:
+            color = LColor(0.6, 0.6, 0.6, 1)
+
+        self.node().set_color(color)
 
 
 class BasicDayLight(NodePath):
@@ -18,7 +24,6 @@ class BasicDayLight(NodePath):
         super().__init__(DirectionalLight('directional_light'))
         self.node().get_lens().set_film_size(200, 200)
         self.node().get_lens().set_near_far(10, 200)
-        self.node().set_color((1, 1, 1, 1))
         self.set_pos_hpr(Point3(0, 0, 50), Vec3(-30, -45, 0))
         self.node().set_shadow_caster(True, 8192, 8192)
 
@@ -30,5 +35,13 @@ class BasicDayLight(NodePath):
 
         base.render.set_light(self)
         base.render.set_shader_auto()
+        self.set_brightness()
         self.reparent_to(parent)
-        # self.node().showFrustum()
+
+    def set_brightness(self, color=None):
+        if color is None:
+            color = LColor(1, 1, 1, 1)
+
+        self.node().set_color(color)
+
+

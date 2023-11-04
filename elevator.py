@@ -89,6 +89,8 @@ class Elevator:
     def check_arrival(self):
         if self.cage.get_z() == self.dest_sensor.stop_pos.z:
             self.stop_floor = [k for k, v in self.sensors.items() if v == self.dest_sensor][0]
+            base.messenger.send('elevator_arrive',  sentArgs=[self.stop_floor])
+            # print(f'Ralph is now on the {self.stop_floor} floor')
             self.state = ElevatorStatus.OPEN
 
     def control(self, task):
