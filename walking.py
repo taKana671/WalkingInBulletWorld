@@ -9,7 +9,7 @@ from panda3d.bullet import BulletDebugNode
 from panda3d.core import NodePath, PandaNode, TextNode
 from panda3d.core import Vec3, Point3, BitMask32, Quat
 from lights import BasicAmbientLight, BasicDayLight
-from scene import Scene
+from scene import Scene, Skies
 from walker import Walker
 
 
@@ -52,12 +52,14 @@ class Walking(ShowBase):
         self.debug_np = self.render.attach_new_node(BulletDebugNode('debug'))
         self.world.set_debug_node(self.debug_np.node())
 
-        self.scene = Scene(self.world)
         self.walker = Walker(self.world)
-
         self.floater = NodePath('floater')
         self.floater.set_z(2.0)
         self.floater.reparent_to(self.walker)
+
+        ambient_light = BasicAmbientLight()
+        directional_light = BasicDayLight(self.walker)
+        self.scene = Scene(self.world, ambient_light, directional_light)
 
         self.camera.reparent_to(self.walker)
         self.camera.set_pos(self.walker.navigate())
@@ -66,10 +68,6 @@ class Walking(ShowBase):
 
         # show instructions
         self.instructions = Instructions()
-
-        # setup light
-        self.ambient_light = BasicAmbientLight()
-        self.directional_light = BasicDayLight(self.walker)
 
         self.mask = BitMask32.bit(1)
         self.movable_room_camera = None
@@ -80,6 +78,7 @@ class Walking(ShowBase):
         inputState.watch_with_modifiers('right', 'arrow_right')
 
         self.accept('escape', sys.exit)
+        self.accept('elevator_arrive', self.change_sky, extraArgs=[])
         self.accept('p', self.print_info)
         self.accept('d', self.toggle_debug)
         self.accept('f', self.walker.toggle_debug)
@@ -99,6 +98,13 @@ class Walking(ShowBase):
         else:
             self.instructions.hide()
 
+    def change_sky(self, floor):
+        match floor:
+            case 1:
+                self.scene.change_sky(Skies.DAY)
+            case 2:
+                self.scene.change_sky(Skies.NIGHT)
+    
     def control_walker(self, dt):
         # contol walker movement
         direction = 0
@@ -174,7 +180,6 @@ class Walking(ShowBase):
         if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
 
             if (name := location.get_node().get_name()).startswith('room'):
-                # import pdb; pdb.set_trace()
                 room_camera = self.render.find(f'**/{name}_camera')
                 if room_camera.get_tag('moving_direction'):
                     self.movable_room_camera = room_camera
