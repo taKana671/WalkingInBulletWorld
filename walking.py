@@ -8,6 +8,10 @@ from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletDebugNode
 from panda3d.core import NodePath, PandaNode, TextNode
 from panda3d.core import Vec3, Point3, BitMask32, Quat
+
+from direct.interval.LerpInterval import LerpFunctionInterval, LerpFunc
+from direct.interval.IntervalGlobal import Sequence, Func
+
 from lights import BasicAmbientLight, BasicDayLight
 from scene import Scene, Skies
 from walker import Walker
@@ -61,6 +65,8 @@ class Walking(ShowBase):
         directional_light = BasicDayLight(self.walker)
         self.scene = Scene(self.world, ambient_light, directional_light)
 
+        self.make_sfx()
+
         self.camera.reparent_to(self.walker)
         self.camera.set_pos(self.walker.navigate())
         self.camera.look_at(self.floater)
@@ -98,13 +104,28 @@ class Walking(ShowBase):
         else:
             self.instructions.hide()
 
+    def make_sfx(self):
+        self.firework_sfx = base.loader.load_sfx('sounds/fireworks.mp3')
+        self.firework_sfx.set_loop(True)
+        self.firework_sfx.set_volume(0)
+    
+    
     def change_sky(self, floor):
         match floor:
             case 1:
                 self.scene.change_sky(Skies.DAY)
+                Sequence(
+                    LerpFunc(self.firework_sfx.set_volume, duration=3, fromData=1, toData=0),
+                    Func(lambda: self.firework_sfx.stop())
+                ).start()
+
             case 2:
                 self.scene.change_sky(Skies.NIGHT)
-    
+                Sequence(
+                    Func(lambda: self.firework_sfx.play()),
+                    LerpFunc(self.firework_sfx.set_volume, duration=3, fromData=0, toData=1)
+                ).start()
+
     def control_walker(self, dt):
         # contol walker movement
         direction = 0

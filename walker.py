@@ -49,7 +49,6 @@ class Walker(NodePath):
         # bit(4): embedded objects like lift; bit(5): door sensors
         self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(3) | BitMask32.bit(4) | BitMask32.bit(5))
         self.set_pos(Point3(25, -10, 1))
-        # self.set_pos(Point3(81.88, 24.6417, 10.72))
 
         self.set_scale(0.5)
         self.reparent_to(base.render)
