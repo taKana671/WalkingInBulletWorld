@@ -1428,7 +1428,7 @@ class ElevatorTower(Buildings):
         slider1_2 = self.slider(door1_r, wall1_r, Point3(x, 0, 0), Point3(-x, 0, 0))
         self.sensor_1 = self.door_sensor('tower_sensor1', invisible, Point3(0, 1, 0.75), Vec3(4, 2, 0.5), BitMask32.bit(5),
                                          ElevatorDoorSensor, Point3(0, 3.5, 0.5), slider1_1, slider1_2)
-
+        
         # doors on the 2nd floor
         z = 15
         # left

@@ -18,10 +18,10 @@ class SensorStatus(Enum):
 
 class SlidingDoor(BulletSliderConstraint):
     """Args:
-            door (BulletRigidBodyNode)
-            wall (BulletRigidBodyNode)
-            door_frame_ts (TransformState)
-            wall_frame_ts (TransformState)
+            door_nd (BulletRigidBodyNode): must be a dynamic body.
+            wall_nd (BulletRigidBodyNode): must be a static body.
+            ts_door_frame (TransformState)
+            ts_wall_frame (TransformState)
             movement_range (float) the range of slider movement; cannot be 0;
                 positive: door moves leftward when opens.; negative: door moves rightward when opens.
             direction (int) must be 1 or -1; 1: door moves leftward when opens; -1: door moves rightward when opens.
@@ -66,10 +66,10 @@ class SlidingDoor(BulletSliderConstraint):
 
 class ConeTwistDoor(BulletConeTwistConstraint):
     """Args:
-            door (BulletRigidBodyNode)
-            wall (BulletRigidBodyNode)
-            door_frame_ts (TransformState)
-            wall_frame_ts (TransformState)
+            door_nd (BulletRigidBodyNode): must be a dynamic body.
+            wall_nd (BulletRigidBodyNode): must be a static body.
+            ts_door_frame (TransformState)
+            ts_wall_frame (TransformState)
             direction (int) must be 1 or -1; 1: Door opens inward.; -1: Door opens outward.;
     """
 

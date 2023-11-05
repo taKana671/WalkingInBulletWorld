@@ -34,9 +34,16 @@ class Elevator:
             1: self.sensor_1,
             2: self.sensor_2
         }
-        self.state = None
         self.stop_floor = None
         self.state = ElevatorStatus.WAITING
+        self.lock_doors()
+
+    def lock_doors(self):
+        cage_z = self.cage.get_z()
+
+        for floor, sensor in self.sensors.items():
+            if sensor.stop_pos.z != cage_z:
+                sensor.lock_door()
 
     def wait(self):
         for floor, sensor in self.sensors.items():
@@ -51,6 +58,7 @@ class Elevator:
     def call_cage(self):
         if (z := self.start_sensor.stop_pos.z) != self.cage.get_z():
             self.cage.set_z(z)
+            self.start_sensor.unlock_door()
 
         self.state = ElevatorStatus.OPEN
 
@@ -77,9 +85,11 @@ class Elevator:
                 if self.sensors[self.stop_floor] == self.dest_sensor:
                     self.start_sensor, self.dest_sensor = self.dest_sensor, self.start_sensor
 
+                self.start_sensor.lock_door()   
                 self.cage.posInterval(3, self.dest_sensor.stop_pos).start()
                 self.state = ElevatorStatus.ARRIVE
                 return
+
         self.state = ElevatorStatus.WAITING
 
     def close_door(self):
@@ -91,6 +101,7 @@ class Elevator:
             self.stop_floor = [k for k, v in self.sensors.items() if v == self.dest_sensor][0]
             base.messenger.send('elevator_arrive',  sentArgs=[self.stop_floor])
             # print(f'Ralph is now on the {self.stop_floor} floor')
+            self.dest_sensor.unlock_door()
             self.state = ElevatorStatus.OPEN
 
     def control(self, task):
@@ -149,3 +160,14 @@ class ElevatorDoorSensor(MotionSensor):
                 if not slider.close():
                     result = False
         return result
+
+    def lock_door(self):
+        for door_nd in self.doors:
+            door_nd.set_mass(0)
+            door_nd.deactivation_enabled = False
+
+
+    def unlock_door(self):
+        for door_nd in self.doors:
+            door_nd.set_mass(1)
+            door_nd.deactivation_enabled = True
