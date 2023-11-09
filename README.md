@@ -8,9 +8,9 @@ The doors automatically open and close. To go in and out at the doors, stop in f
 
 ![DEMO_new](https://user-images.githubusercontent.com/48859041/233696155-3bfe126e-ed1f-47d3-9937-a8623c39cca1.png)
 
-I made an adventure bridge by using Bullet Softbody Rope and Bullet Softbody Patch. Carefully cross the bridge.
+New buildings, which are a maze house, an adventure bridge and an elevator tower, have been added. Carefully cross the adventure bridge made by using Bullet Softbody Rope and Bullet Softbody Patch. Ride on the elevator to go up the roof top, you can see fireworks.
 
-![DEMO_ADVENTURE3](https://github.com/taKana671/WalkingInBulletWorld/assets/48859041/58b224e2-3935-49f8-869c-84563d6175f8)
+![demo3](https://github.com/taKana671/WalkingInBulletWorld/assets/48859041/73e5e215-76e0-4cd4-93d6-ada5cf5b7eff)
 
 # Requirements
 * Panda3D 1.10.13
