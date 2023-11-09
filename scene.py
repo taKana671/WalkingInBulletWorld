@@ -12,7 +12,6 @@ from panda3d.core import CardMaker, TextureStage, Texture
 from panda3d.core import TransparencyAttrib, ColorBlendAttrib
 from direct.interval.LerpInterval import LerpTexOffsetInterval
 
-# from sky import Sky, Skies, InvalidSkyError
 from buildings import (
     StoneHouse,
     BrickHouse,
@@ -189,7 +188,7 @@ class Scene(NodePath):
                 props = base.win.get_properties()
                 self.sky.set_shader_input('u_resolution', props.get_size())
                 tex = Texture()
-                self.sky.setShaderInput('tex', tex)
+                self.sky.set_shader_input('tex', tex)
 
             case _:
                 raise InvalidSkyError(sky_type)

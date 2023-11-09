@@ -109,7 +109,6 @@ class Walking(ShowBase):
         self.firework_sfx.set_loop(True)
         self.firework_sfx.set_volume(0)
     
-    
     def change_sky(self, floor):
         match floor:
             case 1:

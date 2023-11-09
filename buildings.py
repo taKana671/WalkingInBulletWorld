@@ -233,7 +233,7 @@ class Buildings(NodePath):
             pole.hide()
 
         if active:
-            pole.node().set_mass(20)
+            pole.node().set_mass(1)
             # pole.node().set_deactivation_enabled(False)
 
         pole.reparent_to(parent)
@@ -1296,7 +1296,6 @@ class ElevatorTower(Buildings):
         self.walls_tex = self.texture(Images.BRICK2)
         self.floor_tex = self.texture(Images.IRON)
 
-    # def _build(self, elevator_callback):
     def _build(self):
         self.make_textures()
         floor = NodePath('floor')
