@@ -3,13 +3,13 @@ from enum import Enum, auto
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletHeightfieldShape, ZUp
 from panda3d.core import NodePath, PandaNode
-from panda3d.core import Vec3, Point3, BitMask32, Vec2, LColor
+from panda3d.core import Vec3, Point3, BitMask32, LColor
 from panda3d.core import Filename
 from panda3d.core import PNMImage
 from panda3d.core import ShaderTerrainMesh, Shader, load_prc_file_data
 from panda3d.core import SamplerState
 from panda3d.core import CardMaker, TextureStage, Texture
-from panda3d.core import TransparencyAttrib, ColorBlendAttrib
+from panda3d.core import TransparencyAttrib
 from direct.interval.LerpInterval import LerpTexOffsetInterval
 
 from buildings import (
@@ -54,7 +54,7 @@ class Sky(NodePath):
     def set_model(self, sky_type):
         """Change models.
             Args:
-                sky_type (Skies): 
+                sky_type (Skies):
         """
         if self.model:
             self.model.detach_node()
@@ -178,8 +178,8 @@ class Scene(NodePath):
 
                 self.sky.set_model(sky_type)
                 self.directional_light.set_brightness()
-                
-            case Skies.NIGHT: 
+
+            case Skies.NIGHT:
                 self.sky.set_model(sky_type)
                 self.directional_light.set_brightness(LColor(0, 0, 0, 1))
 
@@ -201,4 +201,3 @@ class InvalidSkyError(Exception):
 
     def __str__(self):
         return f'{self.arg} is invalid. Please specify from members of Skies.'
-

@@ -43,5 +43,3 @@ class BasicDayLight(NodePath):
             color = LColor(1, 1, 1, 1)
 
         self.node().set_color(color)
-
-

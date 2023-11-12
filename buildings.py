@@ -1412,7 +1412,7 @@ class ElevatorTower(Buildings):
         # doors on the 1st floor
         door_scale = Vec3(2, 0.25, 4.0)
         mask_door = BitMask32.all_on()
-        y = 1.75 
+        y = 1.75
         z = 3.0
 
         # left
@@ -1427,7 +1427,7 @@ class ElevatorTower(Buildings):
         slider1_2 = self.slider(door1_r, wall1_r, Point3(x, 0, 0), Point3(-x, 0, 0))
         self.sensor_1 = self.door_sensor('tower_sensor1', invisible, Point3(0, 1, 0.75), Vec3(4, 2, 0.5), BitMask32.bit(5),
                                          ElevatorDoorSensor, Point3(0, 3.5, 0.5), slider1_1, slider1_2)
-        
+
         # doors on the 2nd floor
         z = 15
         # left

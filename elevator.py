@@ -85,7 +85,7 @@ class Elevator:
                 if self.sensors[self.stop_floor] == self.dest_sensor:
                     self.start_sensor, self.dest_sensor = self.dest_sensor, self.start_sensor
 
-                self.start_sensor.lock_door()   
+                self.start_sensor.lock_door()
                 self.cage.posInterval(3, self.dest_sensor.stop_pos).start()
                 self.state = ElevatorStatus.ARRIVE
                 return
@@ -99,7 +99,7 @@ class Elevator:
     def check_arrival(self):
         if self.cage.get_z() == self.dest_sensor.stop_pos.z:
             self.stop_floor = [k for k, v in self.sensors.items() if v == self.dest_sensor][0]
-            base.messenger.send('elevator_arrive',  sentArgs=[self.stop_floor])
+            base.messenger.send('elevator_arrive', sentArgs=[self.stop_floor])
             # print(f'Ralph is now on the {self.stop_floor} floor')
             self.dest_sensor.unlock_door()
             self.state = ElevatorStatus.OPEN
@@ -165,7 +165,6 @@ class ElevatorDoorSensor(MotionSensor):
         for door_nd in self.doors:
             door_nd.set_mass(0)
             door_nd.deactivation_enabled = False
-
 
     def unlock_door(self):
         for door_nd in self.doors:

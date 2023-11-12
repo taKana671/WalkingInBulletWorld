@@ -1,5 +1,7 @@
 import sys
 
+from direct.interval.LerpInterval import LerpFunc
+from direct.interval.IntervalGlobal import Sequence, Func
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
@@ -8,9 +10,6 @@ from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletDebugNode
 from panda3d.core import NodePath, PandaNode, TextNode
 from panda3d.core import Vec3, Point3, BitMask32, Quat
-
-from direct.interval.LerpInterval import LerpFunctionInterval, LerpFunc
-from direct.interval.IntervalGlobal import Sequence, Func
 
 from lights import BasicAmbientLight, BasicDayLight
 from scene import Scene, Skies
@@ -108,7 +107,7 @@ class Walking(ShowBase):
         self.firework_sfx = base.loader.load_sfx('sounds/fireworks.mp3')
         self.firework_sfx.set_loop(True)
         self.firework_sfx.set_volume(0)
-    
+
     def change_sky(self, floor):
         match floor:
             case 1:
