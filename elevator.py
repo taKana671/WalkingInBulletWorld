@@ -73,13 +73,15 @@ class Elevator:
         else:
             # When arrives the destination, leave the door open while Ralph is in the elevator.
             for con in self.world.contact_test(self.cage.node()).get_contacts():
-                if isinstance(con.get_node1(), BulletCharacterControllerNode):
+                # if isinstance(con.get_node1(), BulletCharacterControllerNode):
+                if con.get_node1().get_name() == 'character':
                     return
             self.state = ElevatorStatus.CLOSE
 
     def move(self):
         for con in self.world.contact_test(self.cage.node()).get_contacts():
-            if isinstance(con.get_node1(), BulletCharacterControllerNode):
+            # if isinstance(con.get_node1(), BulletCharacterControllerNode):
+            if con.get_node1().get_name() == 'character':
 
                 # Replace start floor with destination one, if Ralph rashes into the elevator before the door closes.
                 if self.sensors[self.stop_floor] == self.dest_sensor:

@@ -69,6 +69,7 @@ class InvisibleLift(Material):
     def __init__(self, name, shape, pos, hpr, scale, bitmask):
         super().__init__(name, pos, hpr, scale, bitmask)
         self.node().add_shape(shape)
+        self.set_collide_mask(bitmask)
         self.node().set_kinematic(True)
         self.hide()
 
@@ -363,7 +364,7 @@ class StoneHouse(Buildings):
             [Point3(0, 10, 0), Vec3(12, 1, 4)]             # back
         ]
         for i, (pos, scale) in enumerate(pos_scale):
-            self.block(f'floor1_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0))
+            self.block(f'floor1_{i}', floors, pos, scale, hpr=Vec3(0, 90, 0), bitmask=BitMask32.bit(1) | BitMask32.bit(2))
 
         # room floor and room camera on the 1st floor
         self.block('room1', floors, Point3(0, 0, 0), Vec3(12, 1, 16), hpr=Vec3(0, 90, 0))
@@ -647,7 +648,7 @@ class Terrace(Buildings):
         lifts = NodePath('lifts')
         lifts.reparent_to(self)
 
-        mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
+        mask_wall = BitMask32.bit(2) | BitMask32.bit(1) | BitMask32.bit(3)
         mask_fence = BitMask32.bit(3) | BitMask32.bit(2)
 
         # the 1st floor
@@ -913,7 +914,7 @@ class Bridge(Buildings):
 
         for i in range(5):
             pos = Point3(0, -20.5 - i, -1 - i)
-            block = self.block(f'step_{i}', girders, pos, Vec3(4, 1, 1))
+            block = self.block(f'step_{i}', girders, pos, Vec3(4, 1, 1), bitmask=BitMask32.bit(1) | BitMask32.bit(2))
             self.lift(f'lift_{i}', lifts, block)
 
             # falling preventions
