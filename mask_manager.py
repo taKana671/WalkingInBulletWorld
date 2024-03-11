@@ -10,10 +10,14 @@ class MaskMeta(type):
         self.__setattr__(name, value)
 
 
-class Masks(metaclass=MaskMeta):
+class Mask(metaclass=MaskMeta):
 
-    bit_1 = BitMask32.bit(1)
-    bit_1_2 = BitMask32.bit(1) | BitMask32.bit(2)
-
-
-
+    camera = BitMask32.bit(1)
+    ground = BitMask32.bit(1)
+    collision = BitMask32.bit(2)
+    sweep = BitMask32.bit(3)
+    lift = BitMask32.bit(4)
+    sensor = BitMask32.bit(5)
+    building = BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3)
+    fence = BitMask32.bit(2) | BitMask32.bit(3)
+    door = BitMask32.all_on()

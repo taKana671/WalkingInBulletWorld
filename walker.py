@@ -38,6 +38,15 @@ class Status(Enum):
 #         self.set_pos(pos)
 
 
+class TestShape(NodePath):
+
+    def __init__(self):
+        super().__init__(BulletRigidBodyNode('test'))
+        test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.2))
+        self.node().add_shape(test_shape)
+
+
+
 class Walker(NodePath):
 
     RUN = 'run'
@@ -50,6 +59,7 @@ class Walker(NodePath):
         self.world = world
 
         h, w = 6, 1.2
+        # h, w = 6, 1.5
         shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
         self.node().add_shape(shape)
         self.node().set_kinematic(True)
@@ -60,8 +70,12 @@ class Walker(NodePath):
         # bit(1): wall, floor and so on; bit(3): ignored by camera follwing the character;
         # bit(4): embedded objects like lift; bit(5): door sensors
         # self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(3) | BitMask32.bit(4) | BitMask32.bit(5))
-        self.set_collide_mask(BitMask32.bit(2) | BitMask32.bit(5))
+        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(5))
 
+        # self.test_shape = TestShape()
+        # self.test_shape.set_pos(Point3(25, -10, 1))
+        # self.test_shape.reparent_to(base.render)
+        # self.world.attach(self.test_shape.node())
 
         self.set_pos(Point3(25, -10, 1))
         self.node().set_linear_factor(Vec3(0, 0, 1))
@@ -157,14 +171,17 @@ class Walker(NodePath):
             return True
 
     def detect_collision(self):
-        if self.world.contact_test(self.node(), use_filter=True).get_num_contacts() > 0:
+        for con in self.world.contact_test(self.node(), use_filter=True).get_contacts():
+            print(con.get_node0(), con.get_node1())
             return True
+        # if self.world.contact_test(self.node(), use_filter=True).get_num_contacts() > 0:
+            # return True
 
     def predict_collision(self, next_pos):
         ts_from = TransformState.make_pos(self.get_pos())
         ts_to = TransformState.make_pos(next_pos)
         mask = BitMask32.bit(3)
-        test_shape = BulletBoxShape(Vec3(0.4, 0.3, 3))
+        test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.2))
         result = self.world.sweep_test_closest(test_shape, ts_from, ts_to, mask, 0.0)
         if result.has_hit():
             print('predict_collision', result.get_node())
@@ -209,7 +226,7 @@ class Walker(NodePath):
         if self.state == Status.GOING_UP:
             self.go_up_on_lift(5 * dt)
             loc = self.current_location()
-            self.set_z(loc.get_hit_pos().z + 1.2)
+            self.set_z(loc.get_hit_pos().z + 1.5)
 
         if self.state == Status.GETTING_OFF:
             self.get_off_lift(orientation, -20 * dt)
@@ -221,14 +238,16 @@ class Walker(NodePath):
             self.go_down(orientation, 5 * dt)
 
         if self.state == Status.FALLING:
-            self.elapsed_time += dt * 0.5
-            z = 0.5 * -9.81 * (self.elapsed_time ** 2)
-            self.set_z(self.get_z() + z)
+            z = 0.25 * -9.81 * (self.elapsed_time ** 2)
+            self.set_z(self.falling_pos + z)
 
-            # if hit := self.current_location():
-            #     self.set_z(hit.get_hit_pos().z + 1.2)
-            #     self.state = Status.MOVING
+            if hit := self.current_location():
+                if (self.get_z() - hit.get_hit_pos().z) <= 1.5:
+                    self.set_z(hit.get_hit_pos().z + 1.5)
+                    self.falling_pos = 0
+                    self.state = Status.MOVING
 
+            self.elapsed_time += dt
             print('Falling')
 
     def find_steps(self):
@@ -236,6 +255,7 @@ class Walker(NodePath):
                 (front := self.watch_front(BitMask32.bit(1))):
 
             z_diff = (front.get_hit_pos() - below.get_hit_pos()).z
+            print('diff', z_diff)
             # Ralph is likely to go down stairs.
             if -1.2 <= z_diff <= -0.5:
                 self.start = NodePath(below.get_node())
@@ -254,12 +274,16 @@ class Walker(NodePath):
 
 
     def move(self, orientation, distance):
+        print('move')
         next_pos = self.get_pos() + orientation * distance
         hit = self.world.ray_test_closest(next_pos, next_pos + Vec3(0, 0, -10), BitMask32.bit(1))
-        next_pos.z = hit.get_hit_pos().z + 1.2
+        next_pos.z = hit.get_hit_pos().z + 1.5
 
-        if self.get_z() - next_pos.z >= 2.5:
+        print('move_diff', self.get_z() - next_pos.z)
+        # if self.get_z() - next_pos.z >= 2.5:
+        if self.get_z() - next_pos.z >= 1.5:
             if not self.detect_collision():
+                self.falling_pos = self.get_z()
                 self.state = Status.FALLING
             else:
                 self.set_x(next_pos.x)
