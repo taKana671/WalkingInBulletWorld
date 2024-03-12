@@ -13,7 +13,7 @@ from panda3d.core import Vec3, Point3, BitMask32, Quat
 
 from lights import BasicAmbientLight, BasicDayLight
 from scene import Scene, Skies
-from walker import Walker
+from walker import Walker, Motions
 
 
 class Instructions(NodePath):
@@ -74,7 +74,7 @@ class Walking(ShowBase):
         # show instructions
         self.instructions = Instructions()
 
-        self.mask = BitMask32.bit(1)
+        self.mask = BitMask32.bit(6)
         self.movable_room_camera = None
 
         inputState.watch_with_modifiers('forward', 'arrow_up')
@@ -125,33 +125,45 @@ class Walking(ShowBase):
                 ).start()
 
     def control_walker(self, dt):
-        # contol walker movement
-        direction = 0
-        angle = 0
+        motions = []
 
         if inputState.is_set('forward'):
-            direction += -1
+            motions.append(Motions.FORWARD)
         if inputState.is_set('backward'):
-            direction += 1
+            motions.append(Motions.BACKWARD)
         if inputState.is_set('left'):
-            angle += 100 * dt
+            motions.append(Motions.LEFT)
         if inputState.is_set('right'):
-            angle += -100 * dt
+            motions.append(Motions.RIGHT)
 
-        self.walker.update(dt, direction, angle)
+        self.walker.update(dt, motions)
 
-        # play animation
-        anim = None
-        rate = 1
+        # direction = 0
+        # angle = 0
 
-        if inputState.is_set('forward'):
-            anim = self.walker.RUN
-        elif inputState.is_set('backward'):
-            anim, rate = self.walker.WALK, -1
-        elif inputState.is_set('left') or inputState.is_set('right'):
-            anim = self.walker.WALK
+        # if inputState.is_set('forward'):
+        #     direction += -1
+        # if inputState.is_set('backward'):
+        #     direction += 1
+        # if inputState.is_set('left'):
+        #     angle += 100 * dt
+        # if inputState.is_set('right'):
+        #     angle += -100 * dt
 
-        self.walker.play_anim(anim, rate)
+        # self.walker.update(dt, direction, angle)
+
+        # # play animation
+        # anim = None
+        # rate = 1
+
+        # if inputState.is_set('forward'):
+        #     anim = self.walker.RUN
+        # elif inputState.is_set('backward'):
+        #     anim, rate = self.walker.WALK, -1
+        # elif inputState.is_set('left') or inputState.is_set('right'):
+        #     anim = self.walker.WALK
+
+        # self.walker.play_anim(anim, rate)
 
     def print_info(self):
         print('walker', self.walker.get_pos())

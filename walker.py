@@ -8,6 +8,15 @@ from panda3d.core import PandaNode, NodePath, TransformState
 from panda3d.core import Vec3, Point3, LColor, BitMask32
 
 from utils import create_line_node
+from mask_manager import Mask
+
+class Motions(Enum):
+
+    FORWARD = auto()
+    BACKWARD = auto()
+    LEFT = auto()
+    RIGHT = auto()
+    TURN = auto()
 
 
 class Status(Enum):
@@ -38,15 +47,6 @@ class Status(Enum):
 #         self.set_pos(pos)
 
 
-class TestShape(NodePath):
-
-    def __init__(self):
-        super().__init__(BulletRigidBodyNode('test'))
-        test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.2))
-        self.node().add_shape(test_shape)
-
-
-
 class Walker(NodePath):
 
     RUN = 'run'
@@ -70,7 +70,7 @@ class Walker(NodePath):
         # bit(1): wall, floor and so on; bit(3): ignored by camera follwing the character;
         # bit(4): embedded objects like lift; bit(5): door sensors
         # self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(3) | BitMask32.bit(4) | BitMask32.bit(5))
-        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(5))
+        self.set_collide_mask(BitMask32.bit(2) | BitMask32.bit(5) | BitMask32.bit(6))
 
         # self.test_shape = TestShape()
         # self.test_shape.set_pos(Point3(25, -10, 1))
@@ -101,6 +101,13 @@ class Walker(NodePath):
         self.front = NodePath('front')
         self.front.reparent_to(self.direction_nd)
         self.front.set_pos(0, -1.2, 1)
+
+        self.back = NodePath('back')
+        self.back.reparent_to(self.direction_nd)
+        self.back.set_pos(0, 1.2, 1)
+
+
+
 
         self.under = NodePath('under')
         self.under.reparent_to(self.direction_nd)
@@ -149,18 +156,6 @@ class Walker(NodePath):
             return ray_result
         return None
 
-    def watch_front(self, mask):
-        """Cast a ray vertically from the front of Ralph's face to find steps.
-           If found, BulletRayHit is returned.
-        """
-        from_pos = self.front.get_pos(self) + self.get_pos()
-        to_pos = self.under.get_pos(self) + self.get_pos()
-        ray_result = self.world.ray_test_closest(from_pos, to_pos, mask)
-
-        if ray_result.has_hit():
-            return ray_result
-        return None
-
     def detect_penetration(self, detection_nd):
         """Return True if Ralph collides with objects to which BitMask32.bit(2) has been set as collide mask.
            Arges:
@@ -172,7 +167,7 @@ class Walker(NodePath):
 
     def detect_collision(self):
         for con in self.world.contact_test(self.node(), use_filter=True).get_contacts():
-            print(con.get_node0(), con.get_node1())
+            print('detect_collision', con.get_node0(), con.get_node1())
             return True
         # if self.world.contact_test(self.node(), use_filter=True).get_num_contacts() > 0:
             # return True
@@ -182,46 +177,50 @@ class Walker(NodePath):
         ts_to = TransformState.make_pos(next_pos)
         mask = BitMask32.bit(3)
         test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.2))
+
         result = self.world.sweep_test_closest(test_shape, ts_from, ts_to, mask, 0.0)
         if result.has_hit():
             print('predict_collision', result.get_node())
             return True
 
-    def update(self, dt, direction, angle):
-        # for con in self.world.contact_test(self.node(), use_filter=True).get_contacts():
-        #     print('detected_collid', con.get_node0(), con.get_node1())
-        #     mp = con.get_manifold_point()
-        #     print(mp.get_local_point_a(), mp.get_local_point_b())
-        # print('-----------------')
-            
+    def update(self, dt, motions):
+        direction = 0
+        angle = 0
+        motion = None
+
+        if Motions.LEFT in motions:
+            angle += 100 * dt
+            motion = Motions.TURN
+        if Motions.RIGHT in motions:
+            angle -= 100 * dt
+            motion = Motions.TURN
+        if Motions.FORWARD in motions:
+            direction += -1
+            motion = Motions.FORWARD
+        if Motions.BACKWARD in motions:
+            direction += 1
+            motion = Motions.BACKWARD
 
         orientation = self.direction_nd.get_quat(base.render).get_forward()
 
         if self.state == Status.MOVING:
-            # if not (loc := self.current_location()):
-            #     print('Starts falling')
-            #     self.state = Status.FALLING
-            #     return
-            # print('diff ', self.get_z(), loc.get_hit_pos().z, loc.get_node().get_name())
-            # if self.get_z() - loc.get_hit_pos().z >= 2.5:
-            #     self.state = Status.FALLING
-            #     return
-
             if angle:
                 self.turn(angle)
 
-            if direction < 0:
-                distance = direction * 10 * dt
-                if not self.find_steps():
-                    self.move(orientation, direction * 10 * dt)
+            if direction != 0:
+                if not self.find_height_diff(direction):
+
+                    if direction < 0:
+                        distance = direction * 10 * dt
+                    if direction > 0:
+                        distance = direction * 5 * dt
+                
+                    # if not self.find_steps():
+                    self.move(orientation, distance)
                     # if not self.detect_collision():
                     #     self.move(orientation, direction * 10 * dt)
                     # else:
                     #     self.state = Status.COLLISION
-            if direction > 0:
-                distance = direction * 5 * dt
-                # if not self.detect_penetration(self.detection_nd_b):
-                self.move(orientation, direction * 5 * dt)
 
         if self.state == Status.GOING_UP:
             self.go_up_on_lift(5 * dt)
@@ -229,48 +228,114 @@ class Walker(NodePath):
             self.set_z(loc.get_hit_pos().z + 1.5)
 
         if self.state == Status.GETTING_OFF:
-            self.get_off_lift(orientation, -20 * dt)
+            # self.get_off_lift(orientation, -20 * dt)
+            self.get_off_lift(orientation, direction * 20 * dt)
 
         if self.state == Status.COMMING_TO_EDGE:
-            self.come_to_edge(orientation, -20 * dt)
+            self.come_to_edge(orientation, direction * 5 * dt)
+            # self.come_to_edge(orientation, -20 * dt)
 
         if self.state == Status.GOING_DOWN:
             self.go_down(orientation, 5 * dt)
 
         if self.state == Status.FALLING:
-            z = 0.25 * -9.81 * (self.elapsed_time ** 2)
-            self.set_z(self.falling_pos + z)
+            if self.fall(orientation, dt):
+                self.falling_pos = 0
+                self.state = Status.MOVING
+                self.elapsed_time = 0
 
-            if hit := self.current_location():
-                if (self.get_z() - hit.get_hit_pos().z) <= 1.5:
-                    self.set_z(hit.get_hit_pos().z + 1.5)
-                    self.falling_pos = 0
-                    self.state = Status.MOVING
+            # z = 0.25 * -9.81 * (self.elapsed_time ** 2)
+            # self.set_z(self.falling_pos + z)
 
-            self.elapsed_time += dt
+            # if hit := self.current_location():
+            #     if (self.get_z() - hit.get_hit_pos().z) <= 1.5:
+            #         self.set_z(hit.get_hit_pos().z + 1.5)
+            #         self.falling_pos = 0
+            #         self.state = Status.MOVING
+
+            # self.elapsed_time += dt
             print('Falling')
 
-    def find_steps(self):
-        if (below := self.current_location(BitMask32.bit(1))) and \
-                (front := self.watch_front(BitMask32.bit(1))):
+        self.play_anim(motion)
 
-            z_diff = (front.get_hit_pos() - below.get_hit_pos()).z
-            print('diff', z_diff)
-            # Ralph is likely to go down stairs.
-            if -1.2 <= z_diff <= -0.5:
-                self.start = NodePath(below.get_node())
-                self.dest = NodePath(front.get_node())
-                self.state = Status.COMMING_TO_EDGE
+    # def watch_front(self, start, mask=Mask.ground):
+    #     """Cast a ray vertically from the front of Ralph's face to find steps.
+    #        If found, BulletRayHit is returned.
+    #     """
+    #     from_pos = self.front.get_pos(self) + self.get_pos()
+    #     to_pos = self.under.get_pos(self) + self.get_pos()
+    #     ray_result = self.world.ray_test_closest(from_pos, to_pos, mask)
+
+    #     if ray_result.has_hit():
+    #         return ray_result
+    #     return None
+
+    
+    def check_downward(self, mask=Mask.ground):
+        from_pos = self.get_pos()
+        to_pos = base.render.get_relative_point(self, Vec3(0, 0, -10))
+
+        if (result := self.world.ray_test_closest(from_pos, to_pos, mask)).has_hit():
+            return result
+
+    def check_forward(self, direction, mask=Mask.ground):
+        np = self.front if direction < 0 else self.back
+        # import pdb; pdb.set_trace()
+        # from_pos = base.render.get_relative_point(self, np.get_pos())
+        from_pos = np.get_pos(self) + self.get_pos()
+        to_pos = from_pos + Vec3(0, 0, -10)
+
+        if (result := self.world.ray_test_closest(from_pos, to_pos, mask)).has_hit():
+            return result
+
+    def find_height_diff(self, direction):
+        if not ((downward := self.check_downward()) and (forward := self.check_forward(direction))):
+            return True
+
+        for_z = forward.get_hit_pos().z
+        down_z = downward.get_hit_pos().z
+        diff = abs(for_z - down_z)
+        print('diff', diff)
+
+        if for_z < down_z and diff >= 1.2:
+            self.start = NodePath(downward.get_node())
+            self.fall_start_z = self.get_z()
+            self.dest = NodePath(forward.get_node())
+            self.direction = direction
+            # self.state = Status.COMMING_TO_EDGE
+            self.state = Status.FALLING
+            return True
+
+        # Ralph likeky looks toward stairs.
+        if for_z > down_z and 0.3 < diff < 1.2:
+            if result := self.check_downward(Mask.lift):
+                self.lift = NodePath(result.get_node())
+                self.lift_original_z = self.lift.get_z()
+                self.dest = NodePath(forward.get_node())
+                self.state = Status.GOING_UP
                 return True
 
-            # Ralph is likely to go up stairs.
-            if 0.3 < z_diff < 1.2:
-                if lift := self.current_location(BitMask32.bit(4)):
-                    self.lift = NodePath(lift.get_node())
-                    self.lift_original_z = self.lift.get_z()
-                    self.dest = NodePath(front.get_node())
-                    self.state = Status.GOING_UP
-                    return True
+
+        # if (below := self.current_location(BitMask32.bit(1))) and \
+        #         (front := self.watch_front(BitMask32.bit(1))):
+
+        #     z_diff = (front.get_hit_pos() - below.get_hit_pos()).z
+        #     print('diff', z_diff)
+        #     # Ralph is likely to go down stairs.
+        #     if -1.2 <= z_diff <= -0.5:
+        #         self.start = NodePath(below.get_node())
+        #         self.dest = NodePath(front.get_node())
+        #         self.state = Status.COMMING_TO_EDGE
+        #         return True
+
+        #     # Ralph is likely to go up stairs.
+        #     if 0.3 < z_diff < 1.2:
+        #         if lift := self.current_location(BitMask32.bit(4)):
+        #             self.lift = NodePath(lift.get_node())
+        #             self.lift_original_z = self.lift.get_z()
+        #             self.dest = NodePath(front.get_node())
+        #             self.state = Status.GOING_UP
+        #             return True
 
 
     def move(self, orientation, distance):
@@ -279,16 +344,16 @@ class Walker(NodePath):
         hit = self.world.ray_test_closest(next_pos, next_pos + Vec3(0, 0, -10), BitMask32.bit(1))
         next_pos.z = hit.get_hit_pos().z + 1.5
 
-        print('move_diff', self.get_z() - next_pos.z)
-        # if self.get_z() - next_pos.z >= 2.5:
-        if self.get_z() - next_pos.z >= 1.5:
-            if not self.detect_collision():
-                self.falling_pos = self.get_z()
-                self.state = Status.FALLING
-            else:
-                self.set_x(next_pos.x)
-                self.set_y(next_pos.y)
-            return
+        # print('move_diff', self.get_z() - next_pos.z)
+        # # if self.get_z() - next_pos.z >= 2.5:
+        # if self.get_z() - next_pos.z >= 1.5:
+        #     if not self.detect_collision():
+        #         self.falling_pos = self.get_z()
+        #         self.state = Status.FALLING
+        #     else:
+        #         self.set_x(next_pos.x)
+        #         self.set_y(next_pos.y)
+        #     return
 
         if self.detect_collision():
             if self.predict_collision(next_pos):
@@ -332,28 +397,50 @@ class Walker(NodePath):
             self.frame_cnt = 0
             self.state = Status.MOVING
 
-    def come_to_edge(self, orientation, distance):
+    def fall(self, orientation, dt):
         """Make Ralph move to the edge of steps.
            Args:
                 orientation: (LVector3f)
                 distance: (float)
         """
-        next_pos = self.get_pos() + orientation * distance
+        next_pos = self.get_pos() + orientation * self.direction * dt * 5
+        z = 0.25 * -9.81 * (self.elapsed_time ** 2)
+        next_pos.z = self.fall_start_z + z
         self.set_pos(next_pos)
-        self.frame_cnt += 1
-        on_edge = False
 
-        if below := self.current_location(BitMask32.bit(1)):
-            if below.get_node() == self.dest.node():
-                on_edge = True
+        if hit := self.check_downward():
+            if (self.get_z() - hit.get_hit_pos().z) <= 1.5:
+                self.set_z(hit.get_hit_pos().z + 1.5)
+                self.falling_pos = 0
+                self.state = Status.MOVING
+                return True
 
-                # change direction right  before the start of falling, for when going down spiral stairs.
-                if -30 <= (diff := self.dest.get_h() - self.start.get_h()) < 0:
-                    self.direction_nd.set_h(self.direction_nd.get_h() + diff)
+        self.elapsed_time += dt
 
-        if on_edge or self.frame_cnt >= 5:
-            self.frame_cnt = 0
-            self.state = Status.GOING_DOWN
+        
+    # def come_to_edge(self, orientation, distance):
+    #     """Make Ralph move to the edge of steps.
+    #        Args:
+    #             orientation: (LVector3f)
+    #             distance: (float)
+    #     """
+    #     next_pos = self.get_pos() + orientation * distance
+    #     self.set_pos(next_pos)
+    #     self.frame_cnt += 1
+    #     on_edge = False
+
+    #     if below := self.current_location(BitMask32.bit(1)):
+    #         if below.get_node() == self.dest.node():
+    #             on_edge = True
+
+    #             # change direction right  before the start of falling, for when going down spiral stairs.
+    #             if -30 <= (diff := self.dest.get_h() - self.start.get_h()) < 0:
+    #                 self.direction_nd.set_h(self.direction_nd.get_h() + diff)
+
+    #     if on_edge or self.frame_cnt >= 5:
+    #         self.frame_cnt = 0
+    #         self.state = Status.GOING_DOWN
+
 
     def go_down(self, orientation, distance):
         """Wait that Ralph gravitates downwards to collide the destination.
@@ -366,18 +453,39 @@ class Walker(NodePath):
             self.frame_cnt = 0
             self.state = Status.MOVING
 
-    def play_anim(self, command, rate=1):
-        if not command:
-            self.stop_anim()
-        else:
-            if self.actor.get_current_anim() != command:
-                self.actor.loop(command)
-                self.actor.set_play_rate(rate, command)
+    def play_anim(self, motion):
+        match motion:
+            case Motions.FORWARD:
+                anim = Walker.RUN
+                rate = 1
+            case Motions.BACKWARD:
+                anim = Walker.WALK
+                rate = -1
+            case Motions.TURN:
+                anim = Walker.WALK
+                rate = 1
+            case _:
+                if self.actor.get_current_anim() is not None:
+                    self.actor.stop()
+                    self.actor.pose(Walker.WALK, 5)
+                return
 
-    def stop_anim(self):
-        if self.actor.get_current_anim() is not None:
-            self.actor.stop()
-            self.actor.pose(self.WALK, 5)
+        if self.actor.get_current_anim() != anim:
+            self.actor.loop(anim)
+            self.actor.set_play_rate(rate, anim)
+
+    # def play_anim(self, command, rate=1):
+    #     if not command:
+    #         self.stop_anim()
+    #     else:
+    #         if self.actor.get_current_anim() != command:
+    #             self.actor.loop(command)
+    #             self.actor.set_play_rate(rate, command)
+
+    # def stop_anim(self):
+    #     if self.actor.get_current_anim() is not None:
+    #         self.actor.stop()
+    #         self.actor.pose(self.WALK, 5)
 
 # class CollisionDetection(NodePath):
 #     """Intended to be parented to a character to prevent it from going through
