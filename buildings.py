@@ -651,7 +651,7 @@ class Terrace(Buildings):
         # mask_fence = BitMask32.bit(3) | BitMask32.bit(2)
 
         # the 1st floor
-        self.block('floor1', floors, Point3(0, 0, 0), Vec3(16, 0.5, 12), hpr=Vec3(0, 90, 0))
+        self.block('floor1', floors, Point3(0.125, 0, 0), Vec3(16.25, 0.5, 12), hpr=Vec3(0, 90, 0))
 
         # walls
         pos_scale_hpr = [
@@ -686,13 +686,13 @@ class Terrace(Buildings):
 
         for i, (pos, w, hor) in enumerate(pos_w_hor):
             scale = Vec3(w, 0.5, 1)
-            self.block(f'prevention_{i}', roofs, pos, scale, horizontal=hor)
+            self.block(f'prevention_{i}', roofs, pos, scale, horizontal=hor, bitmask=Mask.fence)
 
         # spiral center pole
         center = Point3(9, 1.5, 8)
         self.pole('center_pole', roofs, center, Vec3(1.5, 1.5, 10), Vec2(5, 1))
         sphere_pos = center + Vec3(0, 0, 0.7)
-        self.sphere_shape('pole_sphere', roofs, sphere_pos, Vec3(0.5))
+        self.sphere_shape('pole_sphere', roofs, sphere_pos, Vec3(0.5), bitmask=Mask.fence)
 
         # spiral staircase
         steps_num = 7
@@ -703,6 +703,7 @@ class Terrace(Buildings):
             sx, sy = self.point_on_circumference(s_angle, 2.5)
             s_pos = Point3(center.x + sx, center.y + sy, i + 0.5)
             block = self.block(f'step_{i}', steps, s_pos, scale, hpr=Vec3(s_angle, 90, 0))
+
             if i < steps_num - 1:
                 self.lift(f'lift_{i}', lifts, block)
 
@@ -712,21 +713,26 @@ class Terrace(Buildings):
                 fx, fy = self.point_on_circumference(f_angle, 4.3)
                 f_scale = Vec3(0.15, 0.15, 2.2 + j * 0.4)
                 f_pos = Point3(center.x + fx, center.y + fy, s_pos.z + 0.25 + f_scale.z / 2)
-                self.block(f'spiral_fence_{i}{j}', steps, f_pos, f_scale, bitmask=Mask.fence)
+                self.block(f'spiral_fence_{i}{j}', steps, f_pos, f_scale, bitmask=Mask.poles)
+
+        # embedded lift for the first step
+        block = self.block('step_0_1', steps, Point3(7, -1, 0), scale, hpr=Vec3(-90, 90, 0), hide=True)
+        self.lift('lift_0_1', lifts, block)
 
         # handrail of spiral staircase
         pos = center - Vec3(0, 0, 5)
         hpr = Vec3(-101, 0, 0)
         geomnode = RingShape(segs_rcnt=14, slope=0.5, ring_radius=4.3, section_radius=0.15)
-        self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=Mask.fence)
+        self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=Mask.poles)
 
         for i, pos in enumerate([Point3(8.25, -2.73, 3.0), Point3(7.52, 5.54, 10.0)]):
             self.sphere_shape(f'handrail_sphere_{i}', steps, pos, Vec3(0.15), bitmask=Mask.fence)
 
-        # slope of the 1st step
-        self.triangular_prism(
-            'hidden_slope', lifts, Point3(7.75, -1, 0.5), Vec3(180, 90, 0), Vec3(0.5, 0.5, 4), hide=True
-        )
+        # # slope of the 1st step
+        # self.triangular_prism(
+        #     'hidden_slope', lifts, Point3(7.75, -1, 0.5), Vec3(180, 90, 0), Vec3(0.5, 0.5, 4), hide=True
+        # )
+
         # entrance slope
         self.triangular_prism(
             'entrance_slope', floors, Point3(-9.5, -2.5, 0), Vec3(180, 90, 0), Vec3(3, 0.5, 7), tex_scale=Vec2(3, 2)

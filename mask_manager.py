@@ -12,12 +12,13 @@ class MaskMeta(type):
 
 class Mask(metaclass=MaskMeta):
 
-    camera = BitMask32.bit(1)
+    camera = BitMask32.bit(6)
     ground = BitMask32.bit(1)
     collision = BitMask32.bit(2)
     sweep = BitMask32.bit(3)
     lift = BitMask32.bit(4)
     sensor = BitMask32.bit(5)
     building = BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3) | BitMask32.bit(6)
-    fence = BitMask32.bit(2) | BitMask32.bit(3)
+    fence = BitMask32.bit(2) | BitMask32.bit(3) | BitMask32.bit(6)
+    poles = BitMask32.bit(2) | BitMask32.bit(3)
     door = BitMask32.all_on()
