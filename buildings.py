@@ -427,7 +427,7 @@ class StoneHouse(Buildings):
         ]
 
         for i, (pos, scale, hpr) in enumerate(pos_scale_hpr):
-            self.block(f'balcony_{i}', floors, pos, scale, hpr=hpr)
+            self.block(f'balcony_{i}', floors, pos, scale, hpr=hpr, bitmask=Mask.poles)
 
         # walls on the 2nd floor
         walls_2nd_floor = [
@@ -490,13 +490,13 @@ class StoneHouse(Buildings):
             # falling preventions
             for j, x_diff in enumerate(x_diffs):
                 f_pos = pos + Vec3(x_diff, 0, 1.5)
-                self.block(f'step_fence_{i}{j}', fences, f_pos, Vec3(0.15, 0.15, 2.1), bitmask=Mask.fence)
+                self.block(f'step_fence_{i}{j}', fences, f_pos, Vec3(0.15, 0.15, 2.1), bitmask=Mask.poles)
 
             # handrails
             if i == 2:
                 for k, x_diff in enumerate(x_diffs):
                     rail_pos = pos + Vec3(x_diff, 0, 2.5)
-                    self.block(f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, 45, 0), bitmask=Mask.fence)
+                    self.block(f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, 45, 0), bitmask=Mask.poles)
 
         doors.set_texture(self.door_tex)
         walls.set_texture(self.wall_tex)
@@ -647,9 +647,6 @@ class Terrace(Buildings):
         lifts = NodePath('lifts')
         lifts.reparent_to(self)
 
-        # mask_wall = BitMask32.bit(2) | BitMask32.bit(1) | BitMask32.bit(3)
-        # mask_fence = BitMask32.bit(3) | BitMask32.bit(2)
-
         # the 1st floor
         self.block('floor1', floors, Point3(0.125, 0, 0), Vec3(16.25, 0.5, 12), hpr=Vec3(0, 90, 0))
 
@@ -690,7 +687,7 @@ class Terrace(Buildings):
 
         # spiral center pole
         center = Point3(9, 1.5, 8)
-        self.pole('center_pole', roofs, center, Vec3(1.5, 1.5, 10), Vec2(5, 1))
+        self.pole('center_pole', roofs, center, Vec3(1.5, 1.5, 10), Vec2(5, 1), bitmask=Mask.poles)
         sphere_pos = center + Vec3(0, 0, 0.7)
         self.sphere_shape('pole_sphere', roofs, sphere_pos, Vec3(0.5), bitmask=Mask.fence)
 
@@ -718,7 +715,7 @@ class Terrace(Buildings):
         # embedded lift for the first step
         block = self.block('step_0_1', steps, Point3(7, -1, 0), scale, hpr=Vec3(-90, 90, 0), hide=True)
         self.lift('lift_0_1', lifts, block)
- 
+
         # handrail of spiral staircase
         pos = center - Vec3(0, 0, 5)
         hpr = Vec3(-101, 0, 0)
@@ -727,11 +724,6 @@ class Terrace(Buildings):
 
         for i, pos in enumerate([Point3(8.25, -2.73, 3.0), Point3(7.52, 5.54, 10.0)]):
             self.sphere_shape(f'handrail_sphere_{i}', steps, pos, Vec3(0.15), bitmask=Mask.poles)
-
-        # # slope of the 1st step
-        # self.triangular_prism(
-        #     'hidden_slope', lifts, Point3(7.75, -1, 0.5), Vec3(180, 90, 0), Vec3(0.5, 0.5, 4), hide=True
-        # )
 
         # entrance slope
         self.triangular_prism(
@@ -914,12 +906,11 @@ class Bridge(Buildings):
             self.pole(f'column_{i}', columns, pos, Vec3(2, 2, 6), Vec2(2, 1), hpr=(0, 0, 180))
 
         # steps
-        mask_fence = BitMask32.bit(3) | BitMask32.bit(2)
         diffs = [1.9, -1.9]
 
         for i in range(5):
             pos = Point3(0, -20.5 - i, -1 - i)
-            block = self.block(f'step_{i}', girders, pos, Vec3(4, 1, 1), bitmask=BitMask32.bit(1) | BitMask32.bit(2))
+            block = self.block(f'step_{i}', girders, pos, Vec3(4, 1, 1))
             self.lift(f'lift_{i}', lifts, block)
 
             # falling preventions
@@ -944,7 +935,8 @@ class Bridge(Buildings):
             for j, (x, y) in enumerate(gen):
                 pos = Point3(x, y, 1.75)
                 self.block(
-                    f'bridge_rail_{i}{j}', girders, pos, scale, horizontal=False, bitmask=mask_fence)
+                    f'bridge_rail_{i}{j}', girders, pos, scale, horizontal=False, bitmask=Mask.fence)
+
         rail_blocks = [
             ((x, y + i) for i in range(17) for x in (1.875, -1.875) for y in (3.875, -19.875)),
             ((x, y) for x in (3.875, -3.875) for y in (3.875, -3.875))
@@ -952,7 +944,7 @@ class Bridge(Buildings):
         for i, (x, y) in enumerate(chain(*rail_blocks)):
             pos = Point3(x, y, 1)
             self.block(
-                f'rail_block_{i}', girders, pos, Vec3(0.25, 0.25, 1), horizontal=False, bitmask=BitMask32.bit(3)
+                f'rail_block_{i}', girders, pos, Vec3(0.25, 0.25, 1), horizontal=False, bitmask=Mask.fence
             )
 
         girders.set_texture(self.bridge_tex)

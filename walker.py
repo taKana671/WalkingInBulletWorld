@@ -10,6 +10,7 @@ from panda3d.core import Vec3, Point3, LColor, BitMask32
 from utils import create_line_node
 from mask_manager import Mask
 
+
 class Motions(Enum):
 
     FORWARD = auto()
@@ -22,31 +23,10 @@ class Motions(Enum):
 class Status(Enum):
 
     MOVING = auto()
-    RAISE_LIFT = auto()
-    LOWER_LIFT = auto()
-
-    GOING_DOWN = auto()
-    COMMING_TO_EDGE = auto()
-    COLLISION = auto()
-
+    GOING_UP = auto()
     TRANSFER = auto()
     FALLING = auto()
-
-
-# class CollisionDetection(NodePath):
-#     """Intended to be parented to a character to prevent it from going through
-#        walls and fences. CCD cannot be set to BulletCharacterControllerNode.
-#     """
-
-#     def __init__(self, name, pos):
-#         super().__init__(BulletRigidBodyNode(name))
-#         shape = BulletCylinderShape(0.5, 5, ZUp)
-#         self.node().add_shape(shape)
-#         self.set_collide_mask(BitMask32.bit(2))
-#         self.node().set_kinematic(True)
-#         self.node().set_ccd_motion_threshold(1e-7)
-#         self.node().set_ccd_swept_sphere_radius(0.5)
-#         self.set_pos(pos)
+    GOING_DOWN = auto()
 
 
 class TestShape(NodePath):
@@ -63,6 +43,50 @@ class TestShape(NodePath):
         self.reparent_to(base.render)
 
 
+class Lift:
+
+    __slots__ = ('get_off_pt', 'lift', 'dest', 'lift_original_z', 'dest_z', 'speed')
+
+    def __init__(self, ray_hit_lift, ray_hit_dest, get_off_pt):
+        self.get_off_pt = get_off_pt
+        self.lift = NodePath(ray_hit_lift.get_node())
+        self.dest = NodePath(ray_hit_dest.get_node())
+        self.lift_original_z = self.lift.get_z()
+        self.dest_z = self.dest.get_z()
+        self.speed = 5
+
+    def up(self, dt):
+        if (z := self.lift.get_z() + dt * self.speed) > self.dest_z:
+            self.lift.set_z(self.dest_z)
+            return True
+        self.lift.set_z(z)
+
+    def down(self):
+        self.lift.set_z(self.lift_original_z)
+
+    def can_go_down(self, target_nd):
+        return target_nd == self.dest.node()
+
+    def get_angular_difference(self):
+        return abs(self.dest.get_h() - self.lift.get_h())
+
+
+class Steps:
+
+    __slots__ = ('start', 'dest', 'fall_start_z')
+
+    def __init__(self, ray_hit_upper, ray_hit_lower, standing_pt):
+        self.start = NodePath(ray_hit_upper.get_node())
+        self.dest = NodePath(ray_hit_lower.get_node())
+        self.fall_start_z = standing_pt.get_z()
+
+    def can_go_down(self, target_nd):
+        return target_nd == self.dest.node()
+
+    def get_angular_difference(self):
+        return abs(self.start.get_h() - self.dest.get_h())
+
+
 class Walker(NodePath):
 
     RUN = 'run'
@@ -71,7 +95,6 @@ class Walker(NodePath):
     def __init__(self, world):
         super().__init__(BulletRigidBodyNode('character'))
         # name must start with 'character' because it's used in door safety system
-        # super().__init__(BulletCharacterControllerNode(shape, 1.0, 'character'))
         self.world = world
 
         h, w = 6, 1.2
@@ -81,7 +104,7 @@ class Walker(NodePath):
         self.node().set_kinematic(True)
 
         self.node().set_ccd_motion_threshold(1e-7)
-        self.node().set_ccd_swept_sphere_radius(0.5)
+        self.node().set_ccd_swept_sphere_radius(0.8)
 
         # bit(1): wall, floor and so on; bit(3): ignored by camera follwing the character;
         # bit(4): embedded objects like lift; bit(5): door sensors
@@ -95,10 +118,9 @@ class Walker(NodePath):
 
         # self.set_pos(Point3(25, -10, 1))
         self.set_pos(Point3(25, -10, 0.5))
-       
+
         self.set_scale(0.5)
         self.reparent_to(base.render)
-        # self.world.attach_character(self.node())
         self.world.attach(self.node())
 
         self.direction_nd = NodePath(PandaNode('direction'))
@@ -125,21 +147,13 @@ class Walker(NodePath):
         # self.back.set_pos(0, 1.2, 1)
         self.back.set_pos(0, 1, 1)
 
-
-        # self.test = TestShape()
-        # self.world.attach(self.test.node())
-
-
         self.under = NodePath('under')
         self.under.reparent_to(self.direction_nd)
         self.under.set_pos(0, -1.2, -10)
 
         self.state = Status.MOVING
-        self.frame_cnt = 0
         self.elapsed_time = 0
         self.fall_start_z = None
-        self.elapsed_time = 0
-        self.is_fall = False
 
         # draw ray cast lines for dubug
         self.debug_line_front = create_line_node(self.front.get_pos(), self.under.get_pos(), LColor(0, 0, 1, 1))
@@ -188,8 +202,7 @@ class Walker(NodePath):
 
     def move(self, forward_vector, direction, dt):
         speed = 10 if direction < 0 else 5
-        distance = direction * speed * dt
-        next_pos = self.get_pos() + forward_vector * distance
+        next_pos = self.get_pos() + forward_vector * direction * speed * dt
         current_pos = self.get_pos()
 
         if not (forward := self.check_forward(direction, current_pos)) or \
@@ -199,18 +212,14 @@ class Walker(NodePath):
         f_hit_pos = forward.get_hit_pos()
         b_hit_pos = below.get_hit_pos()
         diff_z = abs(b_hit_pos.z - f_hit_pos.z)
+        self.last_direction = direction
         print('diff: ', diff_z, 'below', b_hit_pos.z, 'forward: ', f_hit_pos.z)
 
         if f_hit_pos.z > b_hit_pos.z and 0.3 < diff_z < 1.2:
             if lift := self.check_below(current_pos, Mask.lift):
                 if self.can_go_up(f_hit_pos, current_pos):
-                    self.lift = NodePath(lift.get_node())
-                    self.hit_pos = f_hit_pos
-                    self.lift_original_z = self.lift.get_z()
-                    self.dest = NodePath(forward.get_node())
-                    self.state = Status.RAISE_LIFT
-                    self.last_direction = direction
-                    return True
+                    self.lift = Lift(lift, forward, f_hit_pos)
+                    return Status.GOING_UP
 
         if self.detect_collision():
             if self.predict_collision(current_pos, next_pos, Mask.predict):
@@ -220,27 +229,19 @@ class Walker(NodePath):
         if f_hit_pos.z < b_hit_pos.z:
             forward_pos = f_hit_pos + Vec3(0, 0, self.actor_h)
             if 0.5 <= diff_z < 1.2 and self.check_below(forward_pos, Mask.lift):
-                print('maybe must go down steps')
                 if not self.predict_collision(current_pos, forward_pos, Mask.sweep):
-                    print('階段降りる')
-                    self.fall_start_z = self.get_z()
-                    self.last_direction = direction
-                    self.start = NodePath(below.get_node())
-                    self.dest = NodePath(forward.get_node())
-                    self.state = Status.GOING_DOWN
-                    return
+                    print('Go down steps')
+                    self.steps = Steps(below, forward, current_pos)
+                    return Status.GOING_DOWN
             else:
                 if diff_z >= 1.:
                     print('Jump')
-                    self.fall_start_z = self.get_z()
-                    self.dest = NodePath(forward.get_node())
-                    self.last_direction = direction
-                    self.state = Status.FALLING
+                    self.steps = Steps(below, forward, current_pos)
                     self.set_pos(next_pos)
-                    return
+                    return Status.FALLING
 
-        hit = self.world.ray_test_closest(next_pos, next_pos + Vec3(0, 0, -10), BitMask32.bit(1))
-        next_pos.z = hit.get_hit_pos().z + 1.5
+        next_hit = self.check_below(next_pos)
+        next_pos.z = next_hit.get_hit_pos().z + self.actor_h
         self.set_pos(next_pos)
 
     def can_go_up(self, f_hit_pos, current_pos):
@@ -249,6 +250,7 @@ class Walker(NodePath):
 
         if not self.predict_collision(from_pos, to_pos, Mask.sweep):
             return True
+        print('Cannot go up stairs')
 
     def detect_stairs_going_up(self, forward, current_pos):
 
@@ -284,7 +286,6 @@ class Walker(NodePath):
             motion = Motions.BACKWARD
 
         forward_vector = self.direction_nd.get_quat(base.render).get_forward()
-        #  ↑forward vector
 
         match self.state:
             case Status.MOVING:
@@ -292,14 +293,15 @@ class Walker(NodePath):
                     self.turn(angle)
 
                 if direction != 0:
-                    self.move(forward_vector, direction, dt)
+                    if status := self.move(forward_vector, direction, dt):
+                        self.state = status
 
-            case Status.RAISE_LIFT:
-                if self.raise_lift(dt):
-                    self.state = Status.LOWER_LIFT
+            case Status.GOING_UP:
+                if self.go_up(dt):
+                    self.state = Status.TRANSFER
 
-            case Status.LOWER_LIFT:
-                if self.lower_lift(forward_vector, dt):
+            case Status.TRANSFER:
+                if self.transfer(forward_vector, dt):
                     self.state = Status.MOVING
 
             case Status.FALLING:
@@ -309,7 +311,7 @@ class Walker(NodePath):
 
             case Status.GOING_DOWN:
                 motion = Motions.FORWARD if self.last_direction < 0 else Motions.BACKWARD
-                if self.go_down_stairs(forward_vector, dt):
+                if self.go_down(forward_vector, dt):
                     self.state = Status.MOVING
 
         self.play_anim(motion)
@@ -333,33 +335,26 @@ class Walker(NodePath):
     def turn(self, angle):
         self.direction_nd.set_h(self.direction_nd.get_h() + angle)
 
-    def raise_lift(self, dt):
-        """Raise a lift embedded in the step, if on which Ralph is,
-           to the height of the next step.
+    def go_up(self, dt):
+        """Raise a lift embedded in the step to help Ralph to go up stairs.
         """
-        finish = False
-
-        if (lift_z := self.lift.get_z() + dt * 5) > self.dest.get_z():
-            lift_z = self.dest.get_z()
-            finish = True
-
-        self.lift.set_z(lift_z)
+        result = self.lift.up(dt)
         below = self.check_below(self.get_pos(), Mask.lift)
         self.set_z(below.get_hit_pos().z + self.actor_h)
-        return finish
+        return result
 
-    def lower_lift(self, forward_vector, dt):
-        """Return the lift to the original position.
-        """
+    def transfer(self, forward_vector, dt):
         current_pos = self.get_pos()
+        nd = self.check_below(current_pos).get_node()
 
-        if self.check_below(current_pos).get_node() == self.dest.node():
+        if self.lift.can_go_down(nd):
             # change angle, for when going up spiral stairs.
-            if 0 < (diff := self.dest.get_h() - self.lift.get_h()) <= 30:
-                self.direction_nd.set_h(self.direction_nd.get_h() + diff)
+            if 0 < (diff := self.lift.get_angular_difference()) <= 30:
+                h = self.direction_nd.get_h() + diff
+                self.direction_nd.set_h(h)
 
-            self.set_pos(self.hit_pos + Vec3(0, 0, self.actor_h))  # need it?
-            self.lift.set_z(self.lift_original_z)
+            self.set_pos(self.lift.get_off_pt + Vec3(0, 0, self.actor_h))  # need it?
+            self.lift.down()
             return True
 
         distance = self.last_direction * 4 * dt
@@ -369,16 +364,16 @@ class Walker(NodePath):
     def fall(self, forward_vector, dt):
         behind = self.check_backward(self.last_direction)
 
-        if behind.get_node() != self.dest.node():
+        if not self.steps.can_go_down(behind.get_node()):
             distance = self.last_direction * 5 * dt
             next_pos = self.get_pos() + forward_vector * distance
             self.set_pos(next_pos)
 
-        next_z = 0.25 * -9.81 * (self.elapsed_time ** 2) + self.fall_start_z
+        next_z = 0.25 * -9.81 * (self.elapsed_time ** 2) + self.steps.fall_start_z
         below = self.check_below(self.get_pos())
 
         if abs(next_z - (dest_z := below.get_hit_pos().z)) < 1.5:
-            self.set_z(dest_z + self.actor_)
+            self.set_z(dest_z + self.actor_h)
             self.fall_start_z = 0
             self.elapsed_time = 0
             return True
@@ -386,11 +381,11 @@ class Walker(NodePath):
         self.elapsed_time += dt
         self.set_z(next_z)
 
-    def go_down_stairs(self, forward_vector, dt):
-        next_z = 0.4 * -9.81 * (self.elapsed_time ** 2) + self.fall_start_z
+    def go_down(self, forward_vector, dt):
+        next_z = 0.4 * -9.81 * (self.elapsed_time ** 2) + self.steps.fall_start_z
         below = self.check_below(self.get_pos())
 
-        if below.get_node() == self.start.node():
+        if not self.steps.can_go_down(below.get_node()):
             distance = self.last_direction * 5 * dt
             next_pos = self.get_pos() + forward_vector * distance
             self.set_pos(next_pos)
@@ -398,8 +393,8 @@ class Walker(NodePath):
             if abs(next_z - (dest_z := below.get_hit_pos().z)) < 1.5:
                 print('go down the stairs')
                 # change angle, for when going down spiral stairs.
-                if -30 <= (diff := self.dest.get_h() - self.start.get_h()) < 0:
-                    self.direction_nd.set_h(self.direction_nd.get_h() + diff)
+                if 0 < (diff := self.steps.get_angular_difference()) <= 30:
+                    self.direction_nd.set_h(self.direction_nd.get_h() - diff)
 
                 self.set_z(dest_z + self.actor_h)
                 self.fall_start_z = 0
