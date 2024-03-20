@@ -718,7 +718,7 @@ class Terrace(Buildings):
         # embedded lift for the first step
         block = self.block('step_0_1', steps, Point3(7, -1, 0), scale, hpr=Vec3(-90, 90, 0), hide=True)
         self.lift('lift_0_1', lifts, block)
-
+ 
         # handrail of spiral staircase
         pos = center - Vec3(0, 0, 5)
         hpr = Vec3(-101, 0, 0)
@@ -726,7 +726,7 @@ class Terrace(Buildings):
         self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=Mask.poles)
 
         for i, pos in enumerate([Point3(8.25, -2.73, 3.0), Point3(7.52, 5.54, 10.0)]):
-            self.sphere_shape(f'handrail_sphere_{i}', steps, pos, Vec3(0.15), bitmask=Mask.fence)
+            self.sphere_shape(f'handrail_sphere_{i}', steps, pos, Vec3(0.15), bitmask=Mask.poles)
 
         # # slope of the 1st step
         # self.triangular_prism(
@@ -925,14 +925,14 @@ class Bridge(Buildings):
             # falling preventions
             for j, diff in enumerate(diffs):
                 f_pos = pos + Vec3(diff, 0, 1.5)
-                self.block(f'step_fence_{i}{j}', fences, f_pos, Vec3(0.15, 0.15, 2.1), bitmask=BitMask32.bit(3))
+                self.block(f'step_fence_{i}{j}', fences, f_pos, Vec3(0.15, 0.15, 2.1), bitmask=Mask.poles)
 
             # handrails
             if i == 2:
                 for k, diff_x in enumerate(diffs):
                     rail_pos = pos + Vec3(diff_x, 0, 2.5)
                     self.block(
-                        f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, -45, 0), bitmask=mask_fence)
+                        f'handrail_{i}{k}', fences, rail_pos, Vec3(0.15, 0.15, 5.7), Vec3(0, -45, 0), bitmask=Mask.poles)
 
         # bridge rails
         hand_rails = [
