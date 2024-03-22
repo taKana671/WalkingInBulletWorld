@@ -37,9 +37,14 @@ class TestShape(NodePath):
         # ts_to = TransformState.make_pos(next_pos + Vec3(0, 0, 0.5))
         # mask = BitMask32.bit(3)
         # test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.2))
-        test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.5))
+
+        # ts_from = TransformState.make_pos(from_pos + Vec3(0, 0, 0.3))
+        # ts_to = TransformState.make_pos(to_pos + Vec3(0, 0, 0.3))
+        # test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.5))
+
+        test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.2))
         self.node().add_shape(test_shape)
-        self.set_pos(Point3(25, -10, 0.5) + Vec3(0, 0, 0.3))
+        self.set_pos(Point3(25, -10, 0.5) + Vec3(0, 0, 0.1))
         self.reparent_to(base.render)
 
 
@@ -112,12 +117,12 @@ class Walker(NodePath):
         self.set_collide_mask(BitMask32.bit(2) | BitMask32.bit(5) | BitMask32.bit(6))
 
         # self.test_shape = TestShape()
-        # self.test_shape.set_pos(Point3(25, -10, 1))
+        # # self.test_shape.set_pos(Point3(25, -10, 1))
         # self.test_shape.reparent_to(base.render)
         # self.world.attach(self.test_shape.node())
 
-        # self.set_pos(Point3(25, -10, 1))
-        self.set_pos(Point3(25, -10, 0.5))
+        self.set_pos(Point3((89.6595, 12.1088, -1.17748)))
+        # self.set_pos(Point3(25, -10, 0.5))
 
         self.set_scale(0.5)
         self.reparent_to(base.render)
@@ -191,9 +196,9 @@ class Walker(NodePath):
             return True
 
     def predict_collision(self, from_pos, to_pos, mask):
-        ts_from = TransformState.make_pos(from_pos + Vec3(0, 0, 0.3))
-        ts_to = TransformState.make_pos(to_pos + Vec3(0, 0, 0.3))
-        test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.5))
+        ts_from = TransformState.make_pos(from_pos + Vec3(0, 0, 0.1))
+        ts_to = TransformState.make_pos(to_pos + Vec3(0, 0, 0.1))
+        test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.2))
 
         if (result := self.world.sweep_test_closest(
                 test_shape, ts_from, ts_to, mask, 0.0)).has_hit():
@@ -207,13 +212,14 @@ class Walker(NodePath):
 
         if not (forward := self.check_forward(direction, current_pos)) or \
                 not (below := self.check_below(current_pos)):
+            print('Cannot move too hight')
             return
 
         f_hit_pos = forward.get_hit_pos()
         b_hit_pos = below.get_hit_pos()
         diff_z = abs(b_hit_pos.z - f_hit_pos.z)
         self.last_direction = direction
-        print('diff: ', diff_z, 'below', b_hit_pos.z, 'forward: ', f_hit_pos.z)
+        print('diff: ', diff_z, 'below', b_hit_pos.z, below.get_node(), 'forward: ', f_hit_pos.z, forward.get_node())
 
         if f_hit_pos.z > b_hit_pos.z and 0.3 < diff_z < 1.2:
             if lift := self.check_below(current_pos, Mask.lift):
@@ -240,6 +246,7 @@ class Walker(NodePath):
                     self.set_pos(next_pos)
                     return Status.FALLING
 
+        print('Current pos', current_pos, 'Next pos', next_pos)
         next_hit = self.check_below(next_pos)
         next_pos.z = next_hit.get_hit_pos().z + self.actor_h
         self.set_pos(next_pos)
@@ -317,7 +324,7 @@ class Walker(NodePath):
         self.play_anim(motion)
 
     def check_below(self, from_pos, mask=Mask.ground):
-        to_pos = from_pos + Vec3(0, 0, -10)
+        to_pos = from_pos + Vec3(0, 0, -20)
 
         if (result := self.world.ray_test_closest(from_pos, to_pos, mask)).has_hit():
             return result

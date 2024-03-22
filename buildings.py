@@ -247,7 +247,7 @@ class Buildings(NodePath):
         return pole
 
     def triangular_prism(self, name, parent, pos, hpr, scale,
-                         tex_scale=None, bitmask=Mask.ground, hide=False):
+                         tex_scale=None, hide=False,  bitmask=Mask.building):
         prism = Convex(name, self.right_triangle_prism, pos, hpr, scale, bitmask)
 
         if tex_scale:
@@ -569,8 +569,6 @@ class BrickHouse(Buildings):
                 self.triangular_prism('hidden_slope', invisible, slope_pos, Vec3(0, 180, 90), Vec3(1, 1, 7), hide=True)
 
         # walls
-        # mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
-
         walls_1st_floor = [
             [Point3(0, 4.25, 5.5), Vec3(12, 0.5, 8), True],          # rear
             [Point3(5, -8.25, 3.25), Vec3(2, 0.5, 3.5), True],       # front right
@@ -763,14 +761,13 @@ class Observatory(Buildings):
 
         # spiral center pole
         center = Point3(10, 0, 20)
-        self.pole('spiral_center', posts, center, Vec3(2.5, 2.5, 20), Vec2(4, 1), bitmask=BitMask32.bit(1))
+        self.pole('spiral_center', posts, center, Vec3(2.5, 2.5, 20), Vec2(4, 1), bitmask=Mask.fence)
         sphere_pos = center + Vec3(0, 0, 1.1)
-        self.sphere_shape('pole_sphere', posts, sphere_pos, Vec3(0.8))
+        self.sphere_shape('pole_sphere', posts, sphere_pos, Vec3(0.8), bitmask=Mask.fence)
 
         # spiral staircase
         steps_num = 19                                           # the number of steps
         s_scale = Vec3(4, 2.5, 0.5)                              # scale of a triangular prism
-        mask_fence = BitMask32.bit(3) | BitMask32.bit(2)         # bitmask to detect penetration
 
         for i in range(steps_num):
             s_angle = -90 + 30 * i
@@ -786,16 +783,16 @@ class Observatory(Buildings):
                 fx, fy = self.point_on_circumference(f_angle, 4.3)
                 f_scale = Vec3(0.15, 0.15, 2.2 + j * 0.4)
                 f_pos = Point3(center.x + fx, center.y + fy, s_pos.z + 0.25 + f_scale.z / 2)
-                self.block(f'spiral_fence_{i}{j}', steps, f_pos, f_scale, bitmask=mask_fence)
+                self.block(f'spiral_fence_{i}{j}', steps, f_pos, f_scale, bitmask=Mask.poles)
 
         # handrail of the spiral staircase
         pos = center - Vec3(0, 0, 17)
         hpr = Vec3(-101, 0, 0)
         geomnode = RingShape(segs_rcnt=38, slope=0.5, ring_radius=4.3, section_radius=0.15)
-        self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=mask_fence)
+        self.ring_shape('handrail', steps, geomnode, pos, hpr=hpr, bitmask=Mask.poles)
 
         for i, pos in enumerate([Point3(9.2, -4.2, 3), Point3(8.5, 4.0, 22.05)]):
-            self.sphere_shape(f'handrail_sphere_{i}', steps, pos, Vec3(0.15), bitmask=mask_fence)
+            self.sphere_shape(f'handrail_sphere_{i}', steps, pos, Vec3(0.15), bitmask=Mask.poles)
 
         # stair landings
         landing_positions = [
@@ -835,9 +832,6 @@ class Observatory(Buildings):
                 block = self.block(f'step_{k}{i}', steps, step_pos, scale, horizontal=horizontal)
                 self.lift(f'step_lift_{k}{i}', invisible, block)
 
-        # a slope for the lowest step
-        self.triangular_prism('hidden_slope', invisible, Point3(-15.75, 2.5, 1.25), Vec3(180, 90, 0), Vec3(1, 1, 4), hide=True)
-
         # falling preventions on stair landings
         diff = 1.9
         diffs = {
@@ -855,7 +849,7 @@ class Observatory(Buildings):
             for i, (diff_x, diff_y) in enumerate(v):
                 fence_pos = landing_pos + Vec3(diff_x, diff_y, 0.5)
                 hpr = Vec3(0, 90, 0) if diff_x == 0 else Vec3(90, 90, 0)
-                self.ring_shape(f'landing_fence_{k}{i}', steps, geomnode, fence_pos, hpr=hpr, bitmask=mask_fence)
+                self.ring_shape(f'landing_fence_{k}{i}', steps, geomnode, fence_pos, hpr=hpr, bitmask=Mask.poles)
 
         steps.set_texture(self.steps_tex)
         landings.set_texture(self.landing_tex)
@@ -979,21 +973,20 @@ class Tunnel(Buildings):
 
         # tunnel
         geomnode = Tube(height=20)
-        self.tube('tunnel', walls, geomnode, Point3(0, 0, 0), Vec3(4, 4, 4), bitmask=BitMask32.bit(1))
+        self.tube('tunnel', walls, geomnode, Point3(0, 0, 0), Vec3(4, 4, 4), bitmask=Mask.building)
 
         # both ends of the tunnel
         positions = [Point3(0, 0, 0), Point3(0, -80, 0)]
         geomnode = RingShape(ring_radius=0.5, section_radius=0.05)
 
         for i, pos in enumerate(positions):
-            self.ring_shape(f'edge_{i}', walls, geomnode, pos, scale=Vec3(4), tex_scale=Vec2(2), bitmask=BitMask32.bit(1))
+            self.ring_shape(f'edge_{i}', walls, geomnode, pos, scale=Vec3(4), tex_scale=Vec2(2), bitmask=Mask.building)
 
         # steps
-        steps_num = 4
+        steps_num = 5
         start_steps_y = [0.7, -80.7]
         start_z = -2.5
         diffs = [1.9, -1.9]
-        mask_fence = BitMask32.bit(3) | BitMask32.bit(2)
 
         for i in range(steps_num):
             for start_y in start_steps_y:
@@ -1006,20 +999,13 @@ class Tunnel(Buildings):
                 # falling preventions
                 for j, diff in enumerate(diffs):
                     f_pos = pos + Vec3(diff, 0, 1.5)
-                    self.block(f'fence_{i}{j}', metal, f_pos, Vec3(0.15, 0.15, 2), bitmask=BitMask32.bit(3))
-
-                # invisible slope of the lowest step
-                if i == steps_num - 1:
-                    slope_y = pos.y + 1 if start_y > 0 else pos.y - 1
-                    hpr = Vec3(0, 90, 90) if start_y > 0 else Vec3(0, 180, 90)
-                    pos.y = slope_y
-                    self.triangular_prism('hidden_slope', invisible, pos, hpr, Vec3(1, 1, 4), hide=True)
+                    self.block(f'fence_{i}{j}', metal, f_pos, Vec3(0.15, 0.15, 2), bitmask=Mask.poles)
 
         # handrails
-        for x, y in ((x, y) for y in [2.3, -82.3] for x in diffs):
+        for x, y in ((x, y) for y in [2.7, -82.7] for x in diffs):
             hpr = (0, 45, 0) if y > 0 else (0, -45, 0)
-            pos = Point3(x, y, -1.63)
-            self.block(f'handrail_{i}{j}', metal, pos, Vec3(0.15, 0.15, 4.5), hpr=hpr, bitmask=mask_fence)
+            pos = Point3(x, y, -2.05)
+            self.block(f'handrail_{i}{j}', metal, pos, Vec3(0.15, 0.15, 5.7), hpr=hpr, bitmask=Mask.poles)
 
         # rings supporting tunnel
         geomnode = RingShape(ring_radius=0.8, section_radius=0.1)
@@ -1027,7 +1013,7 @@ class Tunnel(Buildings):
         for i in range(5):
             y = -0.7 - i * 19.65
             ring_pos = Point3(0, y, 0)
-            self.ring_shape(f'ring_{i}', metal, geomnode, ring_pos, scale=Vec3(5), tex_scale=Vec2(2, 4), bitmask=BitMask32.bit(1))
+            self.ring_shape(f'ring_{i}', metal, geomnode, ring_pos, scale=Vec3(5), tex_scale=Vec2(2, 4), bitmask=Mask.building)
 
             # culumn supporting ring
             col_pos = Point3(0, y, -7.3)
@@ -1037,7 +1023,7 @@ class Tunnel(Buildings):
             for j, (x, z) in enumerate([(0, 4), (0, -2), (2, 0), (-4, 0)]):
                 pole_pos = Point3(x, y, z)
                 hpr = Vec3(0, 0, 180) if x == 0 else Vec3(90, 90, 0)
-                self.pole(f'pole_{i}{j}', metal, pole_pos, Vec3(0.8, 0.8, 2), Vec2(1, 1), hpr=hpr, bitmask=BitMask32.bit(1))
+                self.pole(f'pole_{i}{j}', metal, pole_pos, Vec3(0.8, 0.8, 2), Vec2(1, 1), hpr=hpr, bitmask=Mask.building)
 
         walls.set_texture(self.wall_tex)
         metal.set_texture(self.metal_tex)
@@ -1064,6 +1050,8 @@ class AdventureBridge(Buildings):
         barks.reparent_to(self)
         boards = NodePath('boards')
         boards.reparent_to(self)
+        invisible = NodePath('invisible')
+        invisible.reparent_to(self)
 
         rope = RopeMaker(self.world)
         cloth = ClothMaker(self.world)
@@ -1081,7 +1069,10 @@ class AdventureBridge(Buildings):
             for j in range(cnt):
                 y = start_y - j if decrease else start_y + j
                 pos = Point3(-1.5, y, step_start_z - j * 0.5)
-                self.pole(f'step_{i}{j}', barks, pos, Vec3(1, 1, 3), Vec2(2, 1), hpr=(0, 0, 90), bitmask=BitMask32.bit(1))
+                pole = self.pole(f'step_{i}{j}', barks, pos, Vec3(1, 1, 3), Vec2(2, 1), hpr=(0, 0, 90))
+                step = self.block(f'step_{i}{j}', invisible, Point3(0, y, step_start_z - j * 0.5 + 0.25), Vec3(0.5, 1, 3), hpr=(0, 0, 90), hide=True)
+                # step = self.block(f'step_{i}{j}', invisible, Point3(0, y, step_start_z - j), Vec3(1, 1, 3), hpr=(0, 0, 90)) #, hide=True)
+                self.lift(f'lift_{i}{j}', invisible, step)
 
         # landings
         landings = [
@@ -1093,7 +1084,7 @@ class AdventureBridge(Buildings):
         for i, (start_y, n) in enumerate(landings):
             for j in range(n):
                 pos = Point3(-1.5, start_y + j, start_z)
-                self.pole(f'landing_{i}{j}', barks, pos, Vec3(1, 1, 3), Vec2(2, 1), hpr=(0, 0, 90), bitmask=BitMask32.bit(1))
+                self.pole(f'landing_{i}{j}', barks, pos, Vec3(1, 1, 3), Vec2(2, 1), hpr=(0, 0, 90))
 
             # poles and cloth
             y_pos = [start_y, start_y + 5]
@@ -1101,7 +1092,7 @@ class AdventureBridge(Buildings):
 
             for j, (x, y) in enumerate(product(x_pos, y_pos)):
                 pos = Point3(x, y, -4)
-                self.pole(f'pole_{i}{j}', boards, pos, Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=(0, 0, 0))
+                self.pole(f'pole_{i}{j}', boards, pos, Vec3(0.5, 0.5, 10), Vec2(2, 1), hpr=(0, 0, 0), bitmask=Mask.poles)
                 cloth_pts.append(Point3(x, y, 6) + self.center)
 
             cloth.create_cloth(i, Images.FABRIC.path, *cloth_pts, 8, 12)
@@ -1116,13 +1107,13 @@ class AdventureBridge(Buildings):
             for j, x in enumerate(x_pos):
                 pos = Point3(x, handrail_y, handrail_z)
                 self.pole(f'handrail_h{i}{j}', boards, pos, Vec3(0.5, 0.5, handrail_sz), Vec2(2, 1),
-                          hpr=Vec3(0, 90, 180), bitmask=BitMask32.bit(1))
+                          hpr=Vec3(0, 90, 180), bitmask=Mask.fence)
             # logs
             for j in range(len(log_z)):
                 y = log_y + j
                 pos = Point3(-1.5, y, log_z[j])
                 log = self.pole(f'log_h{i}', barks, pos, Vec3(0.9, 0.9, 3), Vec2(2, 1), active=True,
-                                hpr=(0, 0, 90), bitmask=BitMask32.bit(1))
+                                hpr=(0, 0, 90), bitmask=Mask.dynamic_body)
 
                 for k, x in enumerate(x_pos):
                     from_pt = Point3(x, y, handrail_z - 0.25) + self.center
@@ -1138,7 +1129,7 @@ class AdventureBridge(Buildings):
             for j, x in enumerate(x_pos):
                 pos = Point3(x, handrail_y, handrail_z)
                 self.pole(f'handrail_v{i}{j}', boards, pos, Vec3(0.5, 0.5, 11), Vec2(2, 1),
-                          hpr=Vec3(0, 90, 180), bitmask=BitMask32.bit(1))
+                          hpr=Vec3(0, 90, 180), bitmask=Mask.building)
             # logs
             for j in range(10):
                 y = log_y + j
@@ -1146,7 +1137,7 @@ class AdventureBridge(Buildings):
 
                 if j % 2 == 0:
                     log = self.pole(f'log_v{i}', barks, pos, Vec3(1, 1, 1.9), Vec2(2, 1),
-                                    hpr=(0, 90, 180), active=True, bitmask=BitMask32.bit(1))
+                                    hpr=(0, 90, 180), active=True, bitmask=Mask.dynamic_body)
 
                 for k, (from_x, to_x) in enumerate(zip(x_pos, [-0.5, 0.5])):
                     from_pt = Point3(from_x, y, handrail_z - 0.25) + self.center
@@ -1191,7 +1182,6 @@ class MazeHouse(Buildings):
 
         # walls
         sy = 0.5
-        mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
 
         # outer walls
         xy_sx_hor = [
@@ -1205,7 +1195,7 @@ class MazeHouse(Buildings):
         for i, ((x, y), sx, hor) in enumerate(xy_sx_hor):
             pos = Point3(x, y, 3.5)
             scale = Vec3(sx, sy, 4)
-            self.block(f'outer_walls_{i}', walls, pos, scale, horizontal=hor, bitmask=mask_wall)
+            self.block(f'outer_walls_{i}', walls, pos, scale, horizontal=hor)
 
         # inner walls
         xy_sx_hor = [
@@ -1233,7 +1223,7 @@ class MazeHouse(Buildings):
         for i, ((x, y), sx, hor) in enumerate(xy_sx_hor):
             pos = Point3(x, y, 3.25)
             scale = Vec3(sx, sy, 3.5)
-            self.block(f'inner_wall1_{i}', walls, pos, scale, horizontal=hor, bitmask=mask_wall)
+            self.block(f'inner_wall1_{i}', walls, pos, scale, horizontal=hor)
 
         # steps
         steps_num = 3
@@ -1247,12 +1237,6 @@ class MazeHouse(Buildings):
 
                 if i > 0:
                     self.lift(f'step_lift_{i}{j}', invisible, block)
-
-                # invisible slope
-                if i == steps_num - 1:
-                    angle_x = 180 if sign == 1 else 0
-                    slope_pos = step_pos + Vec3(0, 2 * sign, 0)
-                    self.triangular_prism(f'hidden_slope_{i}{j}', invisible, slope_pos, Vec3(angle_x, 180, 90), Vec3(1, 1, 4), hide=True)
 
         # columns in front of the entrance and exit
         scale = Vec3(0.5, 0.5, 7)
@@ -1361,7 +1345,6 @@ class ElevatorTower(Buildings):
             [[(-4, 4), 0.5, 90], [(4, 4), 0.5, 360]]
         ]
 
-        mask_wall = BitMask32.bit(2) | BitMask32.bit(1)
         tex_scale = Vec2(4, 1)
         start_h = (floor_h / 2) + (sz / 2)
         roof_top = len(blocks_xy_scale) - 1
@@ -1371,7 +1354,7 @@ class ElevatorTower(Buildings):
             if i == roof_top:
                 z -= 1.75
             for j, ((x, y), scale) in enumerate(blocks):
-                self.block(f'wall_{i}{j}', walls, Point3(x, y, z), scale, bitmask=mask_wall)
+                self.block(f'wall_{i}{j}', walls, Point3(x, y, z), scale)
 
             for j, ((x, y), scale_z, angle_x) in enumerate(prisms):
                 scale = Vec3(4, 4, scale_z)
@@ -1392,7 +1375,7 @@ class ElevatorTower(Buildings):
         for i, ((x, y), scale, angle_x) in enumerate(handrails):
             pos = Point3(x, y, handrail_h)
             hpr = Vec3(angle_x, 0, 0)
-            self.block(f'handrail_{i}', walls, pos, scale, hpr=hpr, bitmask=BitMask32.bit(1))
+            self.block(f'handrail_{i}', walls, pos, scale, hpr=hpr, bitmask=Mask.fence)
 
         poles_xy = [
             [(5.875, 1), (5.875, 0), (5.875, -1), (5.875, -1.875)],
@@ -1405,20 +1388,19 @@ class ElevatorTower(Buildings):
                 poles += [(-x, y) for x, y in poles]
             for j, (x, y) in enumerate(poles):
                 pos = Point3(x, y, handrail_h)
-                self.pole(f'pole_{i}', metal, pos, Vec3(0.2, 0.2, 2), Vec2(2, 1), bitmask=BitMask32.bit(3))
+                self.pole(f'pole_{i}', metal, pos, Vec3(0.2, 0.2, 2), Vec2(2, 1), bitmask=Mask.poles)
 
         # doors on the 1st floor
         door_scale = Vec3(2, 0.25, 4.0)
-        mask_door = BitMask32.all_on()
         y = 1.75
         z = 3.0
 
         # left
-        wall1_l = self.block('wall1_l', invisible, Point3(-3, y, z), door_scale, bitmask=mask_wall, hide=True)
-        door1_l = self.block('door1_l', metal, Point3(-1, y, z), door_scale, bitmask=mask_door, active=True)
+        wall1_l = self.block('wall1_l', invisible, Point3(-3, y, z), door_scale, hide=True)
+        door1_l = self.block('door1_l', metal, Point3(-1, y, z), door_scale, bitmask=Mask.door, active=True)
         # right
-        wall1_r = self.block('wall1_r', invisible, Point3(3, y, z), door_scale, bitmask=mask_wall, hide=True)
-        door1_r = self.block('door1_r', metal, Point3(1, y, z), door_scale, bitmask=mask_door, active=True)
+        wall1_r = self.block('wall1_r', invisible, Point3(3, y, z), door_scale, hide=True)
+        door1_r = self.block('door1_r', metal, Point3(1, y, z), door_scale, bitmask=Mask.door, active=True)
 
         x = door_scale.x / 2
         slider1_1 = self.slider(door1_l, wall1_l, Point3(-x, 0, 0), Point3(x, 0, 0))
@@ -1429,16 +1411,16 @@ class ElevatorTower(Buildings):
         # doors on the 2nd floor
         z = 15
         # left
-        wall2_l = self.block('wall2_l', invisible, Point3(-3, y, z), door_scale, bitmask=mask_wall, hide=True)
-        door2_l = self.block('door2_l', metal, Point3(-1, y, z), door_scale, bitmask=mask_door, active=True)
+        wall2_l = self.block('wall2_l', invisible, Point3(-3, y, z), door_scale, hide=True)
+        door2_l = self.block('door2_l', metal, Point3(-1, y, z), door_scale, bitmask=Mask.door, active=True)
         # right
-        wall2_r = self.block('wall1_r', invisible, Point3(3, y, z), door_scale, bitmask=mask_wall, hide=True)
-        door2_r = self.block('door1_r', metal, Point3(1, y, z), door_scale, bitmask=mask_door, active=True)
+        wall2_r = self.block('wall1_r', invisible, Point3(3, y, z), door_scale, hide=True)
+        door2_r = self.block('door1_r', metal, Point3(1, y, z), door_scale, bitmask=Mask.door, active=True)
 
         x = door_scale.x / 2
         slider2_1 = self.slider(door2_l, wall2_l, Point3(-x, 0, 0), Point3(x, 0, 0))
         slider2_2 = self.slider(door2_r, wall2_r, Point3(x, 0, 0), Point3(-x, 0, 0))
-        self.sensor_2 = self.door_sensor('tower_sensor2', invisible, Point3(0, 1, 12.75), Vec3(4, 2, 0.5), BitMask32.bit(5),
+        self.sensor_2 = self.door_sensor('tower_sensor2', invisible, Point3(0, 1, 12.75), Vec3(4, 2, 0.5), Mask.sensor,
                                          ElevatorDoorSensor, Point3(0, 3.5, 12.5), slider2_1, slider2_2)
 
         # elevator
