@@ -24,5 +24,5 @@ class Mask(metaclass=MaskMeta):
     fence = BitMask32.bit(2) | BitMask32.bit(3) | BitMask32.bit(6)
     poles = BitMask32.bit(2) | BitMask32.bit(3) | BitMask32.bit(7)
     door = BitMask32.all_on()
-    dynamic_body = BitMask32.bit(1) | BitMask32.bit(2)
+    dynamic_body = BitMask32.bit(2) | BitMask32.bit(3)
 

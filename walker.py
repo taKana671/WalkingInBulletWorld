@@ -20,6 +20,7 @@ class Motions(Enum):
     TURN = auto()
 
 
+
 class Status(Enum):
 
     MOVING = auto()
@@ -28,6 +29,7 @@ class Status(Enum):
     FALLING = auto()
     GOING_DOWN = auto()
 
+    JUMP = auto()
 
 class TestShape(NodePath):
 
@@ -121,7 +123,7 @@ class Walker(NodePath):
         # self.test_shape.reparent_to(base.render)
         # self.world.attach(self.test_shape.node())
 
-        self.set_pos(Point3((89.6595, 12.1088, -1.17748)))
+        self.set_pos(Point3((91.4792, -39.8421, -0.471129)))
         # self.set_pos(Point3(25, -10, 0.5))
 
         self.set_scale(0.5)
@@ -136,11 +138,12 @@ class Walker(NodePath):
             'models/ralph/ralph.egg',
             {self.RUN: 'models/ralph/ralph-run.egg',
              self.WALK: 'models/ralph/ralph-walk.egg'}
+            #  self.JUMP: 'models/ralph/ralph-jump.egg'}
         )
         self.actor.set_transform(TransformState.make_pos(Vec3(0, 0, -2.5)))  # -3
         self.actor.set_name('ralph')
         self.actor.reparent_to(self.direction_nd)
-        self.actor_h = 1.5
+        self.actor_h = 1.4  # 1.5
 
         self.front = NodePath('front')
         self.front.reparent_to(self.direction_nd)
@@ -206,8 +209,6 @@ class Walker(NodePath):
             return result
 
     def move(self, forward_vector, direction, dt):
-        speed = 10 if direction < 0 else 5
-        next_pos = self.get_pos() + forward_vector * direction * speed * dt
         current_pos = self.get_pos()
 
         if not (forward := self.check_forward(direction, current_pos)) or \
@@ -215,10 +216,15 @@ class Walker(NodePath):
             print('Cannot move too hight')
             return
 
+        if not direction:
+            z = below.get_hit_pos().z + self.actor_h
+            self.set_z(z)
+            # print('Changed only z')
+            return
+
         f_hit_pos = forward.get_hit_pos()
         b_hit_pos = below.get_hit_pos()
         diff_z = abs(b_hit_pos.z - f_hit_pos.z)
-        self.last_direction = direction
         print('diff: ', diff_z, 'below', b_hit_pos.z, below.get_node(), 'forward: ', f_hit_pos.z, forward.get_node())
 
         if f_hit_pos.z > b_hit_pos.z and 0.3 < diff_z < 1.2:
@@ -227,6 +233,9 @@ class Walker(NodePath):
                     self.lift = Lift(lift, forward, f_hit_pos)
                     return Status.GOING_UP
 
+        speed = 10 if direction < 0 else 5
+        next_pos = current_pos + forward_vector * direction * speed * dt
+
         if self.detect_collision():
             if self.predict_collision(current_pos, next_pos, Mask.predict):
                 print('Cannot go forward.')
@@ -234,6 +243,7 @@ class Walker(NodePath):
 
         if f_hit_pos.z < b_hit_pos.z:
             forward_pos = f_hit_pos + Vec3(0, 0, self.actor_h)
+
             if 0.5 <= diff_z < 1.2 and self.check_below(forward_pos, Mask.lift):
                 if not self.predict_collision(current_pos, forward_pos, Mask.sweep):
                     print('Go down steps')
@@ -299,9 +309,10 @@ class Walker(NodePath):
                 if angle:
                     self.turn(angle)
 
-                if direction != 0:
-                    if status := self.move(forward_vector, direction, dt):
-                        self.state = status
+                # if direction != 0:
+                if status := self.move(forward_vector, direction, dt):
+                    self.last_direction = direction
+                    self.state = status
 
             case Status.GOING_UP:
                 if self.go_up(dt):
@@ -320,6 +331,35 @@ class Walker(NodePath):
                 motion = Motions.FORWARD if self.last_direction < 0 else Motions.BACKWARD
                 if self.go_down(forward_vector, dt):
                     self.state = Status.MOVING
+
+            # case Status.JUMP:
+            #     # forward = self.check_forward(direction, self.get_pos())
+            #     # below = self.check_below(self.get_pos())
+            #     # print('forward', forward.get_node(), 'below', below.get_node())
+
+            #     # speed = 10 if direction < 0 else 5
+
+            #     for con in self.world.contact_test(
+            #             self.node(), use_filter=True).get_contacts():
+            #         nd = con.get_node1()
+            #         if nd.get_mass() > 0:
+            #             print(nd.get_name())
+            #             # import pdb; pdb.set_trace()
+            #             mp = con.get_manifold_point()
+            #             pos = mp.get_position_world_on_b()
+            #             next_pos.z = pos.z + self.actor_h
+            #             # self.set_pos(pos + Vec3(0, 0, self.actor_h))
+            #             self.set_pos(next_pos)
+            #             break
+            #             #  LPoint3f(91.4792, -39.8421, -0.471129)
+                        
+            #     speed = 5
+            #     next_pos = self.get_pos() + forward_vector * direction * speed * dt
+            #     self.set_pos(next_pos)
+
+
+
+
 
         self.play_anim(motion)
 
