@@ -1105,8 +1105,8 @@ class AdventureBridge(Buildings):
             hor_member_sz = len(log_z) + 1
             for j, x in enumerate(x_pos):
                 pos = Point3(x, hor_member_y, hor_member_z)
-                self.pole(f'hor_member_h{i}{j}', boards, pos, Vec3(0.5, 0.5, hor_member_sz), tex_scale,
-                          hpr=Vec3(0, 90, 180), bitmask=Mask.fence)
+                self.pole(f'hor_member_h{i}{j}', boards, pos, Vec3(0.3, 0.3, hor_member_sz), tex_scale,
+                          hpr=Vec3(0, 90, 180), bitmask=Mask.poles)
             # logs
             for j in range(len(log_z)):
                 y = log_y + j
@@ -1129,7 +1129,7 @@ class AdventureBridge(Buildings):
             # handrails
             for j, x in enumerate(x_pos):
                 pos = Point3(x, hor_member_y, hor_member_z)
-                self.pole(f'handrail_v{i}{j}', boards, pos, Vec3(0.5, 0.5, 11), tex_scale,
+                self.pole(f'hor_member_v{i}{j}', boards, pos, Vec3(0.3, 0.3, 11), tex_scale,
                           hpr=Vec3(0, 90, 180), bitmask=Mask.building)
             # logs
             for j in range(10):
