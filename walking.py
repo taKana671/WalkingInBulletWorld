@@ -9,9 +9,10 @@ from direct.gui.DirectGui import OnscreenText
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletDebugNode
 from panda3d.core import NodePath, PandaNode, TextNode
-from panda3d.core import Vec3, Point3, BitMask32, Quat
+from panda3d.core import Vec3, Point3, Quat
 
 from lights import BasicAmbientLight, BasicDayLight
+from mask_manager import Mask
 from scene import Scene, Skies
 from walker import Walker, Motions
 
@@ -71,10 +72,9 @@ class Walking(ShowBase):
         self.camera.look_at(self.floater)
         self.camLens.set_fov(90)
 
-        # show instructions
         self.instructions = Instructions()
+        self.instructions.hide()
 
-        self.mask = BitMask32.bit(6)
         self.movable_room_camera = None
 
         inputState.watch_with_modifiers('forward', 'arrow_up')
@@ -125,53 +125,25 @@ class Walking(ShowBase):
                 ).start()
 
     def control_walker(self, dt):
-        motions = []
+        inputs = []
 
         if inputState.is_set('forward'):
-            motions.append(Motions.FORWARD)
+            inputs.append(Motions.FORWARD)
         if inputState.is_set('backward'):
-            motions.append(Motions.BACKWARD)
+            inputs.append(Motions.BACKWARD)
         if inputState.is_set('left'):
-            motions.append(Motions.LEFT)
+            inputs.append(Motions.LEFT)
         if inputState.is_set('right'):
-            motions.append(Motions.RIGHT)
+            inputs.append(Motions.RIGHT)
 
-        self.walker.update(dt, motions)
-
-        # direction = 0
-        # angle = 0
-
-        # if inputState.is_set('forward'):
-        #     direction += -1
-        # if inputState.is_set('backward'):
-        #     direction += 1
-        # if inputState.is_set('left'):
-        #     angle += 100 * dt
-        # if inputState.is_set('right'):
-        #     angle += -100 * dt
-
-        # self.walker.update(dt, direction, angle)
-
-        # # play animation
-        # anim = None
-        # rate = 1
-
-        # if inputState.is_set('forward'):
-        #     anim = self.walker.RUN
-        # elif inputState.is_set('backward'):
-        #     anim, rate = self.walker.WALK, -1
-        # elif inputState.is_set('left') or inputState.is_set('right'):
-        #     anim = self.walker.WALK
-
-        # self.walker.play_anim(anim, rate)
+        self.walker.update(dt, inputs)
 
     def print_info(self):
         print('walker', self.walker.get_pos())
 
     def ray_cast(self, from_pos, to_pos):
-        result = self.world.ray_test_closest(from_pos, to_pos, self.mask)
-
-        if result.has_hit():
+        if (result := self.world.ray_test_closest(
+                from_pos, to_pos, Mask.camera)).has_hit():
             return result.get_node()
         return None
 
@@ -207,8 +179,8 @@ class Walking(ShowBase):
                 self.camera.set_pos(next_pos)
                 self.camera.look_at(self.floater)
 
-        # reparent camera
-        if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
+        # reparent camera; location: panda3d.bullet.BulletRayHit
+        if location := self.walker.check_below(self.walker.get_pos(), mask=Mask.building):
 
             if (name := location.get_node().get_name()).startswith('room'):
                 room_camera = self.render.find(f'**/{name}_camera')
@@ -231,7 +203,7 @@ class Walking(ShowBase):
 
         self.camera.look_at(self.floater)
 
-        if location := self.walker.current_location():  # location: panda3d.bullet.BulletRayHit
+        if location := self.walker.check_below(self.walker.get_pos(), mask=Mask.building):
             if not location.get_node().get_name().startswith('room'):
                 self.movable_room_camera = None
                 self.camera.detach_node()

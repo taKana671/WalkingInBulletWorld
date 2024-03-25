@@ -25,3 +25,4 @@ class Mask(metaclass=MaskMeta):
     poles = BitMask32.bit(2) | BitMask32.bit(3) | BitMask32.bit(7)
     door = BitMask32.all_on()
     dynamic_body = BitMask32.bit(2) | BitMask32.bit(3)
+    walker = BitMask32.bit(2) | BitMask32.bit(5) | BitMask32.bit(6)

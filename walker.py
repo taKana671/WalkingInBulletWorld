@@ -20,34 +20,14 @@ class Motions(Enum):
     TURN = auto()
 
 
-
 class Status(Enum):
 
     MOVING = auto()
     GOING_UP = auto()
+    GOING_DOWN = auto()
     TRANSFER = auto()
     FALLING = auto()
-    GOING_DOWN = auto()
-
     SLIP = auto()
-
-class TestShape(NodePath):
-
-    def __init__(self):
-        super().__init__(BulletRigidBodyNode('test'))
-        # ts_from = TransformState.make_pos(self.get_pos() + Vec3(0, 0, 0.5))
-        # ts_to = TransformState.make_pos(next_pos + Vec3(0, 0, 0.5))
-        # mask = BitMask32.bit(3)
-        # test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.2))
-
-        # ts_from = TransformState.make_pos(from_pos + Vec3(0, 0, 0.3))
-        # ts_to = TransformState.make_pos(to_pos + Vec3(0, 0, 0.3))
-        # test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.5))
-
-        test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.2))
-        self.node().add_shape(test_shape)
-        self.set_pos(Point3(25, -10, 0.5) + Vec3(0, 0, 0.1))
-        self.reparent_to(base.render)
 
 
 class Lift:
@@ -101,32 +81,19 @@ class Walker(NodePath):
 
     def __init__(self, world):
         super().__init__(BulletRigidBodyNode('character'))
-        # name must start with 'character' because it's used in door safety system
         self.world = world
 
         h, w = 6, 1.2
-        # h, w = 6, 1.5
         shape = BulletCapsuleShape(w, h - 2 * w, ZUp)
         self.node().add_shape(shape)
         self.node().set_kinematic(True)
 
         self.node().set_ccd_motion_threshold(1e-7)
-        self.node().set_ccd_swept_sphere_radius(0.8)
-
-        # bit(1): wall, floor and so on; bit(3): ignored by camera follwing the character;
-        # bit(4): embedded objects like lift; bit(5): door sensors
-        # self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(3) | BitMask32.bit(4) | BitMask32.bit(5))
-        self.set_collide_mask(BitMask32.bit(2) | BitMask32.bit(5) | BitMask32.bit(6))
-
-        # self.test_shape = TestShape()
-        # # self.test_shape.set_pos(Point3(25, -10, 1))
-        # self.test_shape.reparent_to(base.render)
-        # self.world.attach(self.test_shape.node())
-
-        self.set_pos(Point3((91.4792, -39.8421, -0.471129)))
-        # self.set_pos(Point3(25, -10, 0.5))
-
+        self.node().set_ccd_swept_sphere_radius(0.6)
+        self.set_collide_mask(Mask.walker)
+        self.set_pos(Point3(25, -10, 0.5))
         self.set_scale(0.5)
+
         self.reparent_to(base.render)
         self.world.attach(self.node())
 
@@ -138,60 +105,45 @@ class Walker(NodePath):
             'models/ralph/ralph.egg',
             {self.RUN: 'models/ralph/ralph-run.egg',
              self.WALK: 'models/ralph/ralph-walk.egg'}
-            #  self.JUMP: 'models/ralph/ralph-jump.egg'}
         )
-        self.actor.set_transform(TransformState.make_pos(Vec3(0, 0, -2.5)))  # -3
+        self.actor.set_transform(TransformState.make_pos(Vec3(0, 0, -2.5)))
         self.actor.set_name('ralph')
         self.actor.reparent_to(self.direction_nd)
-        self.actor_h = 1.4  # 1.5
+        self.actor_h = 1.4
 
         self.front = NodePath('front')
         self.front.reparent_to(self.direction_nd)
-        # self.front.set_pos(0, -1.2, 1)
         self.front.set_pos(0, -1, 1)
 
         self.back = NodePath('back')
         self.back.reparent_to(self.direction_nd)
-        # self.back.set_pos(0, 1.2, 1)
         self.back.set_pos(0, 1, 1)
-
-        self.under = NodePath('under')
-        self.under.reparent_to(self.direction_nd)
-        self.under.set_pos(0, -1.2, -10)
 
         self.state = Status.MOVING
         self.elapsed_time = 0
         self.fall_start_z = None
+        self.draw_debug_lines()
 
-        # draw ray cast lines for dubug
-        self.debug_line_front = create_line_node(self.front.get_pos(), self.under.get_pos(), LColor(0, 0, 1, 1))
-        self.debug_line_center = create_line_node(Point3(0, 0, 0), Point3(0, 0, -10), LColor(1, 0, 0, 1))
+    def draw_debug_lines(self):
+        """draw ray cast lines for dubug"""
+        self.debug_lines = [
+            create_line_node(pos := self.front.get_pos(), Point3(pos.xy, -10), LColor(0, 0, 1, 1)),
+            create_line_node(Point3(0, 0, 0), Point3(0, 0, -10), LColor(1, 0, 0, 1)),
+            create_line_node(pos := self.back.get_pos(), Point3(pos.xy, -10), LColor(0, 0, 1, 1)),
+        ]
 
     def toggle_debug(self):
-        if self.debug_line_front.has_parent():
-            self.debug_line_front.detach_node()
-            self.debug_line_center.detach_node()
-        else:
-            self.debug_line_front.reparent_to(self.direction_nd)
-            self.debug_line_center.reparent_to(self.direction_nd)
+        for line in self.debug_lines:
+            if line.has_parent():
+                line.detach_node()
+                continue
+            line.reparent_to(self.direction_nd)
 
     def navigate(self):
-        """Return a relative point to enable camera to follow a character
-           when camera's view is blocked by an object like walls.
+        """Return a relative point to enable camera to follow the character
+           when the camera's view is blocked by an object like wall.
         """
         return self.get_relative_point(self.direction_nd, Vec3(0, 10, 2))
-
-    def current_location(self, mask=BitMask32.all_on()):
-        """Cast a ray vertically from the center of Ralph to return BulletRayHit.
-        """
-        below = base.render.get_relative_point(self, Vec3(0, 0, -10))
-        # below = base.render.get_relative_point(self, Vec3(0, 0, -3.0))
-
-        ray_result = self.world.ray_test_closest(self.get_pos(), below, mask)
-
-        if ray_result.has_hit():
-            return ray_result
-        return None
 
     def detect_collision(self):
         if self.world.contact_test(
@@ -213,7 +165,7 @@ class Walker(NodePath):
 
         if not (forward := self.check_forward(direction, current_pos)) or \
                 not (below := self.check_below(current_pos)):
-            print('Cannot move too hight')
+            print('Cannot move')
             return
 
         if not direction:
@@ -236,15 +188,15 @@ class Walker(NodePath):
         speed = 10 if direction < 0 else 5
         next_pos = current_pos + forward_vector * direction * speed * dt
 
-        if self.detect_collision():
-            if result := self.predict_collision(current_pos, next_pos, Mask.predict):
-                if result.get_node().get_mass() > 0:
-                    print('Collid with Dynamic Body')
-                    self.fall_start_z = current_pos.z
-                    return Status.SLIP
+        # if self.detect_collision():
+        if result := self.predict_collision(current_pos, next_pos, Mask.predict):
+            if result.get_node().get_mass() > 0:
+                print('Collid with Dynamic Body')
+                self.steps = Steps(below, forward, current_pos)
+                return Status.SLIP
 
-                print('Cannot go forward.')
-                return
+            print('Cannot go forward.')
+            return
 
         if f_hit_pos.z < b_hit_pos.z:
             forward_pos = f_hit_pos + Vec3(0, 0, self.actor_h)
@@ -256,12 +208,11 @@ class Walker(NodePath):
                     return Status.GOING_DOWN
             else:
                 if diff_z >= 1.:
-                    print('Jump')
+                    print('Fall')
                     self.steps = Steps(below, forward, current_pos)
                     self.set_pos(next_pos)
                     return Status.FALLING
 
-        print('Current pos', current_pos, 'Next pos', next_pos)
         next_hit = self.check_below(next_pos)
         next_pos.z = next_hit.get_hit_pos().z + self.actor_h
         self.set_pos(next_pos)
@@ -274,45 +225,35 @@ class Walker(NodePath):
             return True
         print('Cannot go up stairs')
 
-    def detect_stairs_going_up(self, forward, current_pos):
+    def parse_inputs(self, inputs):
 
-        if below := self.check_below(current_pos, Mask.lift):
-            print('Found lift.')
-            forward_hit_pos = forward.get_hit_pos()
-            from_pos = Point3(current_pos.xy, forward_hit_pos.z)
-            to_pos = forward_hit_pos + Vec3(0, 0, self.actor_h)
-
-            if not self.predict_collision(from_pos, to_pos, Mask.sweep):
-                self.lift = NodePath(below.get_node())
-                self.hit_pos = forward.get_hit_pos()
-                self.lift_original_z = self.lift.get_z()
-                self.dest = NodePath(forward.get_node())
-                return True
-
-    def update(self, dt, motions):
         direction = 0
         angle = 0
         motion = None
 
-        if Motions.LEFT in motions:
-            angle += 100 * dt
+        if Motions.LEFT in inputs:
+            angle += 100
             motion = Motions.TURN
-        if Motions.RIGHT in motions:
-            angle -= 100 * dt
+        if Motions.RIGHT in inputs:
+            angle -= 100
             motion = Motions.TURN
-        if Motions.FORWARD in motions:
+        if Motions.FORWARD in inputs:
             direction += -1
             motion = Motions.FORWARD
-        if Motions.BACKWARD in motions:
+        if Motions.BACKWARD in inputs:
             direction += 1
             motion = Motions.BACKWARD
 
+        return direction, angle, motion
+
+    def update(self, dt, inputs):
+        direction, angle, motion = self.parse_inputs(inputs)
         forward_vector = self.direction_nd.get_quat(base.render).get_forward()
 
         match self.state:
             case Status.MOVING:
                 if angle:
-                    self.turn(angle)
+                    self.turn(angle * dt)
 
                 if status := self.move(forward_vector, direction, dt):
                     self.last_direction = direction
@@ -397,14 +338,15 @@ class Walker(NodePath):
 
     def fall(self, forward_vector, dt):
         behind = self.check_backward(self.last_direction)
+        current_pos = self.get_pos()
 
         if not self.steps.can_go_down(behind.get_node()):
             distance = self.last_direction * 5 * dt
-            next_pos = self.get_pos() + forward_vector * distance
+            next_pos = current_pos + forward_vector * distance
             self.set_pos(next_pos)
 
         next_z = 0.25 * -9.81 * (self.elapsed_time ** 2) + self.steps.fall_start_z
-        below = self.check_below(self.get_pos())
+        below = self.check_below(current_pos)
 
         if abs(next_z - (dest_z := below.get_hit_pos().z)) < self.actor_h:
             self.land(dest_z)
@@ -414,7 +356,7 @@ class Walker(NodePath):
         self.set_z(next_z)
 
     def slip(self, dt):
-        next_z = 0.25 * -9.81 * (self.elapsed_time ** 2) + self.fall_start_z
+        next_z = 0.25 * -9.81 * (self.elapsed_time ** 2) + self.steps.fall_start_z
         below = self.check_below(self.get_pos(), upside_down=True)
 
         if abs(next_z - (dest_z := below.get_hit_pos().z)) < self.actor_h:
@@ -429,7 +371,7 @@ class Walker(NodePath):
         below = self.check_below(self.get_pos())
 
         if not self.steps.can_go_down(below.get_node()):
-            distance = self.last_direction * 5 * dt
+            distance = self.last_direction * 6 * dt
             next_pos = self.get_pos() + forward_vector * distance
             self.set_pos(next_pos)
         else:
