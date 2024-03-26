@@ -29,6 +29,8 @@ class Status(Enum):
     FALLING = auto()
     SLIP = auto()
 
+    CHECK_STEP = auto()
+
 
 class Lift:
 
@@ -62,9 +64,10 @@ class Steps:
 
     __slots__ = ('start', 'dest', 'fall_start_z')
 
-    def __init__(self, ray_hit_upper, ray_hit_lower, standing_pt):
+    def __init__(self, ray_hit_upper, standing_pt, ray_hit_lower=None):
         self.start = NodePath(ray_hit_upper.get_node())
-        self.dest = NodePath(ray_hit_lower.get_node())
+
+        self.dest = NodePath(ray_hit_lower.get_node()) if ray_hit_lower else None
         self.fall_start_z = standing_pt.get_z()
 
     def can_go_down(self, target_nd):
@@ -188,30 +191,29 @@ class Walker(NodePath):
         speed = 10 if direction < 0 else 5
         next_pos = current_pos + forward_vector * direction * speed * dt
 
-        # if self.detect_collision():
-        if result := self.predict_collision(current_pos, next_pos, Mask.predict):
-            if result.get_node().get_mass() > 0:
-                print('Collid with Dynamic Body')
-                self.steps = Steps(below, forward, current_pos)
-                return Status.SLIP
+        if self.detect_collision():
+            if result := self.predict_collision(current_pos, next_pos, Mask.predict):
+                if result.get_node().get_mass() > 0:
+                    print('Collid with Dynamic Body')
+                    self.steps = Steps(below, current_pos)
+                    return Status.SLIP
 
-            print('Cannot go forward.')
-            return
+                print('Cannot go forward.')
+                return
 
         if f_hit_pos.z < b_hit_pos.z:
             forward_pos = f_hit_pos + Vec3(0, 0, self.actor_h)
 
-            if 0.5 <= diff_z < 1.2 and self.check_below(forward_pos, Mask.lift):
-                if not self.predict_collision(current_pos, forward_pos, Mask.sweep):
-                    print('Go down steps')
-                    self.steps = Steps(below, forward, current_pos)
-                    return Status.GOING_DOWN
-            else:
-                if diff_z >= 1.:
-                    print('Fall')
-                    self.steps = Steps(below, forward, current_pos)
-                    self.set_pos(next_pos)
-                    return Status.FALLING
+            if 0.5 <= diff_z < 1.2 and self.check_below(forward_pos, Mask.lift):  # 0.5 <= diff_z < 1.2 is needed?
+                print('Go down steps')
+                self.steps = Steps(below, current_pos, forward)
+                return Status.CHECK_STEP
+            elif diff_z >= 1.:
+                print('Fall')
+                self.steps = Steps(below, current_pos)
+                self.set_pos(next_pos)
+                # return Status.FALLING
+                return Status.CHECK_STEP
 
         next_hit = self.check_below(next_pos)
         next_pos.z = next_hit.get_hit_pos().z + self.actor_h
@@ -267,18 +269,23 @@ class Walker(NodePath):
                 if self.transfer(forward_vector, dt):
                     self.state = Status.MOVING
 
-            case Status.FALLING:
-                motion = None
-                if self.fall(forward_vector, dt):
-                    self.state = Status.MOVING
+            # case Status.FALLING:
+            #     motion = None
+            #     if self.fall(forward_vector, dt):
+            #         self.state = Status.MOVING
+
+            case Status.CHECK_STEP:
+                if status := self.check_step(forward_vector, dt):
+                    self.state = status
 
             case Status.GOING_DOWN:
                 motion = Motions.FORWARD if self.last_direction < 0 else Motions.BACKWARD
-                if self.go_down(forward_vector, dt):
+                if self.go_down(dt):
                     self.state = Status.MOVING
 
             case Status.SLIP:
-                if self.slip(dt):
+                motion = None
+                if self.go_down(dt, upside_down=True):
                     self.state = Status.MOVING
 
         self.play_anim(motion)
@@ -331,58 +338,59 @@ class Walker(NodePath):
         next_pos = current_pos + forward_vector * distance
         self.set_pos(next_pos)
 
-    def land(self, dest_z):
-        self.set_z(dest_z + self.actor_h)
-        self.fall_start_z = 0
-        self.elapsed_time = 0
+    # def land(self, dest_z):
+    #     self.set_z(dest_z + self.actor_h)
+    #     self.fall_start_z = 0
+    #     self.elapsed_time = 0
 
-    def fall(self, forward_vector, dt):
-        behind = self.check_backward(self.last_direction)
-        current_pos = self.get_pos()
+    # def fall(self, forward_vector, dt):
+    #     behind = self.check_backward(self.last_direction)
+    #     current_pos = self.get_pos()
 
-        if not self.steps.can_go_down(behind.get_node()):
-            distance = self.last_direction * 5 * dt
-            next_pos = current_pos + forward_vector * distance
-            self.set_pos(next_pos)
+    #     if not self.steps.can_go_down(behind.get_node()):
+    #         distance = self.last_direction * 5 * dt
+    #         next_pos = current_pos + forward_vector * distance
+    #         self.set_pos(next_pos)
 
+    #     next_z = 0.25 * -9.81 * (self.elapsed_time ** 2) + self.steps.fall_start_z
+    #     below = self.check_below(current_pos)
+
+    #     if abs(next_z - (dest_z := below.get_hit_pos().z)) < self.actor_h:
+    #         self.land(dest_z)
+    #         return True
+
+    #     self.elapsed_time += dt
+    #     self.set_z(next_z)
+
+    def check_step(self, forward_vector, dt):
+        distance = self.last_direction * 5 * dt
+        next_pos = self.get_pos() + forward_vector * distance
+
+        if self.predict_collision(self.get_pos(), next_pos, Mask.sweep):
+            return Status.MOVING
+
+        self.set_pos(next_pos)
+        # below = self.check_below(self.get_pos())
+
+        if self.world.contact_test_pair(self.node(), self.steps.start.node()).get_num_contacts():
+            return None
+
+        if self.steps.dest:
+            if 0 < (diff := self.steps.get_angular_difference()) <= 30:
+                self.direction_nd.set_h(self.direction_nd.get_h() - diff)
+            return Status.GOING_DOWN
+
+        return Status.SLIP
+
+    def go_down(self, dt, upside_down=False):
         next_z = 0.25 * -9.81 * (self.elapsed_time ** 2) + self.steps.fall_start_z
-        below = self.check_below(current_pos)
+        below = self.check_below(self.get_pos(), upside_down=upside_down)
 
         if abs(next_z - (dest_z := below.get_hit_pos().z)) < self.actor_h:
-            self.land(dest_z)
+            self.set_z(dest_z + self.actor_h)
+            self.fall_start_z = 0
+            self.elapsed_time = 0
             return True
-
-        self.elapsed_time += dt
-        self.set_z(next_z)
-
-    def slip(self, dt):
-        next_z = 0.25 * -9.81 * (self.elapsed_time ** 2) + self.steps.fall_start_z
-        below = self.check_below(self.get_pos(), upside_down=True)
-
-        if abs(next_z - (dest_z := below.get_hit_pos().z)) < self.actor_h:
-            self.land(dest_z)
-            return True
-
-        self.elapsed_time += dt
-        self.set_z(next_z)
-
-    def go_down(self, forward_vector, dt):
-        next_z = 0.4 * -9.81 * (self.elapsed_time ** 2) + self.steps.fall_start_z
-        below = self.check_below(self.get_pos())
-
-        if not self.steps.can_go_down(below.get_node()):
-            distance = self.last_direction * 6 * dt
-            next_pos = self.get_pos() + forward_vector * distance
-            self.set_pos(next_pos)
-        else:
-            if abs(next_z - (dest_z := below.get_hit_pos().z)) < self.actor_h:
-                print('go down the stairs')
-                # change angle, for when going down spiral stairs.
-                if 0 < (diff := self.steps.get_angular_difference()) <= 30:
-                    self.direction_nd.set_h(self.direction_nd.get_h() - diff)
-
-                self.land(dest_z)
-                return True
 
         self.set_z(next_z)
         self.elapsed_time += dt

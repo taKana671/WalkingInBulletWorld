@@ -21,7 +21,7 @@ class Mask(metaclass=MaskMeta):
     sensor = BitMask32.bit(5)
 
     building = BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3) | BitMask32.bit(6)
-    fence = BitMask32.bit(2) | BitMask32.bit(3) | BitMask32.bit(6)
+    fence = BitMask32.bit(2) | BitMask32.bit(3) | BitMask32.bit(6) | BitMask32.bit(7)
     poles = BitMask32.bit(2) | BitMask32.bit(3) | BitMask32.bit(7)
     door = BitMask32.all_on()
     dynamic_body = BitMask32.bit(2) | BitMask32.bit(3)

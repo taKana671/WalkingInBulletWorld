@@ -821,7 +821,7 @@ class Observatory(Buildings):
             2: (Vec3(-2.5 - i, 0, -1 - i) for i in range(2)),
             3: (Vec3(0, -2.5 - i, -1 - i) for i in range(2)),
             4: (Vec3(-2.5 - i, 0, -1 - i) for i in range(2)),
-            5: (Vec3(-2.5 - i, 0, -1 - i) for i in range(2))
+            5: (Vec3(-2.5 - i, 0, -1 - i) for i in range(3))
         }
 
         for k, val in diffs.items():
