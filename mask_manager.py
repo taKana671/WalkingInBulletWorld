@@ -12,17 +12,21 @@ class MaskMeta(type):
 
 class Mask(metaclass=MaskMeta):
 
-    camera = BitMask32.bit(6)
     ground = BitMask32.bit(1)
     collision = BitMask32.bit(2)
     predict = BitMask32.bit(3)
-    sweep = BitMask32.bit(7)
     lift = BitMask32.bit(4)
     sensor = BitMask32.bit(5)
+    camera = BitMask32.bit(6)
+    sweep = BitMask32.bit(7)
+    almighty = BitMask32.all_on()
 
-    building = BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3) | BitMask32.bit(6)
-    fence = BitMask32.bit(2) | BitMask32.bit(3) | BitMask32.bit(6) | BitMask32.bit(7)
-    poles = BitMask32.bit(2) | BitMask32.bit(3) | BitMask32.bit(7)
-    door = BitMask32.all_on()
-    dynamic_body = BitMask32.bit(2) | BitMask32.bit(3)
-    walker = BitMask32.bit(2) | BitMask32.bit(5) | BitMask32.bit(6)
+
+class MultiMask(metaclass=MaskMeta):
+
+    walker = Mask.collision | Mask.sensor | Mask.camera
+    building = Mask.ground | Mask.collision | Mask.predict | Mask.camera
+    fence = Mask.collision | Mask.predict | Mask.camera
+    handrail = Mask.collision | Mask.predict | Mask.sweep
+    staircase = Mask.collision | Mask.predict | Mask.camera | Mask.sweep
+    dynamic_body = Mask.collision | Mask.predict

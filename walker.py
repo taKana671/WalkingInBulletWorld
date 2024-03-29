@@ -9,7 +9,7 @@ from panda3d.core import PandaNode, NodePath, TransformState
 from panda3d.core import Vec3, Point3, LColor
 
 from utils import create_line_node
-from mask_manager import Mask
+from mask_manager import Mask, MultiMask
 
 
 class Motions(Enum):
@@ -83,7 +83,7 @@ class Walker(NodePath):
 
         self.node().set_ccd_motion_threshold(1e-7)
         self.node().set_ccd_swept_sphere_radius(0.6)
-        self.set_collide_mask(Mask.walker)
+        self.set_collide_mask(MultiMask.walker)
         self.set_pos(Point3(25, -10, 0.5))
         self.set_scale(0.5)
 
@@ -119,10 +119,13 @@ class Walker(NodePath):
     def draw_debug_lines(self):
         """Draw ray cast lines for dubug.
         """
+        red = LColor(1, 0, 0, 1)
+        blue = LColor(0, 0, 1, 1)
+
         self.debug_lines = [
-            create_line_node(pos := self.front.get_pos(), Point3(pos.xy, -10), LColor(0, 0, 1, 1)),
-            create_line_node(Point3(0, 0, 0), Point3(0, 0, -10), LColor(1, 0, 0, 1)),
-            create_line_node(pos := self.back.get_pos(), Point3(pos.xy, -10), LColor(0, 0, 1, 1)),
+            create_line_node(pos := self.front.get_pos(), Point3(pos.xy, -10), blue),
+            create_line_node(Point3(0, 0, 0), Point3(0, 0, -10), red),
+            create_line_node(pos := self.back.get_pos(), Point3(pos.xy, -10), blue),
         ]
 
     def toggle_debug(self):
@@ -170,7 +173,7 @@ class Walker(NodePath):
         f_hit_pos = forward.get_hit_pos()
         b_hit_pos = below.get_hit_pos()
         diff_z = abs(b_hit_pos.z - f_hit_pos.z)
-        print('diff: ', diff_z, 'below', b_hit_pos.z, below.get_node().get_name(), 'forward: ', f_hit_pos.z, forward.get_node().get_name())
+        # print('diff: ', diff_z, 'below', b_hit_pos.z, 'forward: ', f_hit_pos.z)
 
         if f_hit_pos.z > b_hit_pos.z and 0.3 < diff_z < 1.2:
             if lift := self.can_use_lift(f_hit_pos, current_pos):

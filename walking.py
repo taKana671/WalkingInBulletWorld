@@ -12,7 +12,7 @@ from panda3d.core import NodePath, PandaNode, TextNode
 from panda3d.core import Vec3, Point3, Quat
 
 from lights import BasicAmbientLight, BasicDayLight
-from mask_manager import Mask
+from mask_manager import Mask, MultiMask
 from scene import Scene, Skies
 from walker import Walker, Motions
 
@@ -45,6 +45,29 @@ class Instructions(NodePath):
             )
 
 
+class Sound(Sequence):
+
+    def __init__(self, sfx):
+        super().__init__()
+        self.sfx = sfx
+        self.sfx.set_loop(True)
+        self.sfx.set_volume(0)
+
+    def fade_in(self, duration=3):
+        self.extend([
+            Func(self.sfx.play),
+            LerpFunc(self.sfx.set_volume, duration=duration, fromData=0, toData=1)
+        ])
+        self.start()
+
+    def fade_out(self, duration=3):
+        self.extend([
+            LerpFunc(self.sfx.set_volume, duration=duration, fromData=1, toData=0),
+            Func(self.sfx.stop)
+        ])
+        self.start()
+
+
 class Walking(ShowBase):
 
     def __init__(self):
@@ -65,8 +88,6 @@ class Walking(ShowBase):
         directional_light = BasicDayLight(self.walker)
         self.scene = Scene(self.world, ambient_light, directional_light)
 
-        self.make_sfx()
-
         self.camera.reparent_to(self.walker)
         self.camera.set_pos(self.walker.navigate())
         self.camera.look_at(self.floater)
@@ -75,6 +96,7 @@ class Walking(ShowBase):
         self.instructions = Instructions()
         self.instructions.hide()
 
+        self.firework_sfx = base.loader.load_sfx('sounds/fireworks.mp3')
         self.movable_room_camera = None
 
         inputState.watch_with_modifiers('forward', 'arrow_up')
@@ -103,26 +125,15 @@ class Walking(ShowBase):
         else:
             self.instructions.hide()
 
-    def make_sfx(self):
-        self.firework_sfx = base.loader.load_sfx('sounds/fireworks.mp3')
-        self.firework_sfx.set_loop(True)
-        self.firework_sfx.set_volume(0)
-
     def change_sky(self, floor):
         match floor:
             case 1:
                 self.scene.change_sky(Skies.DAY)
-                Sequence(
-                    LerpFunc(self.firework_sfx.set_volume, duration=3, fromData=1, toData=0),
-                    Func(lambda: self.firework_sfx.stop())
-                ).start()
+                Sound(self.firework_sfx).fade_out()
 
             case 2:
                 self.scene.change_sky(Skies.NIGHT)
-                Sequence(
-                    Func(lambda: self.firework_sfx.play()),
-                    LerpFunc(self.firework_sfx.set_volume, duration=3, fromData=0, toData=1)
-                ).start()
+                Sound(self.firework_sfx).fade_in()
 
     def control_walker(self, dt):
         inputs = []
@@ -180,8 +191,7 @@ class Walking(ShowBase):
                 self.camera.look_at(self.floater)
 
         # reparent camera; location: panda3d.bullet.BulletRayHit
-        if location := self.walker.check_below(self.walker.get_pos(), mask=Mask.building):
-
+        if location := self.walker.check_below(self.walker.get_pos(), mask=MultiMask.building):
             if (name := location.get_node().get_name()).startswith('room'):
                 room_camera = self.render.find(f'**/{name}_camera')
                 if room_camera.get_tag('moving_direction'):
@@ -203,7 +213,7 @@ class Walking(ShowBase):
 
         self.camera.look_at(self.floater)
 
-        if location := self.walker.check_below(self.walker.get_pos(), mask=Mask.building):
+        if location := self.walker.check_below(self.walker.get_pos(), mask=MultiMask.building):
             if not location.get_node().get_name().startswith('room'):
                 self.movable_room_camera = None
                 self.camera.detach_node()
