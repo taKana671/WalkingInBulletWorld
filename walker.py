@@ -115,6 +115,7 @@ class Walker(NodePath):
         self.state = Status.MOVING
         self.elapsed_time = 0
         self.draw_debug_lines()
+        self.test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.2))
 
     def draw_debug_lines(self):
         """Draw ray cast lines for dubug.
@@ -149,32 +150,30 @@ class Walker(NodePath):
     def predict_collision(self, from_pos, to_pos, mask):
         ts_from = TransformState.make_pos(from_pos + Vec3(0, 0, 0.1))
         ts_to = TransformState.make_pos(to_pos + Vec3(0, 0, 0.1))
-        test_shape = BulletBoxShape(Vec3(0.3, 0.3, 1.2))
 
         if (result := self.world.sweep_test_closest(
-                test_shape, ts_from, ts_to, mask, 0.0)).has_hit():
-            print('predicted collision: ', result.get_node().get_name())
+                self.test_shape, ts_from, ts_to, mask, 0.0)).has_hit():
             return result
 
     def move(self, forward_vector, direction, dt):
         current_pos = self.get_pos()
 
+        # Cannot move, if out of terrain.
         if not (forward := self.check_forward(direction, current_pos)) or \
                 not (below := self.check_below(current_pos)):
-            print('Cannot move')
             return None
 
+        # Change just z, if no key input. 
         if not direction:
             z = below.get_hit_pos().z + self.actor_h
             self.set_z(z)
-            # print('Changed only z')
             return None
 
         f_hit_pos = forward.get_hit_pos()
         b_hit_pos = below.get_hit_pos()
         diff_z = abs(b_hit_pos.z - f_hit_pos.z)
-        # print('diff: ', diff_z, 'below', b_hit_pos.z, 'forward: ', f_hit_pos.z)
 
+        # Go up, if up stairs is found in the direction of movement and lift is embedded just below.
         if f_hit_pos.z > b_hit_pos.z and 0.3 < diff_z < 1.2:
             if lift := self.can_use_lift(f_hit_pos, current_pos):
                 self.lift = Lift(NodePath(lift.get_node()), NodePath(forward.get_node()))
@@ -183,25 +182,24 @@ class Walker(NodePath):
         speed = 10 if direction < 0 else 5
         next_pos = current_pos + forward_vector * direction * speed * dt
 
+        # Cannot move if collision with something in the direction of movement is detected, or
+        # go down if that with dynamic body is detected.
         if self.detect_collision():
             if result := self.predict_collision(current_pos, next_pos, Mask.predict):
                 if result.get_node().get_mass() > 0:
-                    print('Collid with Dynamic Body')
                     self.steps = Steps(current_pos.z, NodePath(below.get_node()))
                     return Status.SLIP
-
-                print('Cannot go forward.')
                 return None
 
         if f_hit_pos.z < b_hit_pos.z:
             forward_pos = f_hit_pos + Vec3(0, 0, self.actor_h)
 
+            # Go down, if down stairs and embedded lift are found in the direction of movement.
             if 0.5 <= diff_z < 1.2 and self.check_below(forward_pos, Mask.lift):
-                print('Go down steps')
                 self.steps = Steps(current_pos.z, NodePath(below.get_node()), NodePath(forward.get_node()))
                 return Status.WATCH_STEPS
+            # Fall
             elif diff_z >= 1.:
-                print('Fall')
                 self.steps = Steps(current_pos.z, NodePath(below.get_node()))
                 self.set_pos(next_pos)
                 return Status.WATCH_STEPS
@@ -217,7 +215,6 @@ class Walker(NodePath):
 
             if not self.predict_collision(from_pos, to_pos, Mask.sweep):
                 return lift
-        print('Cannot go up stairs')
 
     def parse_inputs(self, inputs):
         direction = 0

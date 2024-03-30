@@ -137,7 +137,6 @@ class MotionSensor(NodePath):
     def detect_collision(self):
         for door in self.doors:
             for con in self.world.contact_test(door).get_contacts():
-                # print(con.get_node0().get_name(), con.get_node1().get_name())
                 if con.get_node1().get_name().startswith(('character', 'detect')):
                     return True
 
@@ -256,7 +255,6 @@ class ConeTwistDoorSensor(AutoDoorSensor):
     def close(self):
         if self.detect_person():
             self.state = SensorStatus.OPEN
-        # if not self.detect_collision():
         else:
             result = True
             for twist in self.twists:

@@ -315,10 +315,10 @@ class StoneHouse(Buildings):
 
     def build(self):
         self._build()
-        base.taskMgr.add(self.sensor1.sensing, 'stone1_sensing')
-        base.taskMgr.add(self.sensor2.sensing, 'stone2_sensing')
+        base.taskMgr.do_method_later(2, self.sensor1.sensing, 'stone1_sensing')
+        base.taskMgr.do_method_later(2, self.sensor2.sensing, 'stone2_sensing')
         # Child nodes of the self.building are combined together into one node
-        # (maybe into the node lastly parented to self.house?).
+        # (maybe into the node that was lastly parented to self.house?).
         self.flatten_strong()
 
     def make_textures(self):
@@ -513,7 +513,7 @@ class BrickHouse(Buildings):
 
     def build(self):
         self._build()
-        base.taskMgr.add(self.sensor.sensing, 'brick_sensing')
+        base.taskMgr.do_method_later(2, self.sensor.sensing, 'brick_sensing')
         self.flatten_strong()
 
     def make_textures(self):
@@ -683,7 +683,7 @@ class Terrace(Buildings):
 
         # spiral center pole
         center = Point3(9, 1.5, 8)
-        self.pole('center_pole', roofs, center, Vec3(1.5, 1.5, 10), Vec2(5, 1), bitmask=MultiMask.handrail)
+        self.pole('center_pole', roofs, center, Vec3(1.5, 1.5, 10), Vec2(5, 1), bitmask=MultiMask.staircase)
         sphere_pos = center + Vec3(0, 0, 0.7)
         self.sphere_shape('pole_sphere', roofs, sphere_pos, Vec3(0.5), bitmask=MultiMask.fence)
 
