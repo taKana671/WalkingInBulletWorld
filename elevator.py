@@ -1,7 +1,5 @@
 from enum import Enum, auto
 
-from panda3d.bullet import BulletCharacterControllerNode
-
 from automatic_doors import MotionSensor
 
 
@@ -48,7 +46,6 @@ class Elevator:
     def wait(self):
         for floor, sensor in self.sensors.items():
             if sensor.detect_person():
-                # print(f'Ralph is detected by {sensor}')
                 self.start_sensor = sensor
                 self.dest_sensor = self.sensor_1 if sensor == self.sensor_2 else self.sensor_2
                 self.stop_floor = floor
@@ -73,13 +70,13 @@ class Elevator:
         else:
             # When arrives the destination, leave the door open while Ralph is in the elevator.
             for con in self.world.contact_test(self.cage.node()).get_contacts():
-                if isinstance(con.get_node1(), BulletCharacterControllerNode):
+                if con.get_node1().get_name() == 'character':
                     return
             self.state = ElevatorStatus.CLOSE
 
     def move(self):
         for con in self.world.contact_test(self.cage.node()).get_contacts():
-            if isinstance(con.get_node1(), BulletCharacterControllerNode):
+            if con.get_node1().get_name() == 'character':
 
                 # Replace start floor with destination one, if Ralph rashes into the elevator before the door closes.
                 if self.sensors[self.stop_floor] == self.dest_sensor:
@@ -100,7 +97,6 @@ class Elevator:
         if self.cage.get_z() == self.dest_sensor.stop_pos.z:
             self.stop_floor = [k for k, v in self.sensors.items() if v == self.dest_sensor][0]
             base.messenger.send('elevator_arrive', sentArgs=[self.stop_floor])
-            # print(f'Ralph is now on the {self.stop_floor} floor')
             self.dest_sensor.unlock_door()
             self.state = ElevatorStatus.OPEN
 
