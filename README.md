@@ -2,9 +2,9 @@
 
 A character walking around on uneven terrain in Bullet World
 
-I thought out the way of rotating camera while avoiding walls and other obstacles to follow a character, of making the character go up and down the stairs, and of preventing the character from going through walls when moving fast. And I enjoyed procedurally making all of the houses and bridges. 
+I thought out the way of rotating camera while avoiding walls and other obstacles to follow a character, and of making the character go up and down the stairs. And I enjoyed procedurally making all of the houses and bridges. The doors automatically open and close. To go in and out at the doors, stop in front of them to wait a little. Pressing [up arrow] key makes the character go up and down stairs. 
 
-The doors automatically open and close. To go in and out at the doors, stop in front of them to wait a little. Pressing [up arrow] key makes the character go up and down stairs. 
+In the end, I gave up using BulletCharacterControllerNode to make my own character_controller class. I thought first that BulletCharacterControllerNode was very good because it was kinematic body but gravitated to fall. It was difficult to controll all of the movement of a character in BulletWorld by not using the effect of gravity. I'm satisfied now with this character_controller class. But there are still some problems, for example, the character falls from the seam connecting floor blocks when it happens to be on the seam. I want to improve this class step by step.
 
 ![DEMO_new](https://user-images.githubusercontent.com/48859041/233696155-3bfe126e-ed1f-47d3-9937-a8623c39cca1.png)
 
