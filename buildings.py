@@ -17,7 +17,7 @@ from automatic_doors import SlidingDoor, ConeTwistDoor, SlidingDoorSensor, ConeT
 from create_geomnode import Cube, RightTriangularPrism, Tube, RingShape, SphericalShape, Cylinder
 from create_softbody import RopeMaker, ClothMaker
 from elevator import Elevator, ElevatorDoorSensor
-from mask_manager import Mask, MultiMask
+from constants import Mask, MultiMask
 
 
 class Images(Enum):
@@ -36,8 +36,6 @@ class Images(Enum):
     FABRIC = 'fabric2.jpg'
     CONCRETE4 = 'concrete4.jpg'
     BRICK2 = 'tile2.jpg'
-
-    SMALL_STONES = 'small_stones.jpg'
 
     @property
     def path(self):

@@ -11,8 +11,8 @@ from panda3d.bullet import BulletDebugNode
 from panda3d.core import NodePath, PandaNode, TextNode
 from panda3d.core import Vec3, Point3, Quat
 
+from constants import Mask, MultiMask, Config
 from lights import BasicAmbientLight, BasicDayLight
-from mask_manager import Mask, MultiMask
 from scene import Scene, Skies
 from walker import Walker, Motions
 
@@ -74,7 +74,7 @@ class Walking(ShowBase):
         super().__init__()
         self.disable_mouse()
         self.world = BulletWorld()
-        self.world.set_gravity(Vec3(0, 0, -9.81))
+        self.world.set_gravity(Vec3(0, 0, Config.gravity))
 
         self.debug_np = self.render.attach_new_node(BulletDebugNode('debug'))
         self.world.set_debug_node(self.debug_np.node())

@@ -3,7 +3,7 @@ from enum import Enum, auto
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletHeightfieldShape, ZUp
 from panda3d.core import NodePath, PandaNode
-from panda3d.core import Vec3, Point3, BitMask32, LColor
+from panda3d.core import Vec3, Point3, LColor
 from panda3d.core import Filename
 from panda3d.core import PNMImage
 from panda3d.core import ShaderTerrainMesh, Shader, load_prc_file_data
@@ -23,6 +23,7 @@ from buildings import (
     MazeHouse,
     ElevatorTower
 )
+from constants import Mask
 
 
 load_prc_file_data("", """
@@ -82,7 +83,7 @@ class TerrainShape(NodePath):
         shape = BulletHeightfieldShape(img, 10, ZUp)
         self.node().add_shape(shape)
         self.node().set_mass(0)
-        self.set_collide_mask(BitMask32.bit(1))
+        self.set_collide_mask(Mask.ground)
 
 
 class Water(NodePath):
