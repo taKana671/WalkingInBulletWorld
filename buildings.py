@@ -17,10 +17,10 @@ from automatic_doors import SlidingDoor, ConeTwistDoor, SlidingDoorSensor, ConeT
 from create_geomnode import Cube, RightTriangularPrism, Tube, RingShape, SphericalShape, Cylinder
 from create_softbody import RopeMaker, ClothMaker
 from elevator import Elevator, ElevatorDoorSensor
-from mask_manager import Mask, MultiMask
+from constants import Mask, MultiMask
 
 
-class Images(Enum):
+class TextureImages(Enum):
 
     FIELD_STONE = 'fieldstone.jpg'
     IRON = 'iron.jpg'
@@ -36,8 +36,8 @@ class Images(Enum):
     FABRIC = 'fabric2.jpg'
     CONCRETE4 = 'concrete4.jpg'
     BRICK2 = 'tile2.jpg'
-
-    SMALL_STONES = 'small_stones.jpg'
+    WATER = 'water.png'
+    GRASS = 'grass.png'
 
     @property
     def path(self):
@@ -322,11 +322,11 @@ class StoneHouse(Buildings):
         self.flatten_strong()
 
     def make_textures(self):
-        self.wall_tex = self.texture(Images.FIELD_STONE)    # for walls
-        self.floor_tex = self.texture(Images.IRON)          # for floors, steps and roof
-        self.door_tex = self.texture(Images.BOARD)          # for doors
-        self.column_tex = self.texture(Images.CONCRETE)     # for columns
-        self.fence_tex = self.texture(Images.METALBOARD)
+        self.wall_tex = self.texture(TextureImages.FIELD_STONE)    # for walls
+        self.floor_tex = self.texture(TextureImages.IRON)          # for floors, steps and roof
+        self.door_tex = self.texture(TextureImages.BOARD)          # for doors
+        self.column_tex = self.texture(TextureImages.CONCRETE)     # for columns
+        self.fence_tex = self.texture(TextureImages.METALBOARD)
 
     def _build(self):
         self.make_textures()
@@ -517,10 +517,10 @@ class BrickHouse(Buildings):
         self.flatten_strong()
 
     def make_textures(self):
-        self.wall_tex = self.texture(Images.BRICK)      # for walls
-        self.floor_tex = self.texture(Images.CONCRETE)  # for floors
-        self.roof_tex = self.texture(Images.IRON)       # for roofs
-        self.door_tex = self.texture(Images.BOARD)      # for doors
+        self.wall_tex = self.texture(TextureImages.BRICK)      # for walls
+        self.floor_tex = self.texture(TextureImages.CONCRETE)  # for floors
+        self.roof_tex = self.texture(TextureImages.IRON)       # for roofs
+        self.door_tex = self.texture(TextureImages.BOARD)      # for doors
 
     def _build(self):
         self.make_textures()
@@ -625,10 +625,10 @@ class Terrace(Buildings):
         self.reparent_to(parent)
 
     def make_textures(self):
-        self.wall_tex = self.texture(Images.LAYINGBROCK)    # for walls
-        self.floor_tex = self.texture(Images.COBBLESTONES)  # for floor
-        self.roof_tex = self.texture(Images.IRON)           # for roofs
-        self.steps_tex = self.texture(Images.METALBOARD)    # for steps
+        self.wall_tex = self.texture(TextureImages.LAYINGBROCK)    # for walls
+        self.floor_tex = self.texture(TextureImages.COBBLESTONES)  # for floor
+        self.roof_tex = self.texture(TextureImages.IRON)           # for roofs
+        self.steps_tex = self.texture(TextureImages.METALBOARD)    # for steps
 
     def build(self):
         self.make_textures()
@@ -742,9 +742,9 @@ class Observatory(Buildings):
         self.reparent_to(parent)
 
     def make_textures(self):
-        self.steps_tex = self.texture(Images.METALBOARD)
-        self.landing_tex = self.texture(Images.CONCRETE2)
-        self.posts_tex = self.texture(Images.IRON)
+        self.steps_tex = self.texture(TextureImages.METALBOARD)
+        self.landing_tex = self.texture(TextureImages.CONCRETE2)
+        self.posts_tex = self.texture(TextureImages.IRON)
 
     def build(self):
         self.make_textures()
@@ -864,9 +864,9 @@ class Bridge(Buildings):
         self.reparent_to(parent)
 
     def make_textures(self):
-        self.bridge_tex = self.texture(Images.IRON)         # for bridge girder
-        self.column_tex = self.texture(Images.CONCRETE)     # for columns
-        self.fence_tex = self.texture(Images.METALBOARD)    # for fences
+        self.bridge_tex = self.texture(TextureImages.IRON)         # for bridge girder
+        self.column_tex = self.texture(TextureImages.CONCRETE)     # for columns
+        self.fence_tex = self.texture(TextureImages.METALBOARD)    # for fences
 
     def build(self):
         self.make_textures()
@@ -954,9 +954,9 @@ class Tunnel(Buildings):
         self.reparent_to(parent)
 
     def make_textures(self):
-        self.wall_tex = self.texture(Images.IRON)           # for tunnel
-        self.metal_tex = self.texture(Images.METALBOARD)
-        self.pedestal_tex = self.texture(Images.FIELD_STONE)
+        self.wall_tex = self.texture(TextureImages.IRON)           # for tunnel
+        self.metal_tex = self.texture(TextureImages.METALBOARD)
+        self.pedestal_tex = self.texture(TextureImages.FIELD_STONE)
 
     def build(self):
         self.make_textures()
@@ -1039,8 +1039,8 @@ class AdventureBridge(Buildings):
         self.center = center
 
     def make_textures(self):
-        self.board_tex = self.texture(Images.BOARD)
-        self.bark_tex = self.texture(Images.BARK)
+        self.board_tex = self.texture(TextureImages.BOARD)
+        self.bark_tex = self.texture(TextureImages.BARK)
 
     def build(self):
         self.make_textures()
@@ -1093,7 +1093,7 @@ class AdventureBridge(Buildings):
                 self.pole(f'pole_{i}{j}', boards, pos, Vec3(0.5, 0.5, 10), tex_scale, hpr=(0, 0, 0), bitmask=MultiMask.handrail)
                 cloth_pts.append(Point3(x, y, 6) + self.center)
 
-            cloth.create_cloth(i, Images.FABRIC.path, *cloth_pts, 8, 12)
+            cloth.create_cloth(i, TextureImages.FABRIC.path, *cloth_pts, 8, 12)
 
         # bridge of horizontal logs; between landing_1 and landing_2
         bridges = [[-0.5, 5, 0.5, [1.0, 1.5, 2.0, 2.5, 3.0, 3.0, 2.5, 2.0, 1.5, 1.0]]]
@@ -1118,7 +1118,7 @@ class AdventureBridge(Buildings):
                 for k, x in enumerate(x_pos):
                     from_pt = Point3(x, y, hor_member_z - 0.125) + self.center
                     to_pt = Point3(x, y, log_z[j] + 0.45) + self.center
-                    rope.attach_last(f'rope_h{i}{j}{k}', Images.ROPE.path, from_pt, to_pt, log)
+                    rope.attach_last(f'rope_h{i}{j}{k}', TextureImages.ROPE.path, from_pt, to_pt, log)
 
         # bridge of vertical logs
         bridges = [[15.5, 4, 16.5]]
@@ -1141,7 +1141,7 @@ class AdventureBridge(Buildings):
                 for k, (from_x, to_x) in enumerate(zip(x_pos, [-0.5, 0.5])):
                     from_pt = Point3(from_x, y, hor_member_z - 0.25) + self.center
                     to_pt = Point3(to_x, y + 0.5, 1) + self.center
-                    rope.attach_last(f'rope_v{i}{j}{k}', Images.ROPE.path, from_pt, to_pt, log)
+                    rope.attach_last(f'rope_v{i}{j}{k}', TextureImages.ROPE.path, from_pt, to_pt, log)
 
         self.block('secret_v', invisible, Point3(0, 21, 1), Vec3(1, 10, 1), hide=True, bitmask=Mask.ground)
 
@@ -1160,9 +1160,9 @@ class MazeHouse(Buildings):
         self.center = center
 
     def make_textures(self):
-        self.roofs_tex = self.texture(Images.CONCRETE)
-        self.walls_tex = self.texture(Images.BRICK2)
-        self.floor_tex = self.texture(Images.CONCRETE4)
+        self.roofs_tex = self.texture(TextureImages.CONCRETE)
+        self.walls_tex = self.texture(TextureImages.BRICK2)
+        self.floor_tex = self.texture(TextureImages.CONCRETE4)
 
     def build(self):
         self.make_textures()
@@ -1275,9 +1275,9 @@ class ElevatorTower(Buildings):
         self.flatten_strong()
 
     def make_textures(self):
-        self.metal_tex = self.texture(Images.METALBOARD)
-        self.walls_tex = self.texture(Images.BRICK2)
-        self.floor_tex = self.texture(Images.IRON)
+        self.metal_tex = self.texture(TextureImages.METALBOARD)
+        self.walls_tex = self.texture(TextureImages.BRICK2)
+        self.floor_tex = self.texture(TextureImages.IRON)
 
     def _build(self):
         self.make_textures()

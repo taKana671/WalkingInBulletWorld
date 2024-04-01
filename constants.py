@@ -1,7 +1,7 @@
 from panda3d.core import BitMask32
 
 
-class MaskMeta(type):
+class ConstantsMeta(type):
 
     def __setattr__(self, name, value):
         if name in self.__dict__:
@@ -10,7 +10,7 @@ class MaskMeta(type):
         self.__setattr__(name, value)
 
 
-class Mask(metaclass=MaskMeta):
+class Mask(metaclass=ConstantsMeta):
 
     ground = BitMask32.bit(1)
     collision = BitMask32.bit(2)
@@ -22,7 +22,7 @@ class Mask(metaclass=MaskMeta):
     almighty = BitMask32.all_on()
 
 
-class MultiMask(metaclass=MaskMeta):
+class MultiMask(metaclass=ConstantsMeta):
 
     walker = Mask.collision | Mask.sensor | Mask.camera
     building = Mask.ground | Mask.collision | Mask.predict | Mask.camera
@@ -30,3 +30,12 @@ class MultiMask(metaclass=MaskMeta):
     handrail = Mask.collision | Mask.predict | Mask.sweep
     staircase = Mask.collision | Mask.predict | Mask.camera | Mask.sweep
     dynamic_body = Mask.collision | Mask.predict
+
+
+class Config(metaclass=ConstantsMeta):
+
+    gravity = -9.81
+    angle = 100
+    forward = -1
+    backward = 1
+    character = 'character'

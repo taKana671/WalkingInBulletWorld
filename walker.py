@@ -8,8 +8,8 @@ from panda3d.bullet import BulletRigidBodyNode
 from panda3d.core import PandaNode, NodePath, TransformState
 from panda3d.core import Vec3, Point3, LColor
 
+from constants import Mask, MultiMask, Config
 from utils import create_line_node
-from mask_manager import Mask, MultiMask
 
 
 class Motions(Enum):
@@ -73,7 +73,7 @@ class Walker(NodePath):
     WALK = 'walk'
 
     def __init__(self, world):
-        super().__init__(BulletRigidBodyNode('character'))
+        super().__init__(BulletRigidBodyNode(Config.character))
         self.world = world
 
         h, w = 6, 1.2
@@ -163,7 +163,7 @@ class Walker(NodePath):
                 not (below := self.check_below(current_pos)):
             return None
 
-        # Change just z, if no key input. 
+        # Change just z, if no key input.
         if not direction:
             z = below.get_hit_pos().z + self.actor_h
             self.set_z(z)
@@ -222,16 +222,16 @@ class Walker(NodePath):
         motion = Motions.STOP
 
         if Motions.LEFT in inputs:
-            angle += 100
+            angle += Config.angle
             motion = Motions.TURN
         if Motions.RIGHT in inputs:
-            angle -= 100
+            angle -= Config.angle
             motion = Motions.TURN
         if Motions.FORWARD in inputs:
-            direction += -1
+            direction += Config.forward
             motion = Motions.FORWARD
         if Motions.BACKWARD in inputs:
-            direction += 1
+            direction += Config.backward
             motion = Motions.BACKWARD
 
         return direction, angle, motion
@@ -343,7 +343,7 @@ class Walker(NodePath):
         return Status.SLIP
 
     def go_down(self, dt, upside_down=False):
-        next_z = 0.25 * -9.81 * (self.elapsed_time ** 2) + self.steps.fall_start_z
+        next_z = 0.25 * Config.gravity * (self.elapsed_time ** 2) + self.steps.fall_start_z
         below = self.check_below(self.get_pos(), upside_down=upside_down)
 
         if abs(next_z - (dest_z := below.get_hit_pos().z)) < self.actor_h:
