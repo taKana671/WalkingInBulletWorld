@@ -38,3 +38,4 @@ class Config(metaclass=ConstantsMeta):
     angle = 100
     forward = -1
     backward = 1
+    character = 'character'

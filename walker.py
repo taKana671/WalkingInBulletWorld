@@ -73,7 +73,7 @@ class Walker(NodePath):
     WALK = 'walk'
 
     def __init__(self, world):
-        super().__init__(BulletRigidBodyNode('character'))
+        super().__init__(BulletRigidBodyNode(Config.character))
         self.world = world
 
         h, w = 6, 1.2

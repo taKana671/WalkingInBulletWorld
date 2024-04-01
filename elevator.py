@@ -1,6 +1,7 @@
 from enum import Enum, auto
 
 from automatic_doors import MotionSensor
+from constants import Config
 
 
 class ElevatorStatus(Enum):
@@ -70,13 +71,13 @@ class Elevator:
         else:
             # When arrives the destination, leave the door open while Ralph is in the elevator.
             for con in self.world.contact_test(self.cage.node()).get_contacts():
-                if con.get_node1().get_name() == 'character':
+                if con.get_node1().get_name() == Config.character:
                     return
             self.state = ElevatorStatus.CLOSE
 
     def move(self):
         for con in self.world.contact_test(self.cage.node()).get_contacts():
-            if con.get_node1().get_name() == 'character':
+            if con.get_node1().get_name() == Config.character:
 
                 # Replace start floor with destination one, if Ralph rashes into the elevator before the door closes.
                 if self.sensors[self.stop_floor] == self.dest_sensor:

@@ -21,7 +21,8 @@ from buildings import (
     Tunnel,
     AdventureBridge,
     MazeHouse,
-    ElevatorTower
+    ElevatorTower,
+    TextureImages
 )
 from constants import Mask
 
@@ -95,7 +96,7 @@ class Water(NodePath):
         self.surface = self.attach_new_node(card.generate())
         self.surface.look_at(Vec3.down())
         self.surface.set_transparency(TransparencyAttrib.MAlpha)
-        self.surface.set_texture(base.loader.load_texture('textures/water.png'))
+        self.surface.set_texture(base.loader.load_texture(TextureImages.WATER.path))
         self.surface.set_tex_scale(TextureStage.get_default(), 4)
 
 
@@ -166,7 +167,7 @@ class Scene(NodePath):
         terrain_shader = Shader.load(Shader.SL_GLSL, "shaders/terrain.vert.glsl", "shaders/terrain.frag.glsl")
         self.terrain.set_shader(terrain_shader)
         self.terrain.set_shader_input("camera", base.camera)
-        grass_tex = base.loader.load_texture('textures/grass.png')
+        grass_tex = base.loader.load_texture(TextureImages.GRASS.path)
         grass_tex.setMinfilter(SamplerState.FT_linear_mipmap_linear)
         grass_tex.set_anisotropic_degree(16)
         self.terrain.set_texture(grass_tex)

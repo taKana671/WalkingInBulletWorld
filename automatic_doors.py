@@ -6,6 +6,8 @@ from panda3d.bullet import BulletConeTwistConstraint, BulletSliderConstraint
 from panda3d.core import Vec3, Quat
 from panda3d.core import NodePath
 
+from constants import Config
+
 
 class SensorStatus(Enum):
 
@@ -137,7 +139,7 @@ class MotionSensor(NodePath):
     def detect_collision(self):
         for door in self.doors:
             for con in self.world.contact_test(door).get_contacts():
-                if con.get_node1().get_name().startswith(('character', 'detect')):
+                if con.get_node1().get_name().startswith(Config.character):
                     return True
 
 
